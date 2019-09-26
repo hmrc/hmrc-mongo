@@ -1,4 +1,3 @@
-
 logs
 project/project
 project/target
@@ -9,7 +8,6 @@ tmp
 dist
 /.idea
 /*.iml
-/*.ipr
 /out
 /.idea_modules
 /.classpath
@@ -17,9 +15,5 @@ dist
 /RUNNING_PID
 /.settings
 *.iws
-node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
-
-    
+.DS_Store
+**/*.DS_Store
