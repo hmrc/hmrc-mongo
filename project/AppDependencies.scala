@@ -15,4 +15,8 @@ object AppDependencies {
     "com.typesafe.play" %% "play-guice" % play26Version
   ) ++ common ++ test
 
+  lazy val hmrcMongoTest: Seq[ModuleID] = Seq(
+    "org.pegdown"   % "pegdown"    % "1.6.0",
+    "org.scalatest" %% "scalatest" % "3.0.5"
+  ) ++ common ++ test
 }
