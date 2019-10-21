@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 HM Revenue & Customs
+ * Copyright 2019 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,14 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.hello
+package uk.gov.hmrc.mongo
+import org.scalatest.TestSuite
 
-import org.scalatest.Matchers._
-import org.scalatest.WordSpecLike
+import scala.concurrent.duration._
 
+trait DefaultMongoSupport extends CleanMongoCollectionSupport with IndexedMongoQueriesSupport {
+  this: TestSuite =>
 
-class HelloWorldSpecs extends WordSpecLike {
+  override implicit val patienceConfig: PatienceConfig = PatienceConfig(5.seconds, 50.millis)
 
-  "HelloWorld" should {
-
-    "say hello" in {
-      HelloWorld.sayHello shouldBe "hello"
-    }
-  }
 }

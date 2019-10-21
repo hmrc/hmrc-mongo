@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 HM Revenue & Customs
+ * Copyright 2019 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,15 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.hello
+package uk.gov.hmrc.mongo
+import org.scalatest.{BeforeAndAfterEach, TestSuite}
 
-object HelloWorld {
+trait CleanMongoCollectionSupport extends MongoSupport with BeforeAndAfterEach {
+  this: TestSuite =>
 
-  def sayHello:String = "hello"
+  override def beforeEach(): Unit = {
+    super.beforeEach()
+    prepareDatabase()
+  }
+
 }
