@@ -79,18 +79,6 @@ trait MongoJodaFormats {
 
   val dateTimeFormats = Format(dateTimeRead, dateTimeWrite)
 
-  val dateTimeAsNumberRead: Reads[DateTime] =
-    (__ \ "$numberLong")
-      .read[String]
-      .map(dateTime => new DateTime(dateTime.toLong, DateTimeZone.UTC)) // TODO toLong may fail
-
-  val dateTimeAsNumberWrite: Writes[DateTime] = new Writes[DateTime] {
-    def writes(dateTime: DateTime): JsValue =
-      JsNumber(dateTime.getMillis)
-  }
-
-  val dateTimeAsNumberFormats = Format(dateTimeAsNumberRead, dateTimeAsNumberWrite)
-
   trait Implicits {
     implicit val localDateFormats: Format[LocalDate]         = outer.localDateFormats
     implicit val localDateTimeFormats: Format[LocalDateTime] = outer.localDateTimeFormats
