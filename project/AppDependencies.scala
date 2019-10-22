@@ -3,6 +3,7 @@ import sbt._
 object AppDependencies {
 
   private val play26Version = "2.6.20"
+  private val play27Version = "2.7.3"
 
   lazy val test: Seq[ModuleID] = Seq(
     "org.pegdown"   % "pegdown"    % "1.6.0" % "test",
@@ -13,6 +14,11 @@ object AppDependencies {
   lazy val hmrcMongoPlay26: Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"       % play26Version,
     "com.typesafe.play" %% "play-guice" % play26Version
+  ) ++ common ++ test
+
+  lazy val hmrcMongoPlay27: Seq[ModuleID] = Seq(
+    "com.typesafe.play" %% "play"       % play27Version,
+    "com.typesafe.play" %% "play-guice" % play27Version
   ) ++ common ++ test
 
   lazy val hmrcMongoTest: Seq[ModuleID] = Seq(
