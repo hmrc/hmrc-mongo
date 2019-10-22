@@ -5,6 +5,8 @@ val name = "hmrc-mongo"
 lazy val library = Project(name, file("."))
   .enablePlugins(SbtAutoBuildPlugin, SbtGitVersioning, SbtArtifactory)
   .settings(
+    publish := {},
+    publishAndDistribute := {},
     majorVersion := 0,
     scalaVersion := "2.11.12",
     crossScalaVersions := Seq("2.11.12", "2.12.8")
