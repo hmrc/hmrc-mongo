@@ -23,29 +23,34 @@ import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-trait MongoSupport {
+trait MongoSupport extends ScalaFutures {
   protected val databaseName: String = "test-" + this.getClass.getSimpleName
   protected val mongoUri    : String = s"mongodb://localhost:27017/$databaseName"
 
   protected val mongoClient: MongoClient = MongoClient(mongoUri)
 
-  protected def mongoDatabase(): MongoDatabase = mongoClient.getDatabase(databaseName)
-}
-
-trait MongoCollectionSupport extends ScalaFutures with MongoSupport {
-
-  protected val collectionName: String
-
-  protected val indexes: Seq[IndexModel]
-
-  protected def mongoCollection(): MongoCollection[Document] =
-    mongoDatabase().getCollection(collectionName)
+  protected def mongoDatabase(): MongoDatabase =
+    mongoClient.getDatabase(databaseName)
 
   protected def dropDatabase(): Completed =
     mongoDatabase()
       .drop()
       .toFuture
       .futureValue
+
+  protected def prepareDatabase(): Unit = {
+    dropDatabase()
+    mongoDatabase()
+  }
+}
+
+trait MongoCollectionSupport extends MongoSupport {
+  protected val collectionName: String
+
+  protected val indexes: Seq[IndexModel]
+
+  protected def mongoCollection(): MongoCollection[Document] =
+    mongoDatabase().getCollection(collectionName)
 
   protected def createCollection(): Completed =
     mongoDatabase()
@@ -65,9 +70,8 @@ trait MongoCollectionSupport extends ScalaFutures with MongoSupport {
       .toFuture
       .futureValue
 
-  protected def prepareDatabase(): Seq[String] = {
-    dropDatabase()
-    mongoDatabase()
+  override protected def prepareDatabase(): Unit = {
+    super.prepareDatabase()
     createIndexes()
   }
 

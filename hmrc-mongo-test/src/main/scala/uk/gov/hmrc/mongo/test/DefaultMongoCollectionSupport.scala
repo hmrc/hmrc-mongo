@@ -19,6 +19,16 @@ package uk.gov.hmrc.mongo.test
 import com.mongodb.MongoQueryException
 import org.scalatest._
 
+
+trait CleanMongoCollectionSupport extends MongoCollectionSupport with BeforeAndAfterEach {
+  this: TestSuite =>
+
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    prepareDatabase()
+  }
+}
+
 trait IndexedMongoQueriesSupport extends MongoCollectionSupport with BeforeAndAfterAll with TestSuiteMixin {
   this: TestSuite =>
 
@@ -38,4 +48,10 @@ trait IndexedMongoQueriesSupport extends MongoCollectionSupport with BeforeAndAf
         Failed("Mongo query could not be satisfied by an index:\n" + e.getMessage, e)
       case other => other
     }
+}
+
+trait DefaultMongoCollectionSupport
+  extends CleanMongoCollectionSupport
+     with IndexedMongoQueriesSupport {
+  this: TestSuite =>
 }
