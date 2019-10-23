@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.components
+package uk.gov.hmrc.mongo.component
 
 import com.google.inject.{ImplementedBy, Inject, Singleton}
 import com.mongodb.ConnectionString

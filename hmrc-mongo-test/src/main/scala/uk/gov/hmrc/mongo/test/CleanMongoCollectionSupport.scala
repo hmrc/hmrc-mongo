@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.test
+
 import org.scalatest.{BeforeAndAfterEach, TestSuite}
 
 trait CleanMongoCollectionSupport extends MongoCollectionSupport with BeforeAndAfterEach {

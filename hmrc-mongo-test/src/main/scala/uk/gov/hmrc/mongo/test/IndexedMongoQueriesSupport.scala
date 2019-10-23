@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.test
+
 import com.mongodb.MongoQueryException
 import org.scalatest._
 

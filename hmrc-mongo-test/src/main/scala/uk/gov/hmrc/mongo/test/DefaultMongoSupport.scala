@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
-import org.scalatest.TestSuite
+package uk.gov.hmrc.mongo.test
 
+import org.scalatest.TestSuite
 import scala.concurrent.duration._
 
 trait DefaultMongoSupport extends CleanMongoCollectionSupport with IndexedMongoQueriesSupport {
   this: TestSuite =>
 
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(5.seconds, 50.millis)
-
 }

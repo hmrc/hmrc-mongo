@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.test
 
 import com.mongodb.MongoQueryException
 import com.mongodb.client.model.Filters.{eq => mongoEq}
