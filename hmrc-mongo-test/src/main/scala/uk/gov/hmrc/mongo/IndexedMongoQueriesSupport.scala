@@ -21,12 +21,12 @@ import org.scalatest._
 trait IndexedMongoQueriesSupport extends MongoSupport with BeforeAndAfterAll with TestSuiteMixin {
   this: TestSuite =>
 
-  override def beforeAll(): Unit = {
+  override protected def beforeAll(): Unit = {
     super.beforeAll()
     updateIndexPreference(onlyAllowIndexedQuery = true)
   }
 
-  override def afterAll(): Unit = {
+  override protected def afterAll(): Unit = {
     super.afterAll()
     updateIndexPreference(onlyAllowIndexedQuery = false)
   }

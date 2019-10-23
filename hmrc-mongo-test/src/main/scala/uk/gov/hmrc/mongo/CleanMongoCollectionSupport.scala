@@ -20,7 +20,7 @@ import org.scalatest.{BeforeAndAfterEach, TestSuite}
 trait CleanMongoCollectionSupport extends MongoSupport with BeforeAndAfterEach {
   this: TestSuite =>
 
-  override def beforeEach(): Unit = {
+  override protected def beforeEach(): Unit = {
     super.beforeEach()
     prepareDatabase()
   }
