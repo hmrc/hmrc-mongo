@@ -18,7 +18,7 @@ package uk.gov.hmrc.mongo
 import com.mongodb.MongoQueryException
 import org.scalatest._
 
-trait IndexedMongoQueriesSupport extends MongoSupport with BeforeAndAfterAll with TestSuiteMixin {
+trait IndexedMongoQueriesSupport extends MongoCollectionSupport with BeforeAndAfterAll with TestSuiteMixin {
   this: TestSuite =>
 
   override protected def beforeAll(): Unit = {
@@ -37,5 +37,4 @@ trait IndexedMongoQueriesSupport extends MongoSupport with BeforeAndAfterAll wit
         Failed("Mongo query could not be satisfied by an index:\n" + e.getMessage, e)
       case other => other
     }
-
 }

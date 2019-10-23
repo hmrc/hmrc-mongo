@@ -17,12 +17,11 @@
 package uk.gov.hmrc.mongo
 import org.scalatest.{BeforeAndAfterEach, TestSuite}
 
-trait CleanMongoCollectionSupport extends MongoSupport with BeforeAndAfterEach {
+trait CleanMongoCollectionSupport extends MongoCollectionSupport with BeforeAndAfterEach {
   this: TestSuite =>
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     prepareDatabase()
   }
-
 }
