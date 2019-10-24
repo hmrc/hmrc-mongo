@@ -28,11 +28,11 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.reflect.ClassTag
 
 class PlayMongoCollection[A: ClassTag](
-      mongoComponent: MongoComponent,
+  mongoComponent: MongoComponent,
   val collectionName: String,
-      domainFormat  : Format[A],
-  val indexes       : Seq[IndexModel]
-  )(implicit ec: ExecutionContext) {
+  domainFormat: Format[A],
+  val indexes: Seq[IndexModel]
+)(implicit ec: ExecutionContext) {
 
   private val logger = Logger(getClass)
 

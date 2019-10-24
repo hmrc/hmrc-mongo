@@ -31,11 +31,11 @@ trait MongoComponent {
 }
 
 @Singleton
-class PlayMongoComponent @Inject()(
+class PlayMongoComponent @Inject() (
   configuration: Configuration,
-  environment  : Environment,
-  lifecycle    : ApplicationLifecycle)
-    extends MongoComponent {
+  environment: Environment,
+  lifecycle: ApplicationLifecycle
+) extends MongoComponent {
 
   Logger.info("MongoComponent starting...")
 

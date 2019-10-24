@@ -25,7 +25,7 @@ import scala.concurrent.Future
 
 trait MongoSupport extends ScalaFutures {
   protected val databaseName: String = "test-" + this.getClass.getSimpleName
-  protected val mongoUri    : String = s"mongodb://localhost:27017/$databaseName"
+  protected val mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
 
   protected val mongoClient: MongoClient = MongoClient(mongoUri)
 
@@ -90,7 +90,7 @@ trait MongoCollectionSupport extends MongoSupport {
 object MongoCollectionSupport {
   def apply(name: String, allIndexes: Seq[IndexModel]): MongoCollectionSupport =
     new MongoCollectionSupport {
-      override protected val collectionName: String          = name
-      override protected val indexes       : Seq[IndexModel] = allIndexes
+      override protected val collectionName: String   = name
+      override protected val indexes: Seq[IndexModel] = allIndexes
     }
 }
