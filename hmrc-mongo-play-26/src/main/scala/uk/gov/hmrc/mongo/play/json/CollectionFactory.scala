@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import org.bson.codecs.configuration.CodecRegistries
+import org.bson.codecs.configuration.{CodecRegistry, CodecRegistries}
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.{MongoCollection, MongoDatabase}
 import play.api.libs.json.Format
@@ -29,16 +29,13 @@ trait CollectionFactory {
     db            : MongoDatabase,
     collectionName: String,
     domainFormat  : Format[A],
-    extraFormats  : Seq[Format[_]] = Seq.empty
+    optRegistry   : Option[CodecRegistry]
     ): MongoCollection[A] = {
-      val codices =
-        Codecs.playFormatCodec(domainFormat) :: extraFormats.toList.map(f => Codecs.playFormatCodec(f))
+    val registries = CodecRegistries.fromCodecs(Codecs.playFormatCodec(domainFormat)) :: optRegistry.toList ++ List(DEFAULT_CODEC_REGISTRY)
       db.getCollection[A](collectionName)
         .withCodecRegistry(
-          CodecRegistries.fromRegistries(
-            CodecRegistries.fromCodecs(codices: _*),
-            DEFAULT_CODEC_REGISTRY))
-    }
+          CodecRegistries.fromRegistries(registries: _*))
+  }
 }
 
 object CollectionFactory extends CollectionFactory

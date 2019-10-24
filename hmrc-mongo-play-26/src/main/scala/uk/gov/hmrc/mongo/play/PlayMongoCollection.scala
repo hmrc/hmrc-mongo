@@ -16,6 +16,7 @@
 
 package uk.gov.hmrc.mongo.play
 
+import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala._
 import org.mongodb.scala.model.IndexModel
 import play.api.Logger
@@ -31,14 +32,14 @@ class PlayMongoCollection[A: ClassTag](
       mongoComponent: MongoComponent,
   val collectionName: String,
       domainFormat  : Format[A],
-      extraFormats  : Seq[Format[_]] = Seq.empty,
+      optRegistry   : Option[CodecRegistry] = None,
   val indexes       : Seq[IndexModel]
   )(implicit ec: ExecutionContext) {
 
   private val logger = Logger(getClass)
 
   val collection: MongoCollection[A] =
-    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraFormats)
+    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, optRegistry)
 
   Await.result(createIndexes(), 3.seconds)
 
