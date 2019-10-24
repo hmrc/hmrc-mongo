@@ -42,6 +42,17 @@ trait MongoSupport extends ScalaFutures {
     dropDatabase()
     mongoDatabase()
   }
+
+  protected def updateIndexPreference(onlyAllowIndexedQuery: Boolean): Future[Boolean] = {
+    val notablescan = if (onlyAllowIndexedQuery) 1 else 0
+
+    mongoClient
+      .getDatabase("admin")
+      .withReadPreference(ReadPreference.primaryPreferred())
+      .runCommand(Document("setParameter" -> 1, "notablescan" -> notablescan))
+      .toFuture
+      .map(_.getBoolean("was"))
+  }
 }
 
 trait MongoCollectionSupport extends MongoSupport {
@@ -73,17 +84,6 @@ trait MongoCollectionSupport extends MongoSupport {
   override protected def prepareDatabase(): Unit = {
     super.prepareDatabase()
     createIndexes()
-  }
-
-  protected def updateIndexPreference(onlyAllowIndexedQuery: Boolean): Future[Boolean] = {
-    val notablescan = if (onlyAllowIndexedQuery) 1 else 0
-
-    mongoClient
-      .getDatabase("admin")
-      .withReadPreference(ReadPreference.primaryPreferred())
-      .runCommand(Document("setParameter" -> 1, "notablescan" -> notablescan))
-      .toFuture
-      .map(_.getBoolean("was"))
   }
 }
 

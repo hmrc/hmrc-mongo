@@ -24,18 +24,24 @@ import play.api.libs.json._
 
 import scala.reflect.ClassTag
 
+trait BsonConversion {
+  def toBson[A: Writes](a: A): Document =
+    Document(Json.toJson(a).toString)
+}
+
+object BsonConversion extends BsonConversion
+
 trait Codecs {
+  import BsonConversion._
+
   def playFormatCodec[A](format: Format[A])(implicit ct: ClassTag[A]): Codec[A] = new Codec[A] {
     private val documentCodec = DEFAULT_CODEC_REGISTRY.get(classOf[Document])
 
     override def getEncoderClass: Class[A] =
       ct.runtimeClass.asInstanceOf[Class[A]]
 
-    override def encode(writer: BsonWriter, value: A, encoderContext: EncoderContext): Unit = {
-      val json: JsValue = format.writes(value)
-      val document      = Document(json.toString)
-      documentCodec.encode(writer, document, encoderContext)
-    }
+    override def encode(writer: BsonWriter, value: A, encoderContext: EncoderContext): Unit =
+      documentCodec.encode(writer, toBson(value)(format), encoderContext)
 
     override def decode(reader: BsonReader, decoderContext: DecoderContext): A = {
       val document: Document = documentCodec.decode(reader, decoderContext)
