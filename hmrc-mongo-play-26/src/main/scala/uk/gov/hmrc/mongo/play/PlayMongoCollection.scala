@@ -31,13 +31,14 @@ class PlayMongoCollection[A: ClassTag](
       mongoComponent: MongoComponent,
   val collectionName: String,
       domainFormat  : Format[A],
+      extraFormats  : Seq[Format[_]] = Seq.empty,
   val indexes       : Seq[IndexModel]
   )(implicit ec: ExecutionContext) {
 
   private val logger = Logger(getClass)
 
   val collection: MongoCollection[A] =
-    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat)
+    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraFormats)
 
   Await.result(createIndexes(), 3.seconds)
 

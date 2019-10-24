@@ -24,11 +24,21 @@ import play.api.libs.json.Format
 import scala.reflect.ClassTag
 
 trait CollectionFactory {
-  def collection[A: ClassTag](db: MongoDatabase, collectionName: String, format: Format[A]): MongoCollection[A] =
-    db.getCollection[A](collectionName)
-      .withCodecRegistry(CodecRegistries
-        .fromRegistries(CodecRegistries.fromCodecs(Codecs.playFormatCodec(format)), DEFAULT_CODEC_REGISTRY))
 
+  def collection[A: ClassTag](
+    db            : MongoDatabase,
+    collectionName: String,
+    domainFormat  : Format[A],
+    extraFormats  : Seq[Format[_]] = Seq.empty
+    ): MongoCollection[A] = {
+      val codices =
+        Codecs.playFormatCodec(domainFormat) :: extraFormats.toList.map(f => Codecs.playFormatCodec(f))
+      db.getCollection[A](collectionName)
+        .withCodecRegistry(
+          CodecRegistries.fromRegistries(
+            CodecRegistries.fromCodecs(codices: _*),
+            DEFAULT_CODEC_REGISTRY))
+    }
 }
 
 object CollectionFactory extends CollectionFactory

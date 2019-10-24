@@ -20,6 +20,12 @@ import com.mongodb.MongoQueryException
 import org.scalatest._
 
 
+trait DefaultMongoCollectionSupport
+  extends CleanMongoCollectionSupport
+     with IndexedMongoQueriesSupport {
+  this: TestSuite =>
+}
+
 trait CleanMongoCollectionSupport extends MongoCollectionSupport with BeforeAndAfterEach {
   this: TestSuite =>
 
@@ -48,10 +54,4 @@ trait IndexedMongoQueriesSupport extends MongoCollectionSupport with BeforeAndAf
         Failed("Mongo query could not be satisfied by an index:\n" + e.getMessage, e)
       case other => other
     }
-}
-
-trait DefaultMongoCollectionSupport
-  extends CleanMongoCollectionSupport
-     with IndexedMongoQueriesSupport {
-  this: TestSuite =>
 }
