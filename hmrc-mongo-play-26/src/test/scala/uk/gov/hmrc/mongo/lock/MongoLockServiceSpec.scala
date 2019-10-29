@@ -36,15 +36,14 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
   "attemptLockWithRelease" should {
     "obtain lock, run the block supplied and release the lock" in {
 
-      mongoLockService.attemptLockWithRelease {
-        val lock = find(lockId).futureValue.head
+      val optionalLock = mongoLockService.attemptLockWithRelease {
+        find(lockId).map(_.head)
+      }.futureValue
 
+      optionalLock.map { lock =>
         lock.id         shouldBe lockId
         lock.expiryTime shouldBe lock.timeCreated.plusSeconds(1)
-
-        Future.successful("result")
-      }.futureValue shouldBe Some("result")
-
+      }
       count().futureValue shouldBe 0
     }
 
