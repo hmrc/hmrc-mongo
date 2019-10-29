@@ -41,15 +41,27 @@ class PlayMongoCollection[A: ClassTag](
 
   Await.result(createIndexes(), 3.seconds)
 
-  def createIndexes(): Future[Seq[String]] = {
-    val futureIndexes = collection
-      .createIndexes(indexes)
-      .toFuture
-      .recover {
-        case throwable: Throwable =>
-          logger.error("Failed to create indexes", throwable)
-          Seq.empty
-      }
-    futureIndexes
-  }
+  def createIndexes(): Future[Seq[String]] =
+    if (indexes.isEmpty) {
+      collection
+        .createIndexes(indexes)
+        .toFuture
+        .recover {
+          case throwable: Throwable =>
+            logger.error("Failed to create indexes", throwable)
+            Seq.empty
+        }
+    } else {
+      logger.info("Skipping Mongo index creation as no indexes supplied")
+      Future.successful(Seq.empty)
+    }
+
+}
+object PlayMongoCollection {
+  def apply[A: ClassTag](
+    mongoComponent: MongoComponent,
+    collectionName: String,
+    domainFormat: Format[A],
+    indexes: Seq[IndexModel])(implicit ec: ExecutionContext): MongoCollection[A] =
+    new PlayMongoCollection[A](mongoComponent, collectionName, domainFormat, indexes).collection
 }

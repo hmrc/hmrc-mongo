@@ -32,7 +32,7 @@ trait MongoSupport extends ScalaFutures {
   protected def mongoDatabase(): MongoDatabase =
     mongoClient.getDatabase(databaseName)
 
-  protected def dropDatabase(): Completed =
+  protected def dropDatabase(): Unit =
     mongoDatabase()
       .drop()
       .toFuture
@@ -63,13 +63,13 @@ trait MongoCollectionSupport extends MongoSupport {
   protected def mongoCollection(): MongoCollection[Document] =
     mongoDatabase().getCollection(collectionName)
 
-  protected def createCollection(): Completed =
+  protected def createCollection(): Unit =
     mongoDatabase()
       .createCollection(collectionName)
       .toFuture
       .futureValue
 
-  protected def dropCollection(): Completed =
+  protected def dropCollection(): Unit =
     mongoCollection()
       .drop()
       .toFuture
