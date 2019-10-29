@@ -182,8 +182,9 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
       .insertOne(Document(Json.toJson(obj).toString()))
       .toFuture()
 
-  override protected val collectionName: String   = "locks"
-  override protected val indexes: Seq[IndexModel] = Seq()
+  override protected val collectionName: String        = "locks"
+  override protected val indexes: Seq[IndexModel]      = Seq()
+  override implicit val patienceConfig: PatienceConfig = PatienceConfig(10.seconds, 100.millis)
 
   private def toLock(document: Document): Lock =
     Json.parse(document.toJson()).as[Lock]
