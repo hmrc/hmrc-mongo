@@ -15,9 +15,11 @@ lazy val library = Project(name, file("."))
 
 lazy val hmrcMongoPlay26 = Project("hmrc-mongo-play-26", file("hmrc-mongo-play-26"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .dependsOn(hmrcMongoTest % Test)
   .settings(
     majorVersion := 0,
     libraryDependencies ++= AppDependencies.hmrcMongoPlay26,
+    makePublicallyAvailableOnBintray := true,
     resolvers := Seq(
       Resolver.bintrayRepo("hmrc", "releases"),
       Resolver.typesafeRepo("releases")
@@ -30,6 +32,7 @@ lazy val hmrcMongoPlay27 = Project("hmrc-mongo-play-27", file("hmrc-mongo-play-2
     majorVersion := 0,
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-play-26/src/main/scala",
     libraryDependencies ++= AppDependencies.hmrcMongoPlay27,
+    makePublicallyAvailableOnBintray := true,
     resolvers := Seq(
       Resolver.bintrayRepo("hmrc", "releases"),
       Resolver.typesafeRepo("releases")
@@ -41,6 +44,7 @@ lazy val hmrcMongoTest = Project("hmrc-mongo-test", file("hmrc-mongo-test"))
   .settings(
     majorVersion := 0,
     libraryDependencies ++= AppDependencies.hmrcMongoTest,
+    makePublicallyAvailableOnBintray := true,
     resolvers := Seq(
       Resolver.bintrayRepo("hmrc", "releases"),
       Resolver.typesafeRepo("releases")

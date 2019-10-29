@@ -25,9 +25,7 @@ import org.mongodb.scala.model.IndexModel
 import org.scalatest.Matchers.{include, _}
 import org.scalatest.WordSpec
 
-import scala.concurrent.duration.DurationInt
-
-class DefaultMongoSupportSpec extends WordSpec with DefaultMongoCollectionSupport {
+class DefaultMongoCollectionSupportSpec extends WordSpec with DefaultMongoCollectionSupport {
 
   "updateIndexPreference" should {
 
@@ -73,7 +71,6 @@ class DefaultMongoSupportSpec extends WordSpec with DefaultMongoCollectionSuppor
     }
   }
 
-  override implicit val patienceConfig: PatienceConfig = PatienceConfig(5.seconds)
-  override protected val collectionName: String        = "test-collection"
-  override protected val indexes: Seq[IndexModel]      = Seq(IndexModel(Indexes.ascending("indexed")))
+  override protected val collectionName: String   = "test-collection"
+  override protected val indexes: Seq[IndexModel] = Seq(IndexModel(Indexes.ascending("indexed")))
 }
