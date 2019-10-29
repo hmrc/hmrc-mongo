@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.components
+package uk.gov.hmrc.mongo.component
 
 import com.google.inject.{ImplementedBy, Inject, Singleton}
 import com.mongodb.ConnectionString
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 import play.api.{Configuration, Environment, Logger}
 import play.api.inject.ApplicationLifecycle
-import uk.gov.hmrc.mongo.config.MongoConfig
 
 import scala.concurrent.Future
 
@@ -32,21 +31,23 @@ trait MongoComponent {
 }
 
 @Singleton
-class PlayMongoComponent @Inject()(
+class PlayMongoComponent @Inject() (
   configuration: Configuration,
   environment: Environment,
-  lifecycle: ApplicationLifecycle)
-    extends MongoComponent {
+  lifecycle: ApplicationLifecycle
+) extends MongoComponent {
 
   Logger.info("MongoComponent starting...")
 
-  private lazy val mongoConfig             = new MongoConfig(environment, configuration)
-  private val connection: ConnectionString = new ConnectionString(mongoConfig.uri)
+  private val dbUri =
+    configuration.get[String]("mongodb.uri")
 
-  override val client: MongoClient     = MongoClient(uri = mongoConfig.uri)
+  private val connection: ConnectionString = new ConnectionString(dbUri)
+
+  override val client: MongoClient     = MongoClient(uri = dbUri)
   override val database: MongoDatabase = client.getDatabase(connection.getDatabase)
 
-  Logger.debug(s"MongoComponent: MongoConnector configuration being used: ${mongoConfig.uri}")
+  Logger.debug(s"MongoComponent: MongoConnector configuration being used: $dbUri")
 
   lifecycle.addStopHook { () =>
     Future.successful {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.test
 
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.{Completed, Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
@@ -24,65 +24,73 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 trait MongoSupport extends ScalaFutures {
-
-  protected val collectionName: String
-
-  protected val indexes: Seq[IndexModel]
-
   protected val databaseName: String = "test-" + this.getClass.getSimpleName
-  protected val mongoUri: String     = "mongodb://localhost:27017"
+  protected val mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
 
-  protected def mongoClient(): MongoClient = MongoClient(mongoUri)
+  protected val mongoClient: MongoClient = MongoClient(mongoUri)
 
-  protected def mongoDatabase(): MongoDatabase = mongoClient().getDatabase(databaseName)
-
-  protected def mongoCollection(): MongoCollection[Document] = mongoDatabase().getCollection(collectionName)
+  protected def mongoDatabase(): MongoDatabase =
+    mongoClient.getDatabase(databaseName)
 
   protected def dropDatabase(): Completed =
     mongoDatabase()
       .drop()
-      .toFuture()
+      .toFuture
       .futureValue
 
-  protected def createCollection(): Completed =
-    mongoDatabase()
-      .createCollection(collectionName)
-      .toFuture()
-      .futureValue
-
-  protected def dropCollection(): Completed =
-    mongoCollection()
-      .drop()
-      .toFuture()
-      .futureValue
-
-  protected def createIndexes(): Seq[String] =
-    mongoCollection()
-      .createIndexes(indexes)
-      .toFuture()
-      .futureValue
-
-  protected def prepareDatabase(): Seq[String] = {
+  protected def prepareDatabase(): Unit = {
     dropDatabase()
     mongoDatabase()
-    createIndexes()
   }
 
   protected def updateIndexPreference(onlyAllowIndexedQuery: Boolean): Future[Boolean] = {
     val notablescan = if (onlyAllowIndexedQuery) 1 else 0
 
-    mongoClient()
+    mongoClient
       .getDatabase("admin")
       .withReadPreference(ReadPreference.primaryPreferred())
       .runCommand(Document("setParameter" -> 1, "notablescan" -> notablescan))
-      .toFuture()
+      .toFuture
       .map(_.getBoolean("was"))
   }
 }
 
-object MongoSupport {
-  def apply(name: String, allIndexes: Seq[IndexModel]): MongoSupport = new MongoSupport {
-    override protected val collectionName: String   = name
-    override protected val indexes: Seq[IndexModel] = allIndexes
+trait MongoCollectionSupport extends MongoSupport {
+  protected val collectionName: String
+
+  protected val indexes: Seq[IndexModel]
+
+  protected def mongoCollection(): MongoCollection[Document] =
+    mongoDatabase().getCollection(collectionName)
+
+  protected def createCollection(): Completed =
+    mongoDatabase()
+      .createCollection(collectionName)
+      .toFuture
+      .futureValue
+
+  protected def dropCollection(): Completed =
+    mongoCollection()
+      .drop()
+      .toFuture
+      .futureValue
+
+  protected def createIndexes(): Seq[String] =
+    mongoCollection()
+      .createIndexes(indexes)
+      .toFuture
+      .futureValue
+
+  override protected def prepareDatabase(): Unit = {
+    super.prepareDatabase()
+    createIndexes()
   }
+}
+
+object MongoCollectionSupport {
+  def apply(name: String, allIndexes: Seq[IndexModel]): MongoCollectionSupport =
+    new MongoCollectionSupport {
+      override protected val collectionName: String   = name
+      override protected val indexes: Seq[IndexModel] = allIndexes
+    }
 }

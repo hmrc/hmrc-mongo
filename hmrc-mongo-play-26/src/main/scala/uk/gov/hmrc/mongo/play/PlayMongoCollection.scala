@@ -20,7 +20,7 @@ import org.mongodb.scala._
 import org.mongodb.scala.model.IndexModel
 import play.api.Logger
 import play.api.libs.json.Format
-import uk.gov.hmrc.mongo.components.MongoComponent
+import uk.gov.hmrc.mongo.component.MongoComponent
 import uk.gov.hmrc.mongo.play.json.CollectionFactory
 
 import scala.concurrent.duration._
@@ -29,9 +29,10 @@ import scala.reflect.ClassTag
 
 class PlayMongoCollection[A: ClassTag](
   mongoComponent: MongoComponent,
-  collectionName: String,
+  val collectionName: String,
   domainFormat: Format[A],
-  indexes: Seq[IndexModel])(implicit ec: ExecutionContext) {
+  val indexes: Seq[IndexModel]
+)(implicit ec: ExecutionContext) {
 
   private val logger = Logger(getClass)
 
@@ -51,5 +52,4 @@ class PlayMongoCollection[A: ClassTag](
       }
     futureIndexes
   }
-
 }

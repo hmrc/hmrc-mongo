@@ -14,19 +14,33 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.test
+
 import com.mongodb.MongoQueryException
 import org.scalatest._
 
-trait IndexedMongoQueriesSupport extends MongoSupport with BeforeAndAfterAll with TestSuiteMixin {
+trait DefaultMongoCollectionSupport extends CleanMongoCollectionSupport with IndexedMongoQueriesSupport {
+  this: TestSuite =>
+}
+
+trait CleanMongoCollectionSupport extends MongoCollectionSupport with BeforeAndAfterEach {
   this: TestSuite =>
 
-  override def beforeAll(): Unit = {
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    prepareDatabase()
+  }
+}
+
+trait IndexedMongoQueriesSupport extends MongoCollectionSupport with BeforeAndAfterAll with TestSuiteMixin {
+  this: TestSuite =>
+
+  override protected def beforeAll(): Unit = {
     super.beforeAll()
     updateIndexPreference(onlyAllowIndexedQuery = true)
   }
 
-  override def afterAll(): Unit = {
+  override protected def afterAll(): Unit = {
     super.afterAll()
     updateIndexPreference(onlyAllowIndexedQuery = false)
   }
@@ -37,5 +51,4 @@ trait IndexedMongoQueriesSupport extends MongoSupport with BeforeAndAfterAll wit
         Failed("Mongo query could not be satisfied by an index:\n" + e.getMessage, e)
       case other => other
     }
-
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.test
 
 import com.mongodb.MongoQueryException
 import com.mongodb.client.model.Filters.{eq => mongoEq}
@@ -24,24 +24,23 @@ import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.Matchers.{include, _}
 import org.scalatest.WordSpec
-import org.scalatest.concurrent.ScalaFutures
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationInt
 
-class DefaultMongoSupportSpec extends WordSpec with DefaultMongoSupport with ScalaFutures {
+class DefaultMongoSupportSpec extends WordSpec with DefaultMongoCollectionSupport {
 
   "updateIndexPreference" should {
 
     "throw and exception in a unindexed query" in {
       mongoCollection()
         .insertOne(Document("unindexed" -> "value"))
-        .toFuture()
+        .toFuture
         .futureValue
 
-      ScalaFutures.whenReady {
+      whenReady {
         mongoCollection()
           .find(mongoEq("unindexed", "value"))
-          .toFuture()
+          .toFuture
           .failed
       } { exception =>
         exception            shouldBe a[MongoQueryException]
@@ -52,13 +51,13 @@ class DefaultMongoSupportSpec extends WordSpec with DefaultMongoSupport with Sca
     "not throw an exception in indexed query" in {
       mongoCollection()
         .insertOne(Document("indexed" -> "value"))
-        .toFuture()
+        .toFuture
         .futureValue
 
       mongoCollection()
         .find(mongoEq("indexed", "value"))
         .first()
-        .toFuture()
+        .toFuture
         .futureValue
         .get("indexed") shouldEqual Some(BsonString("value"))
     }
