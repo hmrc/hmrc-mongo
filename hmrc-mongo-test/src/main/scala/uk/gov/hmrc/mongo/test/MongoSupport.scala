@@ -17,11 +17,12 @@
 package uk.gov.hmrc.mongo.test
 
 import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{Completed, Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
+import org.mongodb.scala.{Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
 import org.scalatest.concurrent.ScalaFutures
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 
 trait MongoSupport extends ScalaFutures {
   protected val databaseName: String = "test-" + this.getClass.getSimpleName
@@ -53,6 +54,8 @@ trait MongoSupport extends ScalaFutures {
       .toFuture
       .map(_.getBoolean("was"))
   }
+
+  override implicit val patienceConfig: PatienceConfig = PatienceConfig(5.seconds)
 }
 
 trait MongoCollectionSupport extends MongoSupport {
@@ -76,10 +79,14 @@ trait MongoCollectionSupport extends MongoSupport {
       .futureValue
 
   protected def createIndexes(): Seq[String] =
-    mongoCollection()
-      .createIndexes(indexes)
-      .toFuture
-      .futureValue
+    if (indexes.nonEmpty) {
+      mongoCollection()
+        .createIndexes(indexes)
+        .toFuture
+        .futureValue
+    } else {
+      Seq.empty
+    }
 
   override protected def prepareDatabase(): Unit = {
     super.prepareDatabase()

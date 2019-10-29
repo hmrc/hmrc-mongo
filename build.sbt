@@ -15,6 +15,7 @@ lazy val library = Project(name, file("."))
 
 lazy val hmrcMongoPlay26 = Project("hmrc-mongo-play-26", file("hmrc-mongo-play-26"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .dependsOn(hmrcMongoTest % Test)
   .settings(
     majorVersion := 0,
     libraryDependencies ++= AppDependencies.hmrcMongoPlay26,
