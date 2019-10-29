@@ -126,7 +126,7 @@ class MongoLockRepository @Inject()(mongoComponent: MongoComponent, timestampSup
     }
   }
 
-  private def futureCond[A](predecate: Boolean, matched: => Future[A], unmatched: => A): Future[A] =
-    if (predecate) matched else Future.successful(unmatched)
+  private def futureCond[A](predicate: Boolean, matched: => Future[A], unmatched: => A): Future[A] =
+    if (predicate) matched else Future.successful(unmatched)
 
 }
