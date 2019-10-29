@@ -36,12 +36,11 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
   "attemptLockWithRelease" should {
     "obtain lock, run the block supplied and release the lock" in {
 
-      mongoLockservice.attemptLockWithRelease {
+      mongoLockService.attemptLockWithRelease {
         val lock = find(lockId).futureValue.head
 
-        lock.id             shouldBe lockId
-        lock.expiryTime     shouldBe lock.timeCreated.plusSeconds(1)
-        count().futureValue shouldBe 1
+        lock.id         shouldBe lockId
+        lock.expiryTime shouldBe lock.timeCreated.plusSeconds(1)
 
         Future.successful("result")
       }.futureValue shouldBe Some("result")
@@ -51,14 +50,14 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
 
     "obtain lock, run the block supplied and release the lock when the block returns a failed future" in {
       a[RuntimeException] should be thrownBy {
-        mongoLockservice.attemptLockWithRelease(Future.failed(new RuntimeException)).futureValue
+        mongoLockService.attemptLockWithRelease(Future.failed(new RuntimeException)).futureValue
       }
       count().futureValue shouldBe 0
     }
 
     "obtain lock, run the block supplied and release the lock when the block throws an exception" in {
       a[RuntimeException] should be thrownBy {
-        mongoLockservice.attemptLockWithRelease(throw new RuntimeException).futureValue
+        mongoLockService.attemptLockWithRelease(throw new RuntimeException).futureValue
       }
       count().futureValue shouldBe 0
     }
@@ -67,7 +66,7 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
       val existingLock = Lock(lockId, "owner2", now, now.plusSeconds(100))
       insert(existingLock).futureValue
 
-      mongoLockservice
+      mongoLockService
         .attemptLockWithRelease(fail("Should not execute!"))
         .futureValue shouldBe None
 
@@ -80,7 +79,7 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
       val existingLock = Lock(lockId, owner, now, now.plusSeconds(100))
       insert(existingLock).futureValue
 
-      mongoLockservice
+      mongoLockService
         .attemptLockWithRelease(fail("Should not execute!"))
         .futureValue shouldBe None
 
@@ -95,7 +94,7 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
 
     "execute the body if no previous lock is set" in {
       var counter = 0
-      mongoLockservice.attemptLockWithRefreshExpiry {
+      mongoLockService.attemptLockWithRefreshExpiry {
         Future.successful(counter += 1)
       }.futureValue
       counter shouldBe 1
@@ -103,11 +102,11 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
 
     "execute the body if the lock for same serverId exists" in {
       var counter = 0
-      mongoLockservice.attemptLockWithRefreshExpiry {
+      mongoLockService.attemptLockWithRefreshExpiry {
         Future.successful(counter += 1)
       }.futureValue
 
-      mongoLockservice.attemptLockWithRefreshExpiry {
+      mongoLockService.attemptLockWithRefreshExpiry {
         Future.successful(counter += 1)
       }.futureValue
 
@@ -123,7 +122,7 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
         }
         .futureValue
 
-      mongoLockservice.attemptLockWithRefreshExpiry {
+      mongoLockService.attemptLockWithRefreshExpiry {
         Future.successful(counter += 1)
       }.futureValue
 
@@ -133,13 +132,13 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
 
     "execute the body if run after the ttl time has expired" in {
       var counter = 0
-      mongoLockservice.attemptLockWithRefreshExpiry {
+      mongoLockService.attemptLockWithRefreshExpiry {
         Future.successful(counter += 1)
       }.futureValue
 
       Thread.sleep(1000 + 1)
 
-      mongoLockservice.attemptLockWithRefreshExpiry {
+      mongoLockService.attemptLockWithRefreshExpiry {
         Future.successful(counter += 1)
       }.futureValue
 
@@ -158,7 +157,7 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
   }
 
   private val mongoLockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
-  private val mongoLockservice    = mongoLockRepository.toService(lockId, ttl)
+  private val mongoLockService    = mongoLockRepository.toService(lockId, ttl)
 
   private def findAll(): Future[Seq[Lock]] =
     mongoCollection()
@@ -182,9 +181,8 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
       .insertOne(Document(Json.toJson(obj).toString()))
       .toFuture()
 
-  override protected val collectionName: String        = "locks"
-  override protected val indexes: Seq[IndexModel]      = Seq()
-  override implicit val patienceConfig: PatienceConfig = PatienceConfig(10.seconds, 100.millis)
+  override protected val collectionName: String   = "locks"
+  override protected val indexes: Seq[IndexModel] = Seq()
 
   private def toLock(document: Document): Lock =
     Json.parse(document.toJson()).as[Lock]
