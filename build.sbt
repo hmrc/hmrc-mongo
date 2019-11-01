@@ -11,7 +11,7 @@ lazy val library = Project(name, file("."))
     scalaVersion := "2.11.12",
     crossScalaVersions := Seq("2.11.12", "2.12.8")
   )
-  .aggregate(hmrcMongoCommon, hmrcMongoPlay26, hmrcMongoPlay27, hmrcMongoTest)
+  .aggregate(hmrcMongoCommon, hmrcMongoPlay26, hmrcMongoPlay27, metrixPlay26, hmrcMongoTest)
 
 lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
@@ -58,6 +58,19 @@ lazy val hmrcMongoTest = Project("hmrc-mongo-test", file("hmrc-mongo-test"))
   .settings(
     majorVersion := 0,
     libraryDependencies ++= AppDependencies.hmrcMongoTest,
+    makePublicallyAvailableOnBintray := true,
+    resolvers := Seq(
+      Resolver.bintrayRepo("hmrc", "releases"),
+      Resolver.typesafeRepo("releases")
+    )
+  )
+
+lazy val metrixPlay26 = Project("metrix", file("metrix"))
+  .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .dependsOn(hmrcMongoPlay26 % Compile, hmrcMongoTest % Compile)
+  .settings(
+    majorVersion := 0,
+    libraryDependencies ++= AppDependencies.metrixPlay26,
     makePublicallyAvailableOnBintray := true,
     resolvers := Seq(
       Resolver.bintrayRepo("hmrc", "releases"),
