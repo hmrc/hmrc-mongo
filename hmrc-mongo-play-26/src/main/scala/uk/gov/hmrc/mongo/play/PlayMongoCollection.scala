@@ -20,6 +20,7 @@ import org.mongodb.scala._
 import org.mongodb.scala.model.IndexModel
 import play.api.Logger
 import play.api.libs.json.Format
+import uk.gov.hmrc.mongo.collection.MongoDatabaseCollection
 import uk.gov.hmrc.mongo.component.MongoComponent
 import uk.gov.hmrc.mongo.play.json.CollectionFactory
 
@@ -32,7 +33,8 @@ class PlayMongoCollection[A: ClassTag](
   val collectionName: String,
   domainFormat: Format[A],
   val indexes: Seq[IndexModel]
-)(implicit ec: ExecutionContext) {
+)(implicit ec: ExecutionContext)
+    extends MongoDatabaseCollection {
 
   private val logger = Logger(getClass)
 
@@ -41,8 +43,9 @@ class PlayMongoCollection[A: ClassTag](
 
   Await.result(createIndexes(), 3.seconds)
 
+  //todo can we ensure indexes exist before attempting to create them?
   def createIndexes(): Future[Seq[String]] =
-    if (indexes.isEmpty) {
+    if (indexes.nonEmpty) {
       collection
         .createIndexes(indexes)
         .toFuture
@@ -57,6 +60,7 @@ class PlayMongoCollection[A: ClassTag](
     }
 
 }
+
 object PlayMongoCollection {
   def apply[A: ClassTag](
     mongoComponent: MongoComponent,

@@ -16,22 +16,16 @@
 
 package uk.gov.hmrc.mongo.component
 
-import com.google.inject.{ImplementedBy, Inject, Singleton}
+import com.google.inject.{Inject, Singleton}
 import com.mongodb.ConnectionString
 import org.mongodb.scala.{MongoClient, MongoDatabase}
-import play.api.{Configuration, Environment, Logger}
 import play.api.inject.ApplicationLifecycle
+import play.api.{Configuration, Environment, Logger}
 
 import scala.concurrent.Future
 
-@ImplementedBy(classOf[PlayMongoComponent])
-trait MongoComponent {
-  def client: MongoClient
-  def database: MongoDatabase
-}
-
 @Singleton
-class PlayMongoComponent @Inject() (
+class PlayMongoComponent @Inject()(
   configuration: Configuration,
   environment: Environment,
   lifecycle: ApplicationLifecycle
