@@ -19,6 +19,7 @@ package uk.gov.hmrc.mongo.test
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.{Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
 import org.scalatest.concurrent.ScalaFutures
+import uk.gov.hmrc.mongo.component.MongoComponent
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -29,6 +30,11 @@ trait MongoSupport extends ScalaFutures {
   protected val mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
 
   protected val mongoClient: MongoClient = MongoClient(mongoUri)
+
+  protected val mongoComponent: MongoComponent = new MongoComponent {
+    override def client: MongoClient     = mongoClient
+    override def database: MongoDatabase = mongoDatabase()
+  }
 
   protected def mongoDatabase(): MongoDatabase =
     mongoClient.getDatabase(databaseName)
