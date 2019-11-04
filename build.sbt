@@ -16,8 +16,6 @@ lazy val library = Project(name, file("."))
 lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
-    publish := {},
-    publishAndDistribute := {},
     majorVersion := 0,
     libraryDependencies ++= AppDependencies.hmrcMongoPlay26,
     makePublicallyAvailableOnBintray := true,
