@@ -21,11 +21,10 @@ import java.time.{LocalDateTime, ZoneOffset}
 import com.mongodb.MongoWriteException
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{Completed, Document, MongoClient, MongoDatabase}
+import org.mongodb.scala.{Completed, Document}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
 import play.api.libs.json.{Json, Writes}
-import uk.gov.hmrc.mongo.component.MongoComponent
 import uk.gov.hmrc.mongo.lock.model.Lock
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
@@ -234,24 +233,19 @@ class MongoLockRepositorySpec extends WordSpecLike with Matchers with DefaultMon
     }
   }
 
-  override protected val collectionName: String   = "locks"
-  override protected val indexes: Seq[IndexModel] = Seq()
-
-  private val lockId = "lockId"
-  private val owner  = "owner"
-  private val ttl    = 1000.millis
-  private val now    = LocalDateTime.now(ZoneOffset.UTC)
-
-  private val mongoComponent = new MongoComponent {
-    override def client: MongoClient     = mongoClient
-    override def database: MongoDatabase = mongoDatabase()
-  }
-
   private val timestampSupport = new TimestampSupport {
     override def timestamp(): LocalDateTime = now
   }
 
   private val mongoLockRepository = new MongoLockRepository(mongoComponent, timestampSupport)
+
+  override protected val collectionName: String   = mongoLockRepository.collectionName
+  override protected val indexes: Seq[IndexModel] = mongoLockRepository.indexes
+
+  private val lockId = "lockId"
+  private val owner  = "owner"
+  private val ttl    = 1000.millis
+  private val now    = LocalDateTime.now(ZoneOffset.UTC)
 
   private def findAll(): Future[Seq[Lock]] =
     mongoCollection()

@@ -19,11 +19,10 @@ import java.time.{LocalDateTime, ZoneOffset}
 
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{Completed, Document, MongoClient, MongoDatabase}
+import org.mongodb.scala.{Completed, Document}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
 import play.api.libs.json.{Json, Writes}
-import uk.gov.hmrc.mongo.component.MongoComponent
 import uk.gov.hmrc.mongo.lock.model.Lock
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
@@ -150,11 +149,6 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
   private val ttl: Duration = 1000.millis
   private val now           = LocalDateTime.now(ZoneOffset.UTC)
 
-  private val mongoComponent = new MongoComponent {
-    override def client: MongoClient     = mongoClient
-    override def database: MongoDatabase = mongoDatabase()
-  }
-
   private val mongoLockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
   private val mongoLockService    = mongoLockRepository.toService(lockId, ttl)
 
@@ -180,7 +174,7 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
       .insertOne(Document(Json.toJson(obj).toString()))
       .toFuture()
 
-  override protected val collectionName: String   = "locks"
+  override protected val collectionName: String   = mongoLockRepository.collectionName
   override protected val indexes: Seq[IndexModel] = Seq()
 
   private def toLock(document: Document): Lock =
