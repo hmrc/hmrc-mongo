@@ -29,7 +29,7 @@ object AppDependencies {
   lazy val metrixPlay26: Seq[ModuleID] = Seq(
     "io.dropwizard.metrics" % "metrics-graphite"      % "3.2.6",
     "com.kenshoo"           %% "metrics-play"         % "2.6.19_0.7.0",
-    "org.mockito"           % "mockito-all"           % "1.9.5"         % Test
+    "org.mockito"           %% "mockito-scala"        % "1.7.1"         % Test
   ) ++ hmrcMongoPlay26
 
 }

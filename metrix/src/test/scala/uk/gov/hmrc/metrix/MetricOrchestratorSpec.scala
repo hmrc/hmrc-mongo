@@ -19,19 +19,15 @@ package uk.gov.hmrc.metrix
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.{Metric, MetricFilter, MetricRegistry}
-import com.mongodb.BasicDBObject
-import org.mockito.Matchers.any
-import org.mockito.Mockito._
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.mongodb.scala.model.IndexModel
 import org.scalatest.Inside._
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import org.scalatest.{BeforeAndAfterEach, LoneElement}
-import org.scalatestplus.mockito.MockitoSugar
 import uk.gov.hmrc.metrix.domain.{MetricRepository, MetricSource, PersistedMetric}
 import uk.gov.hmrc.metrix.persistence.MongoMetricRepository
-import uk.gov.hmrc.mongo.component.MongoComponent
 import uk.gov.hmrc.mongo.lock.{CurrentTimestampSupport, MongoLockRepository, MongoLockService}
-import uk.gov.hmrc.mongo.test.MongoSupport
+import uk.gov.hmrc.mongo.test.MongoCollectionSupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -41,19 +37,19 @@ class MetricOrchestratorSpec extends UnitSpec
   with ScalaFutures
   with Eventually
   with LoneElement
+  with MongoCollectionSupport
   with MockitoSugar
-  with MongoSupport
+  with ArgumentMatchersSugar
   with IntegrationPatience
   with BeforeAndAfterEach {
 
   val metricRegistry = new MetricRegistry()
-  val mongoComponent = new MongoComponent {
-    override def client: MongoClient = mongoClient
+  private val mongoMetricRepository = new MongoMetricRepository(mongo = mongoComponent)
 
-    override def database: MongoDatabase = mongoDatabase()
-  }
+  override protected val collectionName: String = mongoMetricRepository.collectionName
+  override protected val indexes: Seq[IndexModel] = Seq.empty
 
-  private val exclusiveTimePeriodLock = new MongoLockService {
+  private val exclusiveTimePeriodLock: MongoLockService = new MongoLockService {
     override val lockId: String = "test-metrics"
     override val mongoLockRepository: MongoLockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
     override val ttl = Duration(0, TimeUnit.MICROSECONDS)
@@ -61,7 +57,7 @@ class MetricOrchestratorSpec extends UnitSpec
 
   override def beforeEach(): Unit = {
     super.beforeEach()
-    mongoMetricRepository.collection.deleteMany(new BasicDBObject()).toFuture.map(_.wasAcknowledged())
+    removeAllDocuments()
     metricRegistry.removeMatching(new MetricFilter {
       override def matches(name: String, metric: Metric): Boolean = true
     })
@@ -69,10 +65,8 @@ class MetricOrchestratorSpec extends UnitSpec
 
   override def afterEach(): Unit = {
     super.afterEach()
-    mongoMetricRepository.collection.deleteMany(new BasicDBObject()).toFuture.map(_.wasAcknowledged())
+    removeAllDocuments()
   }
-
-  private val mongoMetricRepository = new MongoMetricRepository(mongo = mongoComponent)
 
   def metricOrchestratorFor(sources: List[MetricSource],
                             metricRepository: MetricRepository = mongoMetricRepository) = new MetricOrchestrator(
@@ -231,13 +225,13 @@ class MetricOrchestratorSpec extends UnitSpec
       val orchestrator = metricOrchestratorFor(List(mockMetricSource))
 
       val acquiredMetrics = Map(otherMetricName -> 4, resetableMetricName -> 2, notResetedMetricName -> 8)
-      when(mockMetricSource.metrics(any())).thenReturn(Future.successful(acquiredMetrics))
+      when(mockMetricSource.metrics(any)).thenReturn(Future.successful(acquiredMetrics))
       orchestrator.attemptToUpdateRefreshAndResetMetrics(resetMetricOn = (metric: PersistedMetric) => {
         metric.name == "reseted.name"
       }).futureValue
 
       val newAcquiredMetrics = Map(otherMetricName -> 5, notResetedMetricName -> 6)
-      when(mockMetricSource.metrics(any())).thenReturn(Future.successful(newAcquiredMetrics))
+      when(mockMetricSource.metrics(any)).thenReturn(Future.successful(newAcquiredMetrics))
       orchestrator.attemptToUpdateRefreshAndResetMetrics(resetMetricOn = (metric: PersistedMetric) => {
         metric.name == "reseted.name"
       }).futureValue
@@ -283,10 +277,11 @@ class MetricOrchestratorSpec extends UnitSpec
 
     "update the cache even if the lock is not acquired" in {
       val mockedMetricRepository: MetricRepository = mock[MetricRepository]
+      val mockedLockRepository = mock[MongoLockRepository]
 
       val lockMock = new MongoLockService {
         override val lockId: String = "test-lock"
-        override val mongoLockRepository: MongoLockRepository = mock[MongoLockRepository]
+        override val mongoLockRepository: MongoLockRepository = mockedLockRepository
         override val ttl: Duration = Duration(1, TimeUnit.MILLISECONDS)
       }
 
@@ -297,13 +292,9 @@ class MetricOrchestratorSpec extends UnitSpec
         metricRegistry = metricRegistry
       )
 
-      when(lockMock.mongoLockRepository.refreshExpiry(any[String], any[String], any[Duration])).thenReturn(Future(false))
-      when(lockMock.mongoLockRepository.lock(any[String], any[String], any[Duration])).thenReturn(Future(false))
+      when(mockedLockRepository.attemptLockWithRelease(any, any, any, any[Future[Map[String, Int]]])(any)).thenReturn(Future(None))
+      when(mockedMetricRepository.findAll()).thenReturn(Future(List(PersistedMetric("a", 4), PersistedMetric("b", 5))))
 
-      when(mockedMetricRepository.findAll())
-        .thenReturn(Future(List(PersistedMetric("a", 4), PersistedMetric("b", 5))))
-
-      // when
       orchestrator.attemptToUpdateAndRefreshMetrics().futureValue shouldResultIn MetricsOnlyRefreshed(
         List(PersistedMetric("a", 4), PersistedMetric("b", 5))
       )

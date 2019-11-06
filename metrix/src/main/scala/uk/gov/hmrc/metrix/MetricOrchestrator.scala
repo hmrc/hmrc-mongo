@@ -80,7 +80,7 @@ class MetricOrchestrator(metricSources: List[MetricSource],
   val metricCache = new MetricCache()
 
   private def updateMetricRepository(resetOn: Option[PersistedMetric => Boolean] = None)(implicit ec: ExecutionContext): Future[Map[String, Int]] = {
-    val resetingFilter: (PersistedMetric) => Boolean = resetOn.getOrElse((x: PersistedMetric) => false)
+    val resetingFilter: PersistedMetric => Boolean = resetOn.getOrElse((_: PersistedMetric) => false)
     for {
       persistedMetrics <- if (resetOn.isDefined) metricRepository.findAll() else Future(List())
       mapFromReset = persistedMetrics.filter(resetingFilter).map { case PersistedMetric(name, _) => name -> 0 }.toMap
@@ -95,7 +95,7 @@ class MetricOrchestrator(metricSources: List[MetricSource],
 
   private def doNotSkipAny(metric: PersistedMetric): Boolean = false
 
-  def attemptToUpdateAndRefreshMetrics(skipReportingOn: (PersistedMetric) => Boolean = doNotSkipAny)
+  def attemptToUpdateAndRefreshMetrics(skipReportingOn: PersistedMetric => Boolean = doNotSkipAny)
                                       (implicit ec: ExecutionContext): Future[MetricOrchestrationResult] = {
     lock.attemptLockWithRelease {
       updateMetricRepository()
@@ -103,7 +103,6 @@ class MetricOrchestrator(metricSources: List[MetricSource],
       metricRepository.findAll() map { persistedMetrics =>
         persistedMetrics.filterNot(skipReportingOn)
       } map { filteredMetrics =>
-
         metricCache.refreshWith(filteredMetrics)
 
         val currentGauges = metricRegistry.getGauges

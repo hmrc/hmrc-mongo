@@ -20,7 +20,6 @@ import org.mongodb.scala.ReadPreference
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Indexes.ascending
 import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptions}
-import play.api.libs.json.Json
 import uk.gov.hmrc.metrix.domain.{MetricRepository, PersistedMetric}
 import uk.gov.hmrc.mongo.component.MongoComponent
 import uk.gov.hmrc.mongo.play.PlayMongoCollection
@@ -39,7 +38,7 @@ class MongoMetricRepository(collectionName: String = "metrics", mongo: MongoComp
   override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
     collection
       .findOneAndReplace(
-        filter = equal("name", Json.toJson(calculatedMetric.name)),
+        filter = equal("name", calculatedMetric.name),
         calculatedMetric,
         FindOneAndReplaceOptions().upsert(true)
       )
