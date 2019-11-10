@@ -49,7 +49,7 @@ class MetricOrchestratorSpec extends UnitSpec
   override protected val collectionName: String = mongoMetricRepository.collectionName
   override protected val indexes: Seq[IndexModel] = Seq.empty
 
-  private val exclusiveTimePeriodLock: MongoLockService = new MongoLockService {
+  private val mongoLockService: MongoLockService = new MongoLockService {
     override val lockId: String = "test-metrics"
     override val mongoLockRepository: MongoLockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
     override val ttl = Duration(0, TimeUnit.MICROSECONDS)
@@ -71,7 +71,7 @@ class MetricOrchestratorSpec extends UnitSpec
   def metricOrchestratorFor(sources: List[MetricSource],
                             metricRepository: MetricRepository = mongoMetricRepository) = new MetricOrchestrator(
     metricSources = sources,
-    lock = exclusiveTimePeriodLock,
+    lock = mongoLockService,
     metricRepository = metricRepository,
     metricRegistry = metricRegistry
   )
@@ -250,7 +250,7 @@ class MetricOrchestratorSpec extends UnitSpec
       val orchestrator = new MetricOrchestrator(
         metricRepository = metricRepository,
         metricSources = List(sourceReturning(acquiredMetrics)),
-        lock = exclusiveTimePeriodLock,
+        lock = mongoLockService,
         metricRegistry = metricRegistry
       )
 
@@ -277,22 +277,21 @@ class MetricOrchestratorSpec extends UnitSpec
 
     "update the cache even if the lock is not acquired" in {
       val mockedMetricRepository: MetricRepository = mock[MetricRepository]
-      val mockedLockRepository = mock[MongoLockRepository]
 
-      val lockMock = new MongoLockService {
-        override val lockId: String = "test-lock"
-        override val mongoLockRepository: MongoLockRepository = mockedLockRepository
-        override val ttl: Duration = Duration(1, TimeUnit.MILLISECONDS)
+      val lockRepo = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport) {
+        // Force the lock to never be acquired for the purpose of this test
+        override def lock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = Future(false)
       }
+
+      val lockService = MongoLockService(repository = lockRepo, lock = "test-lock", duration =  Duration(1, TimeUnit.MILLISECONDS))
 
       val orchestrator = new MetricOrchestrator(
         metricRepository = mockedMetricRepository,
         metricSources = List(sourceReturning(Map("a" -> 1, "b" -> 2))),
-        lock = lockMock,
+        lock = lockService,
         metricRegistry = metricRegistry
       )
 
-      when(mockedLockRepository.attemptLockWithRelease(any, any, any, any[Future[Map[String, Int]]])(any)).thenReturn(Future(None))
       when(mockedMetricRepository.findAll()).thenReturn(Future(List(PersistedMetric("a", 4), PersistedMetric("b", 5))))
 
       orchestrator.attemptToUpdateAndRefreshMetrics().futureValue shouldResultIn MetricsOnlyRefreshed(

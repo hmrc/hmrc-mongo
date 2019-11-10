@@ -160,7 +160,7 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
 
   private def count(): Future[Long] =
     mongoCollection()
-      .count()
+      .countDocuments()
       .toFuture()
 
   private def find(id: String): Future[Seq[Lock]] =
