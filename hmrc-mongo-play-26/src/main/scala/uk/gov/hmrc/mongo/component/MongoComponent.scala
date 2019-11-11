@@ -30,6 +30,14 @@ trait MongoComponent {
   def database: MongoDatabase
 }
 
+object MongoComponent {
+  def apply(mongoUri: String): MongoComponent =
+    new MongoComponent {
+      override def client  : MongoClient   = MongoClient(mongoUri)
+      override def database: MongoDatabase = client.getDatabase((new ConnectionString(mongoUri)).getDatabase)
+    }
+}
+
 @Singleton
 class PlayMongoComponent @Inject()(
   configuration: Configuration,
@@ -39,15 +47,13 @@ class PlayMongoComponent @Inject()(
 
   Logger.info("MongoComponent starting...")
 
-  private val dbUri =
+  private val mongoUri =
     configuration.get[String]("mongodb.uri")
 
-  private val connection: ConnectionString = new ConnectionString(dbUri)
+  override val client: MongoClient     = MongoClient(uri = mongoUri)
+  override val database: MongoDatabase = client.getDatabase((new ConnectionString(mongoUri)).getDatabase)
 
-  override val client: MongoClient     = MongoClient(uri = dbUri)
-  override val database: MongoDatabase = client.getDatabase(connection.getDatabase)
-
-  Logger.debug(s"MongoComponent: MongoConnector configuration being used: $dbUri")
+  Logger.debug(s"MongoComponent: MongoConnector configuration being used: $mongoUri")
 
   lifecycle.addStopHook { () =>
     Future.successful {
