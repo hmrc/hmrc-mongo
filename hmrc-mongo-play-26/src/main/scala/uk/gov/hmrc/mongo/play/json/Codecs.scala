@@ -17,7 +17,7 @@
 package uk.gov.hmrc.mongo.play.json
 
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
-import org.bson.{BsonReader, BsonWriter, BsonType}
+import org.bson.{BsonNull, BsonReader, BsonWriter, BsonType}
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.bson.collection.immutable.Document
 import play.api.libs.json._
@@ -31,11 +31,11 @@ trait Codecs {
 
     override def encode(writer: BsonWriter, value: A, encoderContext: EncoderContext): Unit =
       format.writes(value) match {
-        case JsNull       => sys.error(s"Unsupported encoding of $value (as JsNull)")
-        case JsBoolean(b) => DEFAULT_CODEC_REGISTRY.get(classOf[Boolean])
+        case JsNull       => writer.writeNull()
+        case JsBoolean(b) => DEFAULT_CODEC_REGISTRY.get(classOf[java.lang.Boolean])
                                .encode(writer, b, encoderContext)
-        case JsNumber(n)  => DEFAULT_CODEC_REGISTRY.get(classOf[Number])
-                               .encode(writer, n, encoderContext)
+        case JsNumber(n)  => DEFAULT_CODEC_REGISTRY.get(classOf[java.math.BigDecimal])
+                               .encode(writer, n.bigDecimal, encoderContext)
         case JsString(s)  => DEFAULT_CODEC_REGISTRY.get(classOf[String])
                                .encode(writer, s, encoderContext)
         case _: JsArray   => sys.error(s"Unsupported encoding of $value (as JsArray)")
@@ -48,14 +48,22 @@ trait Codecs {
         DEFAULT_CODEC_REGISTRY.get(clazz)
           .decode(reader, decoderContext)
 
+      println(s">>>>>>>> reader.getCurrentBsonType=${reader.getCurrentBsonType}")
+
       val json = reader.getCurrentBsonType match {
         case BsonType.BOOLEAN    => JsBoolean(decodeVal(classOf[Boolean]))
         case BsonType.DOUBLE
            | BsonType.INT32
            | BsonType.INT64
-           | BsonType.DECIMAL128 => JsNumber(decodeVal(classOf[BigDecimal]))
-        case BsonType.DOCUMENT   => Json.parse(decodeVal(classOf[Document]).toJson)
+           | BsonType.DECIMAL128 => val x = decodeVal(classOf[BigDecimal])
+                                    println(s">>>>>>>>> decoding BigDecimal: $x")
+                                    JsNumber(x)
+        case BsonType.DOCUMENT   => val x = decodeVal(classOf[Document])
+                                    println(s">>>>>>>>> decoding Document: $x")
+                                    println(s">>>>>>>>> decoding Document (as json): ${x.toJson}")
+                                    Json.parse(x.toJson)
         case BsonType.STRING     => JsString(decodeVal(classOf[String]))
+        case BsonType.NULL       => JsNull
         case other               => sys.error(s"Unsupported decoding of $other")
       }
 

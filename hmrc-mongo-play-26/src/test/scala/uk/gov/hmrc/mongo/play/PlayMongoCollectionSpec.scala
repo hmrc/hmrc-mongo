@@ -19,14 +19,15 @@ package uk.gov.hmrc.mongo.play
 import org.scalatest.{AppendedClues, Matchers, OptionValues, WordSpecLike}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.Matchers.{equal => equal2, _}
-import org.mongodb.scala.model.Filters
 import org.bson.codecs.configuration.{CodecRegistries, CodecRegistry}
-import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
+import com.mongodb.client.result.UpdateResult
 import org.mongodb.scala.{Completed, MongoCollection, MongoDatabase}
+import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
+import org.mongodb.scala.model.{Filters, Updates}
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.component.MongoComponent
-import uk.gov.hmrc.mongo.play.json.Codecs
+import uk.gov.hmrc.mongo.play.json.{Codecs, MongoFormats}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.reflect.ClassTag
@@ -47,13 +48,15 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures {
     optRegistry    = Some(CodecRegistries.fromCodecs(
                        Codecs.playFormatCodec(stringWrapperFormat),
                        Codecs.playFormatCodec(booleanWrapperFormat),
+                       Codecs.playFormatCodec(longWrapperFormat),
                        Codecs.playFormatCodec(astFormat)
                      )),
     indexes        = Seq.empty
   )
 
   "PlayMongoCollection.collection" should {
-    "work" in {
+
+    "read and write object with fields" in {
       mongoComponent.database
         .drop()
         .toFuture
@@ -63,31 +66,96 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures {
       val myObj = MyObject(
         string  = StringWrapper("strVal"),
         boolean = BooleanWrapper(true),
+        long    = LongWrapper(System.currentTimeMillis()),
         ast     = Ast.Ast1
       )
       val result = playMongoCollection.collection.insertOne(myObj).toFuture
       result.futureValue shouldBe Completed()
 
-      val myObj2 = playMongoCollection.collection.find().toFuture
-      myObj2.futureValue shouldBe List(myObj)
+      val writtenObj = playMongoCollection.collection.find().toFuture
+      writtenObj.futureValue shouldBe List(myObj)
+    }
 
-      val byString = playMongoCollection.collection.find(filter = Filters.equal("string", StringWrapper("strVal"))).toFuture
+    "filter by fields" in {
+      mongoComponent.database
+        .drop()
+        .toFuture
+        .futureValue
+
+      // TODO generate vals
+      val myObj = MyObject(
+        string  = StringWrapper("strVal"),
+        boolean = BooleanWrapper(true),
+        long    = LongWrapper(System.currentTimeMillis()),
+        ast     = Ast.Ast1
+      )
+      val result = playMongoCollection.collection.insertOne(myObj).toFuture
+      result.futureValue shouldBe Completed()
+
+      val byString = playMongoCollection.collection.find(filter = Filters.equal("string", myObj.string)).toFuture
       byString.futureValue shouldBe List(myObj)
 
-      val byBoolean = playMongoCollection.collection.find(filter = Filters.equal("boolean", BooleanWrapper(true))).toFuture
+      val byBoolean = playMongoCollection.collection.find(filter = Filters.equal("boolean", myObj.boolean)).toFuture
       byBoolean.futureValue shouldBe List(myObj)
 
-      val byAst = playMongoCollection.collection.find(filter = Filters.equal("ast", Ast.Ast1)).toFuture
+      val byLong = playMongoCollection.collection.find(filter = Filters.equal("long", myObj.long)).toFuture
+      byLong.futureValue shouldBe List(myObj)
+
+      val byAst = playMongoCollection.collection.find(filter = Filters.equal("ast", myObj.ast)).toFuture
       byAst.futureValue shouldBe List(myObj)
+    }
+
+    "update fields" in {
+      mongoComponent.database
+        .drop()
+        .toFuture
+        .futureValue
+
+      // TODO generate vals
+      val originalObj = MyObject(
+        string  = StringWrapper("strVal"),
+        boolean = BooleanWrapper(true),
+        long    = LongWrapper(System.currentTimeMillis()),
+        ast     = Ast.Ast1
+      )
+      val targetObj = MyObject(
+        string  = StringWrapper("strVal2"),
+        boolean = BooleanWrapper(false),
+        long    = LongWrapper(System.currentTimeMillis() + 1),
+        ast     = Ast.Ast2
+      )
+
+      val result = playMongoCollection.collection.insertOne(originalObj).toFuture
+      result.futureValue shouldBe Completed()
+
+      val byString = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("string", targetObj.string)).toFuture
+      byString.futureValue.wasAcknowledged shouldBe true
+
+      val byBoolean = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("boolean", targetObj.boolean)).toFuture
+      byBoolean.futureValue.wasAcknowledged shouldBe true
+
+      val byLong = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("long", targetObj.long)).toFuture
+      byLong.futureValue.wasAcknowledged shouldBe true
+
+      val byAst = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("ast", targetObj.ast)).toFuture
+      byAst.futureValue.wasAcknowledged shouldBe true
+
+      val writtenObj = playMongoCollection.collection.find().toFuture
+      writtenObj.futureValue shouldBe List(targetObj)
     }
   }
 }
 
 object PlayMongoCollectionSpec {
 
+  // TODO avoid this
+  implicit val lr = MongoFormats.longReads
+
   case class StringWrapper(unwrap: String) extends AnyVal
 
   case class BooleanWrapper(unwrap: Boolean) extends AnyVal
+
+  case class LongWrapper(unwrap: Long) extends AnyVal
 
   sealed trait Ast
   object Ast {
@@ -98,6 +166,7 @@ object PlayMongoCollectionSpec {
   case class MyObject(
     string : StringWrapper
   , boolean: BooleanWrapper
+  , long   : LongWrapper
   , ast    : Ast
   )
 
@@ -107,6 +176,12 @@ object PlayMongoCollectionSpec {
   implicit lazy val booleanWrapperFormat: Format[BooleanWrapper] =
     implicitly[Format[Boolean]].inmap(BooleanWrapper.apply, unlift(BooleanWrapper.unapply))
 
+  implicit lazy val longWrapperFormat: Format[LongWrapper] =
+    implicitly[Format[Long]].inmap(LongWrapper.apply, unlift(LongWrapper.unapply))
+
+  // TODO this is ineffective - codec is looked up by val.getClass
+  // i.e. classOf[Ast.Ast1] not classOf[Ast]
+  // codec macro would generate a codec for both Ast.Ast1 and Ast.Ast2
   implicit lazy val astFormat: Format[Ast] = new Format[Ast] {
     override def reads(js: JsValue) =
       js.validate[String]
@@ -125,6 +200,7 @@ object PlayMongoCollectionSpec {
   val myObjectFormat =
     ( (__ \ "string" ).format[StringWrapper]
     ~ (__ \ "boolean").format[BooleanWrapper]
+    ~ (__ \ "long"   ).format[LongWrapper]
     ~ (__ \ "ast"    ).format[Ast]
     )(MyObject.apply _, unlift(MyObject.unapply))
 }
