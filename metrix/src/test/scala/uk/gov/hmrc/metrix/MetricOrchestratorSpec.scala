@@ -22,12 +22,12 @@ import com.codahale.metrics.{Metric, MetricFilter, MetricRegistry}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.Inside._
+import org.scalatest.LoneElement
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
-import org.scalatest.{BeforeAndAfterEach, LoneElement}
 import uk.gov.hmrc.metrix.domain.{MetricRepository, MetricSource, PersistedMetric}
 import uk.gov.hmrc.metrix.persistence.MongoMetricRepository
 import uk.gov.hmrc.mongo.lock.{CurrentTimestampSupport, MongoLockRepository, MongoLockService}
-import uk.gov.hmrc.mongo.test.MongoCollectionSupport
+import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -37,17 +37,16 @@ class MetricOrchestratorSpec extends UnitSpec
   with ScalaFutures
   with Eventually
   with LoneElement
-  with MongoCollectionSupport
   with MockitoSugar
   with ArgumentMatchersSugar
   with IntegrationPatience
-  with BeforeAndAfterEach {
+  with DefaultMongoCollectionSupport {
 
   val metricRegistry = new MetricRegistry()
   private val mongoMetricRepository = new MongoMetricRepository(mongo = mongoComponent)
 
   override protected val collectionName: String = mongoMetricRepository.collectionName
-  override protected val indexes: Seq[IndexModel] = Seq.empty
+  override protected val indexes: Seq[IndexModel] = mongoMetricRepository.indexes
 
   private val mongoLockService: MongoLockService = new MongoLockService {
     override val lockId: String = "test-metrics"
@@ -57,15 +56,9 @@ class MetricOrchestratorSpec extends UnitSpec
 
   override def beforeEach(): Unit = {
     super.beforeEach()
-    removeAllDocuments()
     metricRegistry.removeMatching(new MetricFilter {
       override def matches(name: String, metric: Metric): Boolean = true
     })
-  }
-
-  override def afterEach(): Unit = {
-    super.afterEach()
-    removeAllDocuments()
   }
 
   def metricOrchestratorFor(sources: List[MetricSource],
@@ -82,7 +75,7 @@ class MetricOrchestratorSpec extends UnitSpec
 
   def sourceReturning(metricsMap: Map[String, Int]): MetricSource = {
     new MetricSource {
-      override def metrics(implicit ec: ExecutionContext) = {
+      override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] = {
         Future.successful(metricsMap)
       }
     }
@@ -93,7 +86,7 @@ class MetricOrchestratorSpec extends UnitSpec
     new MetricSource {
       var iteration = 0
 
-      override def metrics(implicit ec: ExecutionContext) = {
+      override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] = {
         if (iteration % 2 == 0) {
           iteration += 1
           Future.successful(firstMetricsMap)
@@ -172,7 +165,7 @@ class MetricOrchestratorSpec extends UnitSpec
       val orchestrator = metricOrchestratorFor(List(sourceReturning(acquiredMetrics)))
 
       orchestrator.attemptMetricRefresh(
-        skipReportingFor = Some((metric: PersistedMetric) => true)
+        skipReportingFor = Some((_: PersistedMetric) => true)
       ).futureValue shouldResultIn MetricsUpdatedAndRefreshed(acquiredMetrics, Seq.empty)
 
       metricRegistry.getGauges shouldBe empty
@@ -283,7 +276,7 @@ class MetricOrchestratorSpec extends UnitSpec
         override def lock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = Future(false)
       }
 
-      val lockService = MongoLockService(repository = lockRepo, lock = "test-lock", duration =  Duration(1, TimeUnit.MILLISECONDS))
+      val lockService = MongoLockService(repository = lockRepo, lock = "test-lock", duration = Duration(1, TimeUnit.MILLISECONDS))
 
       val orchestrator = new MetricOrchestrator(
         metricRepository = mockedMetricRepository,

@@ -16,15 +16,17 @@
 
 package uk.gov.hmrc.metrix.cache
 
+import java.util.concurrent.ConcurrentHashMap
+
 import uk.gov.hmrc.metrix.domain.PersistedMetric
 
-import scala.collection.mutable
+import scala.collection.convert.decorateAsScala._
 
 class MetricCache {
 
-  private val cache = mutable.Map[String, Int]()
+  private val cache = new ConcurrentHashMap[String, Int]().asScala
 
-  def refreshWith(allMetrics: List[PersistedMetric]):Unit = {
+  def refreshWith(allMetrics: List[PersistedMetric]):Unit = synchronized {
     allMetrics.foreach(m => cache.put(m.name, m.count))
     val asMap: Map[String, Int] = allMetrics.map(m => m.name -> m.count).toMap
     cache.keys.foreach(key => if (!asMap.contains(key)) cache.remove(key))

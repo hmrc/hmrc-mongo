@@ -16,7 +16,6 @@
 
 package uk.gov.hmrc.mongo.test
 
-import com.mongodb.BasicDBObject
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.{Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
 import org.scalatest.concurrent.ScalaFutures
@@ -94,9 +93,6 @@ trait MongoCollectionSupport extends MongoSupport {
     } else {
       Seq.empty
     }
-
-  protected def removeAllDocuments(): Unit =
-    mongoCollection().deleteMany(new BasicDBObject()).toFuture.futureValue
 
   override protected def prepareDatabase(): Unit = {
     super.prepareDatabase()
