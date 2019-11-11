@@ -16,34 +16,14 @@
 
 package uk.gov.hmrc.metrix
 
-import com.codahale.metrics.{Gauge, MetricRegistry}
+import com.codahale.metrics.MetricRegistry
 import play.api.Logger
+import uk.gov.hmrc.metrix.cache.MetricCache
 import uk.gov.hmrc.metrix.domain.{MetricRepository, MetricSource, PersistedMetric}
+import uk.gov.hmrc.metrix.gauge.CachedMetricGauge
 import uk.gov.hmrc.mongo.lock.MongoLockService
 
-import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-
-class MetricCache {
-
-  private val cache = mutable.Map[String, Int]()
-
-  def refreshWith(allMetrics: List[PersistedMetric]) = {
-    allMetrics.foreach(m => cache.put(m.name, m.count))
-    val asMap: Map[String, Int] = allMetrics.map(m => m.name -> m.count).toMap
-    cache.keys.foreach(key => if (!asMap.contains(key)) cache.remove(key))
-  }
-
-  def valueOf(name: String): Int = cache.getOrElse(name, 0)
-}
-
-final case class CachedMetricGauge(name: String, metrics: MetricCache) extends Gauge[Int] {
-  override def getValue: Int = {
-    val value = metrics.valueOf(name)
-    Logger.debug(s"Gauge for metric $name is reporting on value: $value")
-    value
-  }
-}
 
 trait MetricOrchestrationResult {
   def andLogTheResult()
@@ -73,7 +53,7 @@ final case class MetricsOnlyRefreshed(refreshedMetrics: List[PersistedMetric]) e
 
 
 class MetricOrchestrator(metricSources: List[MetricSource],
-                         lock: MongoLockService,
+                         lockService: MongoLockService,
                          metricRepository: MetricRepository,
                          metricRegistry: MetricRegistry) {
 
@@ -97,16 +77,20 @@ class MetricOrchestrator(metricSources: List[MetricSource],
 
   def attemptToUpdateAndRefreshMetrics(skipReportingOn: PersistedMetric => Boolean = doNotSkipAny)
                                       (implicit ec: ExecutionContext): Future[MetricOrchestrationResult] = {
-    lock.attemptLockWithRelease {
+    lockService.attemptLockWithRelease {
+      // Only the node that aquires the lock will execute the update of the repository
       updateMetricRepository()
     } flatMap { maybeUpdatedMetrics =>
+      // But all nodes will refresh all the metrics from that repository
       metricRepository.findAll() map { persistedMetrics =>
         persistedMetrics.filterNot(skipReportingOn)
       } map { filteredMetrics =>
+        // Update the internal cache from the repository
         metricCache.refreshWith(filteredMetrics)
 
         val currentGauges = metricRegistry.getGauges
 
+        // Register with DropWizard metric registry if not already there
         filteredMetrics
           .foreach(metric => if (!currentGauges.containsKey(metric.name))
             metricRegistry.register(metric.name, CachedMetricGauge(metric.name, metricCache)))
@@ -122,7 +106,7 @@ class MetricOrchestrator(metricSources: List[MetricSource],
   def attemptToUpdateRefreshAndResetMetrics(resetMetricOn: PersistedMetric => Boolean)
                                            (implicit ec: ExecutionContext): Future[MetricOrchestrationResult] = {
     for {
-      lockOnMetrics <- lock.attemptLockWithRelease(updateMetricRepository(Some(resetMetricOn)))
+      lockOnMetrics <- lockService.attemptLockWithRelease(updateMetricRepository(Some(resetMetricOn)))
       persistedMetrics <- metricRepository.findAll()
       _ = metricCache.refreshWith(persistedMetrics)
     } yield {

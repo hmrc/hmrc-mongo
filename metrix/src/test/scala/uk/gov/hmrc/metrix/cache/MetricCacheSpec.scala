@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix
+package uk.gov.hmrc.metrix.cache
 
+import uk.gov.hmrc.metrix.UnitSpec
 import uk.gov.hmrc.metrix.domain.PersistedMetric
 
 class MetricCacheSpec extends UnitSpec {

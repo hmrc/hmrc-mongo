@@ -14,13 +14,21 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix.domain
+package uk.gov.hmrc.metrix.cache
 
-import scala.concurrent.{ExecutionContext, Future}
+import uk.gov.hmrc.metrix.domain.PersistedMetric
 
-/**
- * A source of metrics to collect from your application
- */
-trait MetricSource {
-  def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]]
+import scala.collection.mutable
+
+class MetricCache {
+
+  private val cache = mutable.Map[String, Int]()
+
+  def refreshWith(allMetrics: List[PersistedMetric]):Unit = {
+    allMetrics.foreach(m => cache.put(m.name, m.count))
+    val asMap: Map[String, Int] = allMetrics.map(m => m.name -> m.count).toMap
+    cache.keys.foreach(key => if (!asMap.contains(key)) cache.remove(key))
+  }
+
+  def valueOf(name: String): Int = cache.getOrElse(name, 0)
 }

@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix.domain
+package uk.gov.hmrc.metrix.gauge
 
-import scala.concurrent.{ExecutionContext, Future}
+import com.codahale.metrics.Gauge
+import play.api.Logger
+import uk.gov.hmrc.metrix.cache.MetricCache
 
-/**
- * A source of metrics to collect from your application
- */
-trait MetricSource {
-  def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]]
+final case class CachedMetricGauge(name: String, metrics: MetricCache) extends Gauge[Int] {
+  override def getValue: Int = {
+    val value = metrics.valueOf(name)
+    Logger.debug(s"Gauge for metric $name is reporting on value: $value")
+    value
+  }
 }

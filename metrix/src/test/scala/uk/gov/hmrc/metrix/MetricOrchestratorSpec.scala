@@ -71,7 +71,7 @@ class MetricOrchestratorSpec extends UnitSpec
   def metricOrchestratorFor(sources: List[MetricSource],
                             metricRepository: MetricRepository = mongoMetricRepository) = new MetricOrchestrator(
     metricSources = sources,
-    lock = mongoLockService,
+    lockService = mongoLockService,
     metricRepository = metricRepository,
     metricRegistry = metricRegistry
   )
@@ -250,7 +250,7 @@ class MetricOrchestratorSpec extends UnitSpec
       val orchestrator = new MetricOrchestrator(
         metricRepository = metricRepository,
         metricSources = List(sourceReturning(acquiredMetrics)),
-        lock = mongoLockService,
+        lockService = mongoLockService,
         metricRegistry = metricRegistry
       )
 
@@ -288,7 +288,7 @@ class MetricOrchestratorSpec extends UnitSpec
       val orchestrator = new MetricOrchestrator(
         metricRepository = mockedMetricRepository,
         metricSources = List(sourceReturning(Map("a" -> 1, "b" -> 2))),
-        lock = lockService,
+        lockService = lockService,
         metricRegistry = metricRegistry
       )
 
