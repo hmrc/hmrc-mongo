@@ -51,7 +51,6 @@ final case class MetricsOnlyRefreshed(refreshedMetrics: List[PersistedMetric]) e
   }
 }
 
-
 class MetricOrchestrator(metricSources: List[MetricSource],
                          lockService: MongoLockService,
                          metricRepository: MetricRepository,
@@ -59,11 +58,12 @@ class MetricOrchestrator(metricSources: List[MetricSource],
 
   val metricCache = new MetricCache()
 
-  private def updateMetricRepository(resetOn: Option[PersistedMetric => Boolean] = None)(implicit ec: ExecutionContext): Future[Map[String, Int]] = {
-    val resetingFilter: PersistedMetric => Boolean = resetOn.getOrElse((_: PersistedMetric) => false)
+  private def updateMetricRepository(resetToZeroFor: Option[PersistedMetric => Boolean] = None)(implicit ec: ExecutionContext): Future[Map[String, Int]] = {
     for {
-      persistedMetrics <- if (resetOn.isDefined) metricRepository.findAll() else Future(List())
-      mapFromReset = persistedMetrics.filter(resetingFilter).map { case PersistedMetric(name, _) => name -> 0 }.toMap
+      mapFromReset <- resetToZeroFor match {
+        case Some(reset) => metricRepository.findAll().map(_.filter(reset).map{ case PersistedMetric(name, _) => name -> 0 }.toMap)
+        case None => Future(Map.empty[String, Int])
+      }
       mapFromSources <- Future.traverse(metricSources)(_.metrics)
       mapToPersist = (mapFromReset :: mapFromSources) reduce {
         _ ++ _
@@ -73,48 +73,35 @@ class MetricOrchestrator(metricSources: List[MetricSource],
     } yield mapToPersist
   }
 
-  private def doNotSkipAny(metric: PersistedMetric): Boolean = false
-
-  def attemptToUpdateAndRefreshMetrics(skipReportingOn: PersistedMetric => Boolean = doNotSkipAny)
-                                      (implicit ec: ExecutionContext): Future[MetricOrchestrationResult] = {
-    lockService.attemptLockWithRelease {
-      // Only the node that aquires the lock will execute the update of the repository
-      updateMetricRepository()
-    } flatMap { maybeUpdatedMetrics =>
-      // But all nodes will refresh all the metrics from that repository
-      metricRepository.findAll() map { persistedMetrics =>
-        persistedMetrics.filterNot(skipReportingOn)
-      } map { filteredMetrics =>
-        // Update the internal cache from the repository
-        metricCache.refreshWith(filteredMetrics)
-
-        val currentGauges = metricRegistry.getGauges
-
-        // Register with DropWizard metric registry if not already there
-        filteredMetrics
-          .foreach(metric => if (!currentGauges.containsKey(metric.name))
-            metricRegistry.register(metric.name, CachedMetricGauge(metric.name, metricCache)))
-
-        maybeUpdatedMetrics match {
-          case Some(updatedMetrics) => MetricsUpdatedAndRefreshed(updatedMetrics, filteredMetrics)
-          case None => MetricsOnlyRefreshed(filteredMetrics)
-        }
-      }
-    }
+  private def ensureMetricRegistered(persistedMetrics: List[PersistedMetric]): Unit = {
+    // Register with DropWizard metric registry if not already
+    val currentGauges = metricRegistry.getGauges
+    persistedMetrics
+      .foreach(metric => if (!currentGauges.containsKey(metric.name))
+        metricRegistry.register(metric.name, CachedMetricGauge(metric.name, metricCache)))
   }
 
-  def attemptToUpdateRefreshAndResetMetrics(resetMetricOn: PersistedMetric => Boolean)
-                                           (implicit ec: ExecutionContext): Future[MetricOrchestrationResult] = {
+  /**
+   * Attempt to hold the mongo-lock to update the persisted metrics (only one node will be successful doing this
+   * at a time). Whether successful or not acquiring the lock, refresh the internal metric cache from the
+   * metrics persisted in the repository.
+   * @param skipReportingFor optional filter; set to true for any metric that should be ignored from the refresh
+   * @param resetToZeroFor optional filter; set to true for any metric that should be reset to zero during the refresh
+   * @param ec execution context
+   * @return
+   */
+  def attemptMetricRefresh(skipReportingFor: Option[PersistedMetric => Boolean] = None,
+                           resetToZeroFor: Option[PersistedMetric => Boolean] = None)
+                          (implicit ec: ExecutionContext): Future[MetricOrchestrationResult] = {
     for {
-      lockOnMetrics <- lockService.attemptLockWithRelease(updateMetricRepository(Some(resetMetricOn)))
-      persistedMetrics <- metricRepository.findAll()
+      // Only the node that acquires the lock will execute the update of the repository
+      maybeUpdatedMetrics <- lockService.attemptLockWithRelease(updateMetricRepository(resetToZeroFor))
+      // But all nodes will refresh all the metrics from that repository
+      persistedMetrics <- metricRepository.findAll().map(_.filterNot(skipReportingFor.getOrElse(_ => false)))
       _ = metricCache.refreshWith(persistedMetrics)
     } yield {
-      val currentGauges = metricRegistry.getGauges.keySet()
-      persistedMetrics
-        .filterNot(metric => currentGauges.contains(metric.name))
-        .map(metric => metricRegistry.register(metric.name, CachedMetricGauge(metric.name, metricCache)))
-      lockOnMetrics match {
+      ensureMetricRegistered(persistedMetrics)
+      maybeUpdatedMetrics match {
         case Some(updatedMetrics) => MetricsUpdatedAndRefreshed(updatedMetrics, persistedMetrics)
         case None => MetricsOnlyRefreshed(persistedMetrics)
       }

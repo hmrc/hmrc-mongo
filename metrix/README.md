@@ -51,7 +51,7 @@ this information to graphite.
 ``` scala
 val mongoLockService = new MongoLockService {
   override def mongoLockRepository: MongoLockRepository  = new MongoLockRepository()
-  override val lockId: String                            = "write-your-lock-i"
+  override val lockId: String                            = "your-lock-id"
   override val ttl: Duration                             = Duration(schedulerConfig.frequency().toMillis, TimeUnit.MILLISECONDS)
 }
 
@@ -66,20 +66,14 @@ val metricOrchestrator new MetricOrchestrator(
 ```
 ## Example usage    
 ``` scala
-metricOrchestrator
-    .attemptToUpdateAndRefreshMetrics(
-      skipReportingOn = optionalFilterMethodForPersistedMetrics()
-    ).map(_.andLogTheResult())
+metricOrchestrator.attemptMetricRefresh().map(_.andLogTheResult())
     .recover { case e: RuntimeException => Logger.error(s"An error occurred processing metrics: ${e.getMessage}", e) }
 ```      
 
-``` scala
-metricOrchestrator
-    .attemptToUpdateRefreshAndResetMetrics(
-      resetMetricOn = optionalFilterMethodToResetMetrics()
-    ).map(_.andLogTheResult())
-    .recover { case e: RuntimeException => Logger.error(s"An error occurred processing metrics: ${e.getMessage}", e) }
-```     
+There are two filters of the form `(PersistedMetric => Boolean)` you can pass to the `attemptMetricRefresh` function:
+
+ * skipReportingFor => Disable reporting for a particular metric
+ * resetToZeroFor   => Set a particular metric to zero (reset it)
 
 ## Installing
  
