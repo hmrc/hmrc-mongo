@@ -41,27 +41,6 @@ trait MongoFormats {
 
   val objectIdFormats: Format[BsonObjectId] = Format(objectIdRead, objectIdWrite)
 
-  // This matches the default Writer[Long]
-  // will need explicitly importing to override the DefaultReads.LongReads
-  // These conversons were previously provided by https://github.com/cchantep/Reactivemongo-Play-Json/blob/master/src/main/scala/package.scala
-  // They will need to be provided for all internal mongo types.
-  // TODO avoid needing this by improving Bson to Json conversion (in Codecs.scala)
-  val longReads = Reads[Long] {
-    case JsNumber(n) if n.isValidLong => JsSuccess(n.toLong)
-    case JsNumber(n)                  => JsError(__, "error.expected.long")
-    case o @ JsObject(_)              => (o \ "$numberLong")
-                                           .validate[String]
-                                           .flatMap { s =>
-                                             Try(s.toLong) match {
-                                               case Success(l)   => JsSuccess(l)
-                                               case Failure(err) => JsError(__, s"Invalid Long $o; ${err.getMessage}")
-                                             }
-                                           }
-    case other                        => JsError(__, s"Invalid Long representation: $other")
-  }
-
-
-
   trait Implicits {
     implicit val objectIdFormats: Format[BsonObjectId] = outer.objectIdFormats
   }

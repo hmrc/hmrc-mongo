@@ -16,8 +16,9 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.{BsonNull, BsonReader, BsonWriter, BsonType}
+import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
+import org.bson.json.{JsonWriterSettings, JsonMode}
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.bson.collection.immutable.Document
 import play.api.libs.json._
@@ -32,13 +33,29 @@ trait Codecs {
     override def encode(writer: BsonWriter, value: A, encoderContext: EncoderContext): Unit =
       format.writes(value) match {
         case JsNull       => writer.writeNull()
-        case JsBoolean(b) => DEFAULT_CODEC_REGISTRY.get(classOf[java.lang.Boolean])
-                               .encode(writer, b, encoderContext)
-        case JsNumber(n)  => DEFAULT_CODEC_REGISTRY.get(classOf[java.math.BigDecimal])
-                               .encode(writer, n.bigDecimal, encoderContext)
-        case JsString(s)  => DEFAULT_CODEC_REGISTRY.get(classOf[String])
-                               .encode(writer, s, encoderContext)
-        case _: JsArray   => sys.error(s"Unsupported encoding of $value (as JsArray)")
+        case JsBoolean(b) => writer.writeBoolean(b)
+        // case JsNumber(n) if !n.ulp.isWhole => //DEFAULT_CODEC_REGISTRY.get(classOf[org.bson.BsonDouble])
+        //                                       //  .encode(writer, n, encoderContext)
+        //                                       println(s"*********** Writing Double: $n (${n.ulp}) ${n.doubleValue}")
+        //                                       writer.writeDouble(n.doubleValue)
+        case JsNumber(n) if n.isValidInt   => writer.writeInt32(n.intValue)
+        case JsNumber(n) if n.isValidLong  => writer.writeInt64(n.longValue)
+        case JsNumber(n) /*if n.isDecimalDouble*/ => //DEFAULT_CODEC_REGISTRY.get(classOf[org.bson.BsonDouble])
+                                              //  .encode(writer, n, encoderContext)
+                                              println(s"*********** Writing Double: $n (${n.ulp}) ${n.doubleValue}")
+                                              writer.writeDouble(n.doubleValue)
+        // case JsNumber(n)                   => //DEFAULT_CODEC_REGISTRY.get(classOf[org.bson.BsonInt64])
+        //                                       //  .encode(writer, n.bigDecimal, encoderContext)
+        //                                       // println(s"!!!!!!!!!!!!!!!!!! writing ${n.bigDecimal} as Decimal...")
+        //                                       // // Note, Decimal128 is written as { "$numberDecimal": "..." } and can't be converted to ... with JsonMode.RELAXED when reading back as document...
+        //                                       // writer.writeDecimal128(new org.bson.types.Decimal128(n.bigDecimal))
+        //                                       println(s"*********** Writing Other: $n (ulp: ${n.ulp}, isWhole: ${n.ulp.isWhole}) ${n.longValue}")
+        //                                       writer.writeDecimal128(new org.bson.types.Decimal128(n.bigDecimal))
+        //                                       //writer.writeInt64(n.longValue)
+        case JsString(s)  => writer.writeString(s)
+        case j: JsArray   => sys.error(s"Unsupported encoding of $value (as JsArray)")
+                            //  DEFAULT_CODEC_REGISTRY.get(classOf[org.bson.BsonArray])
+                            //    .encode(writer, BsonArray(), encoderContext)
         case o: JsObject  => DEFAULT_CODEC_REGISTRY.get(classOf[Document])
                                .encode(writer, Document(o.toString), encoderContext)
       }
@@ -59,9 +76,13 @@ trait Codecs {
                                     println(s">>>>>>>>> decoding BigDecimal: $x")
                                     JsNumber(x)
         case BsonType.DOCUMENT   => val x = decodeVal(classOf[Document])
-                                    println(s">>>>>>>>> decoding Document: $x")
-                                    println(s">>>>>>>>> decoding Document (as json): ${x.toJson}")
-                                    Json.parse(x.toJson)
+                                     // or alternative to Json skipping string step?
+
+                                     println(s">>>>>>>>> decoding Document: $x")
+                                     println(s">>>>>>>>> decoding Document (as json): ${x.toJson}")
+                                     println(s">>>>>>>>> decoding Document (as json relaxed): ${x.toJson(new JsonWriterSettings(JsonMode.RELAXED))}")
+
+                                    Json.parse(x.toJson(new JsonWriterSettings(JsonMode.RELAXED)))
         case BsonType.STRING     => JsString(decodeVal(classOf[String]))
         case BsonType.NULL       => JsNull
         case other               => sys.error(s"Unsupported decoding of $other")
