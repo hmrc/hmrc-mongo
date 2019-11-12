@@ -18,7 +18,7 @@ collecting, and will be shipped out by whatever method you are using.
 > `T getValue();`
 
 ## How data gathering works
-<img src="https://github.com/hmrc/hmrc-mongo/blob/master/metrix/diagrams/metrixDataGathering.png" width="500" alt="Metric Gathering">
+<img src="https://github.com/hmrc/hmrc-mongo/blob/master/hmrc-mongo-metrix-play-26/diagrams/metrixDataGathering.png" width="500" alt="Metric Gathering">
 
 Metrix has a very simple interface, and all metrics collected are a simple integer count.
 
@@ -37,7 +37,7 @@ for this operation. They also control the creation and registration of individua
 
 ## How reporting works
 
-<img src="https://github.com/hmrc/hmrc-mongo/blob/master/metrix/diagrams/metricReportingMechanism.png" width="250" alt="Metric Reporting">
+<img src="https://github.com/hmrc/hmrc-mongo/blob/master/hmrc-mongo-metrix-play-26/diagrams/metricReportingMechanism.png" width="250" alt="Metric Reporting">
 
 There is a CacheGauge registered in the MetricRegistry for each metric gathered from metric sources.
 
