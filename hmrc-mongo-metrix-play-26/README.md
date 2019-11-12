@@ -77,18 +77,18 @@ There are two filters of the form `(PersistedMetric => Boolean)` you can pass to
 
 ## Installing
  
-Metrix is now bundled with the `hmrc-mongo` library, which provides helper utilities for building systems with mongo.
+Metrix is now part of and versioned with the `hmrc-mongo` library, which provides helper utilities for building systems with mongo.
  
 Include the following dependency in your SBT build
  
 ``` scala
 resolvers += Resolver.bintrayRepo("hmrc", "releases")
  
-libraryDependencies += "uk.gov.hmrc" %% "hmrc-mongo" % "[INSERT-VERSION]" 
+libraryDependencies += "uk.gov.hmrc" %% "hmrc-mongo-metrix-play-26" % "[INSERT-VERSION]" 
 ```
 ## Compatibility
-Metrix since version 4.0.0 uses the official [mongo-scala](https://mongodb.github.io/mongo-scala-driver/) driver, instead of [ReactiveMongo](https://github.com/ReactiveMongo/ReactiveMongo) 
-which was used in previous releases. 
+Metrix uses the official [mongo-scala](https://mongodb.github.io/mongo-scala-driver/) driver, instead of [ReactiveMongo](https://github.com/ReactiveMongo/ReactiveMongo) 
+which was used in [previous (now deprecated) releases](https://github.com/hmrc/metrix) under the `metrix` (instead of `hmrc-mongo-metrix`) artifact ID. 
 
 ### License
 

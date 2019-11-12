@@ -65,7 +65,7 @@ lazy val hmrcMongoTest = Project("hmrc-mongo-test", file("hmrc-mongo-test"))
     )
   )
 
-lazy val metrixPlay26 = Project("metrix", file("metrix"))
+lazy val metrixPlay26 = Project("hmrc-mongo-metrix-play-26", file("hmrc-mongo-metrix-play-26"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .dependsOn(hmrcMongoPlay26 % Compile, hmrcMongoTest % Compile)
   .settings(
