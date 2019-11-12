@@ -50,31 +50,26 @@ class PlayMongoCollectionSpec
   }
 
   val playMongoCollection = new PlayMongoCollection[MyObject](
-    mongoComponent = mongoComponent,
-    collectionName = "myobject",
-    domainFormat   = myObjectFormat,
-    optRegistry    = Some(CodecRegistries.fromCodecs(
-                       Codecs.playFormatCodec(stringWrapperFormat),
-                       Codecs.playFormatCodec(booleanWrapperFormat),
-                       Codecs.playFormatCodec(intWrapperFormat),
-                       Codecs.playFormatCodec(longWrapperFormat),
-                       Codecs.playFormatCodec(doubleWrapperFormat),
-                      //  Codecs.playFormatCodec(bigDecimalWrapperFormat),
-                       Codecs.playFormatCodec(astFormat)
-                     )),
-    indexes        = Seq.empty
-  )
+      mongoComponent = mongoComponent
+    , collectionName = "myobject"
+    , domainFormat   = myObjectFormat
+    , optRegistry    = Some(CodecRegistries.fromCodecs(
+                         Codecs.playFormatCodec(stringWrapperFormat)
+                       , Codecs.playFormatCodec(booleanWrapperFormat)
+                       , Codecs.playFormatCodec(intWrapperFormat)
+                       , Codecs.playFormatCodec(longWrapperFormat)
+                       , Codecs.playFormatCodec(doubleWrapperFormat)
+                       , Codecs.playFormatCodec(bigDecimalWrapperFormat)
+                       , Codecs.playFormatCodec(astFormat)
+                       ))
+    , indexes        = Seq.empty
+    )
 
   "PlayMongoCollection.collection" should {
 
     "read and write object with fields" in {
-
-      // val ncodec = org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY.get(classOf[java.math.BigDecimal])
-      // println(s"ncodec=$ncodec")
-
       forAll(myObjectGen) { myObj =>
         dropDatabase()
-
         val result = playMongoCollection.collection.insertOne(myObj).toFuture
         result.futureValue shouldBe Completed()
 
@@ -105,6 +100,8 @@ class PlayMongoCollectionSpec
         val byDouble = playMongoCollection.collection.find(filter = Filters.equal("double", myObj.double)).toFuture
         byDouble.futureValue shouldBe List(myObj)
 
+        val byBigDecimal = playMongoCollection.collection.find(filter = Filters.equal("bigDecimal", myObj.bigDecimal)).toFuture
+        byBigDecimal.futureValue shouldBe List(myObj)
 
         // val byAst = playMongoCollection.collection.find(filter = Filters.equal("ast", myObj.ast)).toFuture
         // byAst.futureValue shouldBe List(myObj)
@@ -114,9 +111,6 @@ class PlayMongoCollectionSpec
     "update fields" in {
       forAll(myObjectGen) { originalObj =>
         forAll(myObjectGen suchThat(_ != originalObj)) { targetObj =>
-          println(s"\n\n£££ Testing with $originalObj and $targetObj")
-          println(s"${originalObj.double} -> ${BigDecimal(originalObj.double.unwrap).isValidDouble}\n" +
-           s"${BigDecimal(targetObj.double.unwrap).isValidDouble}")
           dropDatabase()
 
           val result = playMongoCollection.collection.insertOne(originalObj).toFuture
@@ -137,6 +131,9 @@ class PlayMongoCollectionSpec
           val byDouble = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("double", targetObj.double)).toFuture
           byDouble.futureValue.wasAcknowledged shouldBe true
 
+          val byBigDecimal = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("bigDecimal", targetObj.bigDecimal)).toFuture
+          byBigDecimal.futureValue.wasAcknowledged shouldBe true
+
           // val byAst = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("ast", targetObj.ast)).toFuture
           // byAst.futureValue.wasAcknowledged shouldBe true
 
@@ -156,15 +153,12 @@ class PlayMongoCollectionSpec
 
 object PlayMongoCollectionSpec {
 
-  // TODO avoid this
-  //implicit val lr = MongoFormats.longReads
-
   case class StringWrapper    (unwrap: String    ) extends AnyVal
   case class BooleanWrapper   (unwrap: Boolean   ) extends AnyVal
   case class IntWrapper       (unwrap: Int       ) extends AnyVal
   case class LongWrapper      (unwrap: Long      ) extends AnyVal
   case class DoubleWrapper    (unwrap: Double    ) extends AnyVal
-  //case class BigDecimalWrapper(unwrap: BigDecimal) extends AnyVal
+  case class BigDecimalWrapper(unwrap: BigDecimal) extends AnyVal
 
   sealed trait Ast
   object Ast {
@@ -178,7 +172,7 @@ object PlayMongoCollectionSpec {
   , int       : IntWrapper
   , long      : LongWrapper
   , double    : DoubleWrapper
-  //, bigDecimal: BigDecimalWrapper
+  , bigDecimal: BigDecimalWrapper
   , ast       : Ast
   )
 
@@ -197,13 +191,13 @@ object PlayMongoCollectionSpec {
   implicit lazy val doubleWrapperFormat: Format[DoubleWrapper] =
     implicitly[Format[Double]].inmap(DoubleWrapper.apply, unlift(DoubleWrapper.unapply))
 
-  // implicit lazy val bigDecimalWrapperFormat: Format[BigDecimalWrapper] =
-  //   implicitly[Format[BigDecimal]].inmap(BigDecimalWrapper.apply, unlift(BigDecimalWrapper.unapply))
+  implicit lazy val bigDecimalWrapperFormat: Format[BigDecimalWrapper] =
+    implicitly[Format[BigDecimal]].inmap(BigDecimalWrapper.apply, unlift(BigDecimalWrapper.unapply))
 
 
   // TODO this is ineffective - codec is looked up by val.getClass
   // i.e. classOf[Ast.Ast1] not classOf[Ast]
-  // codec macro would generate a codec for both Ast.Ast1 and Ast.Ast2
+  // Note, codec macro would generate a codec for both classOf[Ast.Ast1] and classOf[Ast.Ast2]
   implicit lazy val astFormat: Format[Ast] = new Format[Ast] {
     override def reads(js: JsValue) =
       js.validate[String]
@@ -225,7 +219,7 @@ object PlayMongoCollectionSpec {
     ~ (__ \ "int"       ).format[IntWrapper]
     ~ (__ \ "long"      ).format[LongWrapper]
     ~ (__ \ "double"    ).format[DoubleWrapper]
-//    ~ (__ \ "bigDecimal").format[BigDecimalWrapper]
+    ~ (__ \ "bigDecimal").format[BigDecimalWrapper]
     ~ (__ \ "ast"       ).format[Ast]
     )(MyObject.apply _, unlift(MyObject.unapply))
 
@@ -237,9 +231,9 @@ object PlayMongoCollectionSpec {
       i  <- Arbitrary.arbitrary[Int]
       l  <- Arbitrary.arbitrary[Long]
       d  <- Arbitrary.arbitrary[Double]
-      //d  <- Arbitrary.arbitrary[Double] suchThat (d => BigDecimal(d).isValidDouble)
-      //d  <- Gen.choose(Double.MinValue + 1, Double.MaxValue - 1)
-  //    bd <- Arbitrary.arbitrary[BigDecimal]
+      bd <- Arbitrary.arbitrary[BigDecimal]
+              // TODO is it reasonable to only handle BigDecimal within Decimal128 range?
+              .suchThat(bd => scala.util.Try(new org.bson.types.Decimal128(bd.bigDecimal)).isSuccess)
     } yield
       MyObject(
           string     = StringWrapper(s)
@@ -247,7 +241,7 @@ object PlayMongoCollectionSpec {
         , int        = IntWrapper(i)
         , long       = LongWrapper(l)
         , double     = DoubleWrapper(d)
-  //      , bigDecimal = BigDecimalWrapper(bd)
+        , bigDecimal = BigDecimalWrapper(bd)
         , ast        = Ast.Ast1
         )
 }

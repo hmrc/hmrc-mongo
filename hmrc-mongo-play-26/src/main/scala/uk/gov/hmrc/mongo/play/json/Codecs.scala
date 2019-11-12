@@ -16,77 +16,90 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import org.bson.{BsonNull, BsonReader, BsonWriter, BsonType}
-import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
-import org.bson.json.{JsonWriterSettings, JsonMode}
+import org.bson._
+import org.bson.codecs.{BsonTypeCodecMap, Codec, DecoderContext, EncoderContext}
+import org.bson.json.{JsonMode, JsonWriter, JsonWriterSettings}
+import org.bson.types.Decimal128
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.bson.collection.immutable.Document
 import play.api.libs.json._
+import scala.collection.JavaConverters._
 
 import scala.reflect.ClassTag
 
 trait Codecs {
   def playFormatCodec[A](format: Format[A])(implicit ct: ClassTag[A]): Codec[A] = new Codec[A] {
+    private val bsonDocumentCodec = DEFAULT_CODEC_REGISTRY.get(classOf[BsonDocument])
+    private val bsonValueCodec    = DEFAULT_CODEC_REGISTRY.get(classOf[BsonValue])
+    private val bsonTypeCodecMap  =
+      new BsonTypeCodecMap(org.bson.codecs.BsonValueCodecProvider.getBsonTypeClassMap(), DEFAULT_CODEC_REGISTRY)
+
     override def getEncoderClass: Class[A] =
       ct.runtimeClass.asInstanceOf[Class[A]]
 
-    override def encode(writer: BsonWriter, value: A, encoderContext: EncoderContext): Unit =
-      format.writes(value) match {
-        case JsNull       => writer.writeNull()
-        case JsBoolean(b) => writer.writeBoolean(b)
-        // case JsNumber(n) if !n.ulp.isWhole => //DEFAULT_CODEC_REGISTRY.get(classOf[org.bson.BsonDouble])
-        //                                       //  .encode(writer, n, encoderContext)
-        //                                       println(s"*********** Writing Double: $n (${n.ulp}) ${n.doubleValue}")
-        //                                       writer.writeDouble(n.doubleValue)
-        case JsNumber(n) if n.isValidInt   => writer.writeInt32(n.intValue)
-        case JsNumber(n) if n.isValidLong  => writer.writeInt64(n.longValue)
-        case JsNumber(n) /*if n.isDecimalDouble*/ => //DEFAULT_CODEC_REGISTRY.get(classOf[org.bson.BsonDouble])
-                                              //  .encode(writer, n, encoderContext)
-                                              println(s"*********** Writing Double: $n (${n.ulp}) ${n.doubleValue}")
-                                              writer.writeDouble(n.doubleValue)
-        // case JsNumber(n)                   => //DEFAULT_CODEC_REGISTRY.get(classOf[org.bson.BsonInt64])
-        //                                       //  .encode(writer, n.bigDecimal, encoderContext)
-        //                                       // println(s"!!!!!!!!!!!!!!!!!! writing ${n.bigDecimal} as Decimal...")
-        //                                       // // Note, Decimal128 is written as { "$numberDecimal": "..." } and can't be converted to ... with JsonMode.RELAXED when reading back as document...
-        //                                       // writer.writeDecimal128(new org.bson.types.Decimal128(n.bigDecimal))
-        //                                       println(s"*********** Writing Other: $n (ulp: ${n.ulp}, isWhole: ${n.ulp.isWhole}) ${n.longValue}")
-        //                                       writer.writeDecimal128(new org.bson.types.Decimal128(n.bigDecimal))
-        //                                       //writer.writeInt64(n.longValue)
-        case JsString(s)  => writer.writeString(s)
-        case j: JsArray   => sys.error(s"Unsupported encoding of $value (as JsArray)")
-                            //  DEFAULT_CODEC_REGISTRY.get(classOf[org.bson.BsonArray])
-                            //    .encode(writer, BsonArray(), encoderContext)
-        case o: JsObject  => DEFAULT_CODEC_REGISTRY.get(classOf[Document])
-                               .encode(writer, Document(o.toString), encoderContext)
+    override def encode(writer: BsonWriter, value: A, encoderContext: EncoderContext): Unit = {
+      val bs: BsonValue = jsonToBson(format.writes(value))
+      bsonValueCodec.encode(writer, bs, encoderContext)
+    }
+
+    def jsonToBson(js: JsValue): BsonValue =
+      js match {
+        case JsNull                           => BsonNull.VALUE
+        case JsBoolean(b)                     => BsonBoolean.valueOf(b)
+        case JsNumber(n) if n.isValidInt      => new BsonInt32(n.intValue)
+        case JsNumber(n) if n.isValidLong     => new BsonInt64(n.longValue)
+        case JsNumber(n) if n.isDecimalDouble => new BsonDouble(n.doubleValue)
+        case JsNumber(n)                      => println(s"Converting $n");
+                                                 val res = new BsonDecimal128(new Decimal128(n.bigDecimal))
+                                                 // How to handle `java.lang.NumberFormatException, with message: Conversion to Decimal128 would require inexact rounding of -4.2176255923279509728936555398034786404E-54.`
+                                                 // Alternative format? For now, avoiding in BigDecimal test data generation.
+                                                 println(s"Converted $res");
+                                                 res
+        case JsString(s)                      => new BsonString(s)
+        case JsArray(a)                       => new BsonArray(a.map(jsonToBson).asJava)
+        case o: JsObject                      => new BsonDocument(
+                                                   o.fields.map { case (k, v) =>
+                                                     new BsonElement(k, jsonToBson(v))
+                                                   }.asJava
+                                                 )
       }
+
+    def bsonToJson(bs: BsonValue): JsValue =
+      bs match {
+        case _ : BsonNull       => JsNull
+        case b : BsonBoolean    => JsBoolean(b.getValue)
+        case i : BsonInt32      => JsNumber(i.getValue)
+        case l : BsonInt64      => JsNumber(l.getValue)
+        case d : BsonDouble     => JsNumber(d.getValue)
+        case bd: BsonDecimal128 => JsNumber(bd.getValue.bigDecimalValue) // * @throws ArithmeticException if the Decimal128 value is NaN, Infinity, -Infinity, or -0, none of which can be represented as a
+        case s : BsonString     => JsString(s.getValue)
+        case d : BsonDocument   => JsObject(
+                                     d.asScala.map { case (k, v) => (k, bsonToJson(v)) }
+                                   )
+        case other              => // other types, attempt to convert to json object (Strict = `MongoDB Extended JSON format`)
+                                   toJsonDefault(other, JsonMode.STRICT) match {
+                                     case JsDefined(s)   => println(s"Converted $other to $s"); s
+                                     case _: JsUndefined => println(s"Could not convert $other to Json"); JsNull
+                                   }
+      }
+
+    def toJsonDefault(bs: BsonValue, mode: JsonMode): JsLookupResult = {
+      // wrap value in a document inorder to reuse the document -> JsonString, then extract
+      val writer = new java.io.StringWriter
+      val doc = new BsonDocument("tempKey", bs)
+      bsonDocumentCodec.encode(new JsonWriter(writer, new JsonWriterSettings(mode)), doc, EncoderContext.builder.build)
+      Json.parse(writer.toString) \ "tempKey"
+    }
 
     override def decode(reader: BsonReader, decoderContext: DecoderContext): A = {
-      def decodeVal[T](clazz: Class[T]) =
-        DEFAULT_CODEC_REGISTRY.get(clazz)
-          .decode(reader, decoderContext)
-
       println(s">>>>>>>> reader.getCurrentBsonType=${reader.getCurrentBsonType}")
 
-      val json = reader.getCurrentBsonType match {
-        case BsonType.BOOLEAN    => JsBoolean(decodeVal(classOf[Boolean]))
-        case BsonType.DOUBLE
-           | BsonType.INT32
-           | BsonType.INT64
-           | BsonType.DECIMAL128 => val x = decodeVal(classOf[BigDecimal])
-                                    println(s">>>>>>>>> decoding BigDecimal: $x")
-                                    JsNumber(x)
-        case BsonType.DOCUMENT   => val x = decodeVal(classOf[Document])
-                                     // or alternative to Json skipping string step?
+      val bs: BsonValue =
+        bsonTypeCodecMap.get(reader.getCurrentBsonType)
+          .decode(reader, decoderContext)
+          .asInstanceOf[BsonValue]
 
-                                     println(s">>>>>>>>> decoding Document: $x")
-                                     println(s">>>>>>>>> decoding Document (as json): ${x.toJson}")
-                                     println(s">>>>>>>>> decoding Document (as json relaxed): ${x.toJson(new JsonWriterSettings(JsonMode.RELAXED))}")
-
-                                    Json.parse(x.toJson(new JsonWriterSettings(JsonMode.RELAXED)))
-        case BsonType.STRING     => JsString(decodeVal(classOf[String]))
-        case BsonType.NULL       => JsNull
-        case other               => sys.error(s"Unsupported decoding of $other")
-      }
+      val json = bsonToJson(bs)
 
       format.reads(json) match {
         case JsSuccess(v, _) => v
