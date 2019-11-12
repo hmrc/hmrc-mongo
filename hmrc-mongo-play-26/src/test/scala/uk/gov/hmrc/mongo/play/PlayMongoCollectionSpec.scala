@@ -16,9 +16,11 @@
 
 package uk.gov.hmrc.mongo.play
 
+import org.scalacheck.{Arbitrary, Prop}
 import org.scalatest.{AppendedClues, Matchers, OptionValues, WordSpecLike}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.Matchers.{equal => equal2, _}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.bson.codecs.configuration.{CodecRegistries, CodecRegistry}
 import com.mongodb.client.result.UpdateResult
 import org.mongodb.scala.{Completed, MongoCollection, MongoDatabase}
@@ -29,17 +31,23 @@ import play.api.libs.json._
 import uk.gov.hmrc.mongo.component.MongoComponent
 import uk.gov.hmrc.mongo.play.json.{Codecs, MongoFormats}
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.reflect.ClassTag
 
-class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures {
+class PlayMongoCollectionSpec
+  extends WordSpecLike
+     with ScalaFutures
+     with ScalaCheckDrivenPropertyChecks {
+
   import PlayMongoCollectionSpec._
+
+  override implicit val patienceConfig: PatienceConfig = PatienceConfig(5.seconds)
 
   val mongoComponent = {
     val databaseName: String = "test-" + this.getClass.getSimpleName
     MongoComponent(mongoUri = s"mongodb://localhost:27017/$databaseName")
   }
-
 
   val playMongoCollection = new PlayMongoCollection[MyObject](
     mongoComponent = mongoComponent,
@@ -57,93 +65,74 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures {
   "PlayMongoCollection.collection" should {
 
     "read and write object with fields" in {
-      mongoComponent.database
-        .drop()
-        .toFuture
-        .futureValue
 
-      // TODO generate vals
-      val myObj = MyObject(
-        string  = StringWrapper("strVal"),
-        boolean = BooleanWrapper(true),
-        long    = LongWrapper(System.currentTimeMillis()),
-        ast     = Ast.Ast1
-      )
-      val result = playMongoCollection.collection.insertOne(myObj).toFuture
-      result.futureValue shouldBe Completed()
+      // val ncodec = org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY.get(classOf[java.math.BigDecimal])
+      // println(s"ncodec=$ncodec")
 
-      val writtenObj = playMongoCollection.collection.find().toFuture
-      writtenObj.futureValue shouldBe List(myObj)
+      forAll(myObjectGen) { myObj =>
+        dropDatabase()
+
+        val result = playMongoCollection.collection.insertOne(myObj).toFuture
+        result.futureValue shouldBe Completed()
+
+        val writtenObj = playMongoCollection.collection.find().toFuture
+        writtenObj.futureValue shouldBe List(myObj)
+      }
     }
 
     "filter by fields" in {
-      mongoComponent.database
-        .drop()
-        .toFuture
-        .futureValue
+      forAll(myObjectGen) { myObj =>
+        dropDatabase()
 
-      // TODO generate vals
-      val myObj = MyObject(
-        string  = StringWrapper("strVal"),
-        boolean = BooleanWrapper(true),
-        long    = LongWrapper(System.currentTimeMillis()),
-        ast     = Ast.Ast1
-      )
-      val result = playMongoCollection.collection.insertOne(myObj).toFuture
-      result.futureValue shouldBe Completed()
+        val result = playMongoCollection.collection.insertOne(myObj).toFuture
+        result.futureValue shouldBe Completed()
 
-      val byString = playMongoCollection.collection.find(filter = Filters.equal("string", myObj.string)).toFuture
-      byString.futureValue shouldBe List(myObj)
+        val byString = playMongoCollection.collection.find(filter = Filters.equal("string", myObj.string)).toFuture
+        byString.futureValue shouldBe List(myObj)
 
-      val byBoolean = playMongoCollection.collection.find(filter = Filters.equal("boolean", myObj.boolean)).toFuture
-      byBoolean.futureValue shouldBe List(myObj)
+        val byBoolean = playMongoCollection.collection.find(filter = Filters.equal("boolean", myObj.boolean)).toFuture
+        byBoolean.futureValue shouldBe List(myObj)
 
-      val byLong = playMongoCollection.collection.find(filter = Filters.equal("long", myObj.long)).toFuture
-      byLong.futureValue shouldBe List(myObj)
+        val byLong = playMongoCollection.collection.find(filter = Filters.equal("long", myObj.long)).toFuture
+        byLong.futureValue shouldBe List(myObj)
 
-      val byAst = playMongoCollection.collection.find(filter = Filters.equal("ast", myObj.ast)).toFuture
-      byAst.futureValue shouldBe List(myObj)
+        val byAst = playMongoCollection.collection.find(filter = Filters.equal("ast", myObj.ast)).toFuture
+        byAst.futureValue shouldBe List(myObj)
+      }
     }
 
     "update fields" in {
-      mongoComponent.database
-        .drop()
-        .toFuture
-        .futureValue
+      forAll(myObjectGen) { originalObj =>
+        forAll(myObjectGen suchThat(_ != originalObj)) { targetObj =>
+          dropDatabase()
 
-      // TODO generate vals
-      val originalObj = MyObject(
-        string  = StringWrapper("strVal"),
-        boolean = BooleanWrapper(true),
-        long    = LongWrapper(System.currentTimeMillis()),
-        ast     = Ast.Ast1
-      )
-      val targetObj = MyObject(
-        string  = StringWrapper("strVal2"),
-        boolean = BooleanWrapper(false),
-        long    = LongWrapper(System.currentTimeMillis() + 1),
-        ast     = Ast.Ast2
-      )
+          val result = playMongoCollection.collection.insertOne(originalObj).toFuture
+          result.futureValue shouldBe Completed()
 
-      val result = playMongoCollection.collection.insertOne(originalObj).toFuture
-      result.futureValue shouldBe Completed()
+          val byString = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("string", targetObj.string)).toFuture
+          byString.futureValue.wasAcknowledged shouldBe true
 
-      val byString = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("string", targetObj.string)).toFuture
-      byString.futureValue.wasAcknowledged shouldBe true
+          val byBoolean = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("boolean", targetObj.boolean)).toFuture
+          byBoolean.futureValue.wasAcknowledged shouldBe true
 
-      val byBoolean = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("boolean", targetObj.boolean)).toFuture
-      byBoolean.futureValue.wasAcknowledged shouldBe true
+          val byLong = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("long", targetObj.long)).toFuture
+          byLong.futureValue.wasAcknowledged shouldBe true
 
-      val byLong = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("long", targetObj.long)).toFuture
-      byLong.futureValue.wasAcknowledged shouldBe true
+          val byAst = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("ast", targetObj.ast)).toFuture
+          byAst.futureValue.wasAcknowledged shouldBe true
 
-      val byAst = playMongoCollection.collection.updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set("ast", targetObj.ast)).toFuture
-      byAst.futureValue.wasAcknowledged shouldBe true
-
-      val writtenObj = playMongoCollection.collection.find().toFuture
-      writtenObj.futureValue shouldBe List(targetObj)
+          val writtenObj = playMongoCollection.collection.find().toFuture
+          writtenObj.futureValue shouldBe List(targetObj)
+        }
+      }
     }
   }
+
+  def dropDatabase() =
+    mongoComponent.database
+      .drop()
+      .toFuture
+      .futureValue
 }
 
 object PlayMongoCollectionSpec {
@@ -203,4 +192,19 @@ object PlayMongoCollectionSpec {
     ~ (__ \ "long"   ).format[LongWrapper]
     ~ (__ \ "ast"    ).format[Ast]
     )(MyObject.apply _, unlift(MyObject.unapply))
+
+
+  def myObjectGen =
+    for {
+      s <- Arbitrary.arbitrary[String]
+      b <- Arbitrary.arbitrary[Boolean]
+      l <- Arbitrary.arbitrary[Long]
+    } yield
+      MyObject(
+        string  = StringWrapper(s),
+        boolean = BooleanWrapper(b),
+        long    = LongWrapper(l),
+        ast     = Ast.Ast1
+      )
+
 }
