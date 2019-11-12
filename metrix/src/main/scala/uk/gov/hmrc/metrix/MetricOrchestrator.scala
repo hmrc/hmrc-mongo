@@ -73,6 +73,14 @@ class MetricOrchestrator(metricSources: List[MetricSource],
     } yield mapToPersist
   }
 
+  private def ensureMetricRegistered(persistedMetrics: List[PersistedMetric]): Unit = {
+    // Register with DropWizard metric registry if not already
+    val currentGauges = metricRegistry.getGauges
+    persistedMetrics
+      .foreach(metric => if (!currentGauges.containsKey(metric.name))
+        metricRegistry.register(metric.name, CachedMetricGauge(metric.name, metricCache)))
+  }
+
   /**
    * Attempt to hold the mongo-lock to update the persisted metrics (only one node will be successful doing this
    * at a time). Whether successful or not acquiring the lock, refresh the internal metric cache from the
@@ -92,11 +100,9 @@ class MetricOrchestrator(metricSources: List[MetricSource],
       // But all nodes will refresh all the metrics from that repository
       persistedMetrics <- metricRepository.findAll().map(_.filterNot(skipReportingFor.getOrElse(_ => false)))
       _ = metricCache.refreshWith(persistedMetrics)
-    } yield {
       // Register with DropWizard metric registry if not already
-      persistedMetrics
-        .foreach(metric => if (!metricRegistry.getGauges.containsKey(metric.name))
-          metricRegistry.register(metric.name, CachedMetricGauge(metric.name, metricCache)))
+      _ = ensureMetricRegistered(persistedMetrics)
+    } yield {
       maybeUpdatedMetrics match {
         case Some(updatedMetrics) => MetricsUpdatedAndRefreshed(updatedMetrics, persistedMetrics)
         case None => MetricsOnlyRefreshed(persistedMetrics)
