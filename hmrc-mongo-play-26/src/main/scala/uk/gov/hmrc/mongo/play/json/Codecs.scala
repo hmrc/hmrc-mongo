@@ -49,7 +49,7 @@ trait Codecs {
         case JsNumber(n) if n.isValidInt      => new BsonInt32(n.intValue)
         case JsNumber(n) if n.isValidLong     => new BsonInt64(n.longValue)
         case JsNumber(n) if n.isDecimalDouble => new BsonDouble(n.doubleValue)
-        case JsNumber(n)                      => println(s"Converting $n");
+        case JsNumber(n)                      => println(s"Converting Number: $n");
                                                  val res = new BsonDecimal128(new Decimal128(n.bigDecimal))
                                                  // How to handle `java.lang.NumberFormatException, with message: Conversion to Decimal128 would require inexact rounding of -4.2176255923279509728936555398034786404E-54.`
                                                  // Alternative format? For now, avoiding in BigDecimal test data generation.
@@ -57,11 +57,22 @@ trait Codecs {
                                                  res
         case JsString(s)                      => new BsonString(s)
         case JsArray(a)                       => new BsonArray(a.map(jsonToBson).asJava)
-        case o: JsObject                      => new BsonDocument(
-                                                   o.fields.map { case (k, v) =>
-                                                     new BsonElement(k, jsonToBson(v))
-                                                   }.asJava
-                                                 )
+        case o: JsObject                      => println(s"Converting Doc: $o")
+                                                 val res =
+                                                   if (o.keys.exists(k => k.startsWith("$") && !List("$numberDecimal", "$numberLong").contains(k)))
+                                                     // mongo types, identified with $ in `MongoDB Extended JSON format`  (e.g. BsonObjectId, BsonDateTime)
+                                                     // should use default conversion to Json. Then PlayJsonReaders will then convert as appropriate
+                                                     // The exception are numbers handled above (otherwise precision of $numberDecimal will be lost)
+                                                     fromJsonDefault(o)
+                                                   else
+                                                     new BsonDocument(
+                                                       o.fields.map { case (k, v) =>
+                                                         new BsonElement(k, jsonToBson(v))
+                                                       }.asJava
+                                                     )
+                                                 println(s"Converted $res")
+                                                 res
+
       }
 
     def bsonToJson(bs: BsonValue): JsValue =
@@ -89,6 +100,13 @@ trait Codecs {
       val doc = new BsonDocument("tempKey", bs)
       bsonDocumentCodec.encode(new JsonWriter(writer, new JsonWriterSettings(mode)), doc, EncoderContext.builder.build)
       Json.parse(writer.toString) \ "tempKey"
+    }
+
+    def fromJsonDefault(o: JsObject): BsonValue = {
+      // wrap value in a document inorder to reuse the Json -> document, then extract
+      val o2 = JsObject(Seq(("tempKey", o)))
+      val doc = BsonDocument.parse(o2.toString) // bsonDocumentCodec.decode(new JsonReader(json), DecoderContext.builder.build)
+      doc.get("tempKey")
     }
 
     override def decode(reader: BsonReader, decoderContext: DecoderContext): A = {
