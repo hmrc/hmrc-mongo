@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import java.time._
+import java.time.{Instant, LocalDate, LocalDateTime, ZoneId, ZoneOffset}
 
 import play.api.libs.json._
 
@@ -24,6 +24,8 @@ import scala.util.{Success, Try}
 
 trait MongoJavatimeFormats {
   outer =>
+
+  // Instant
 
   val instantWrites: Writes[Instant] = new Writes[Instant] {
     def writes(datetime: Instant): JsValue = Json.obj("$date" -> datetime.toEpochMilli)
@@ -34,24 +36,7 @@ trait MongoJavatimeFormats {
 
   val instantFormats: Format[Instant] = Format(instantReads, instantWrites)
 
-  val localDateAsStringWrites: Writes[LocalDate] = new Writes[LocalDate] {
-    def writes(d: LocalDate): JsValue =
-      JsString(d.toString)
-  }
-
-  val localDateAsStringReads: Reads[LocalDate] = new Reads[LocalDate] {
-
-    def reads(json: JsValue): JsResult[LocalDate] = json match {
-      case JsString(s) =>
-        Try(LocalDate.parse(s)) match {
-          case Success(d) => JsSuccess(d)
-          case _          => JsError(__, "error.expected.jodadate.format")
-        }
-      case _ => JsError(__, "error.expected.date")
-    }
-  }
-
-  val localDateAsStringFormats = Format(localDateAsStringReads, localDateAsStringWrites)
+  // LocalDate
 
   private val msInDay = 24 * 60 * 60 * 1000
 
@@ -67,6 +52,8 @@ trait MongoJavatimeFormats {
 
   val localDateFormats = Format(localDateRead, localDateWrite)
 
+  // LocalDateTime
+
   val localDateTimeRead: Reads[LocalDateTime] =
     (__ \ "$date")
       .read[Long]
@@ -80,9 +67,9 @@ trait MongoJavatimeFormats {
   val localDateTimeFormats = Format(localDateTimeRead, localDateTimeWrite)
 
   trait Implicits {
-    implicit val instantFormats: Format[Instant]             = outer.instantFormats
-    implicit val localDateFormats: Format[LocalDate]         = outer.localDateFormats
-    implicit val localDateTimeFormats: Format[LocalDateTime] = outer.localDateTimeFormats
+    implicit val jatInstantFormats: Format[Instant]             = outer.instantFormats
+    implicit val jatLocalDateFormats: Format[LocalDate]         = outer.localDateFormats
+    implicit val jatLocalDateTimeFormats: Format[LocalDateTime] = outer.localDateTimeFormats
   }
 
   object Implicits extends Implicits

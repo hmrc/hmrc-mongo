@@ -16,7 +16,8 @@
 
 package uk.gov.hmrc.mongo.play
 
-import org.joda.time.{DateTime, DateTimeZone, LocalDate, LocalDateTime}
+import org.joda.{time => jot}
+import java.{time => jat}
 import org.bson.codecs.configuration.{CodecRegistries, CodecRegistry}
 import org.scalacheck.{Arbitrary, Gen, Prop}
 import org.scalatest.{AppendedClues, Matchers, OptionValues, WordSpecLike}
@@ -30,7 +31,7 @@ import org.mongodb.scala.model.{Filters, Updates}
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.component.MongoComponent
-import uk.gov.hmrc.mongo.play.json.{Codecs, MongoJodaFormats}
+import uk.gov.hmrc.mongo.play.json.{Codecs, MongoJavatimeFormats, MongoJodaFormats}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -63,9 +64,12 @@ class PlayMongoCollectionSpec
                        , Codecs.playFormatCodec(longWrapperFormat)
                        , Codecs.playFormatCodec(doubleWrapperFormat)
                        , Codecs.playFormatCodec(bigDecimalWrapperFormat)
+                       , Codecs.playFormatCodec(MongoJodaFormats.dateTimeFormats)
                        , Codecs.playFormatCodec(MongoJodaFormats.localDateFormats)
                        , Codecs.playFormatCodec(MongoJodaFormats.localDateTimeFormats)
-                       , Codecs.playFormatCodec(MongoJodaFormats.dateTimeFormats)
+                       , Codecs.playFormatCodec(MongoJavatimeFormats.instantFormats)
+                       , Codecs.playFormatCodec(MongoJavatimeFormats.localDateFormats)
+                       , Codecs.playFormatCodec(MongoJavatimeFormats.localDateTimeFormats)
                        , Codecs.playFormatCodec(sumFormat)
                        ))
     , indexes        = Seq.empty
@@ -76,10 +80,14 @@ class PlayMongoCollectionSpec
     "read and write object with fields" in {
       forAll(myObjectGen) { myObj =>
         dropDatabase()
+
+        println(s"In: ${myObj.javaLocalDateTime}")
+
         val result = playMongoCollection.collection.insertOne(myObj).toFuture
         result.futureValue shouldBe Completed()
 
         val writtenObj = playMongoCollection.collection.find().toFuture
+        println(s"Out: ${writtenObj.javaLocalDateTime}")
         writtenObj.futureValue shouldBe List(myObj)
       }
     }
@@ -97,16 +105,19 @@ class PlayMongoCollectionSpec
             .toFuture
             .futureValue shouldBe List(myObj)
 
-        checkFind("string"       , myObj.string       )
-        checkFind("boolean"      , myObj.boolean      )
-        checkFind("int"          , myObj.int          )
-        checkFind("long"         , myObj.long         )
-        checkFind("double"       , myObj.double       )
-        checkFind("bigDecimal"   , myObj.bigDecimal   )
-        checkFind("dateTime"     , myObj.dateTime     )
-        checkFind("localDate"    , myObj.localDate    )
-        checkFind("localDateTime", myObj.localDateTime)
-        // checkFind("sum"          , myObj.sum          )
+        checkFind("string"           , myObj.string           )
+        checkFind("boolean"          , myObj.boolean          )
+        checkFind("int"              , myObj.int              )
+        checkFind("long"             , myObj.long             )
+        checkFind("double"           , myObj.double           )
+        checkFind("bigDecimal"       , myObj.bigDecimal       )
+        checkFind("jodaDateTime"     , myObj.jodaDateTime     )
+        checkFind("jodaLocalDate"    , myObj.jodaLocalDate    )
+        checkFind("jodaLocalDateTime", myObj.jodaLocalDateTime)
+        checkFind("javaInstant"      , myObj.javaInstant      )
+        checkFind("javaLocalDate"    , myObj.javaLocalDate    )
+        checkFind("javaLocalDateTime", myObj.javaLocalDateTime)
+        // checkFind("sum"          , myObj.sum                  )
       }
     }
 
@@ -125,16 +136,19 @@ class PlayMongoCollectionSpec
               .futureValue
               .wasAcknowledged shouldBe true
 
-          checkUpdate("string"       , targetObj.string       )
-          checkUpdate("boolean"      , targetObj.boolean      )
-          checkUpdate("int"          , targetObj.int          )
-          checkUpdate("long"         , targetObj.long         )
-          checkUpdate("double"       , targetObj.double       )
-          checkUpdate("bigDecimal"   , targetObj.bigDecimal   )
-          checkUpdate("dateTime"     , targetObj.dateTime     )
-          checkUpdate("localDate"    , targetObj.localDate    )
-          checkUpdate("localDateTime", targetObj.localDateTime)
-          // checkUpdate("sum"          , targetObj.sum          )
+          checkUpdate("string"           , targetObj.string           )
+          checkUpdate("boolean"          , targetObj.boolean          )
+          checkUpdate("int"              , targetObj.int              )
+          checkUpdate("long"             , targetObj.long             )
+          checkUpdate("double"           , targetObj.double           )
+          checkUpdate("bigDecimal"       , targetObj.bigDecimal       )
+          checkUpdate("jodaDateTime"     , targetObj.jodaDateTime     )
+          checkUpdate("jodaLocalDate"    , targetObj.jodaLocalDate    )
+          checkUpdate("jodaLocalDateTime", targetObj.jodaLocalDateTime)
+          checkUpdate("javaInstant"      , targetObj.javaInstant      )
+          checkUpdate("javaLocalDate"    , targetObj.javaLocalDate    )
+          checkUpdate("javaLocalDateTime", targetObj.javaLocalDateTime)
+          // checkUpdate("sum"          , targetObj.sum                  )
 
           val writtenObj = playMongoCollection.collection.find().toFuture
           writtenObj.futureValue shouldBe List(targetObj)
@@ -176,9 +190,13 @@ object PlayMongoCollectionSpec {
     // Sum type (WIP)
   , sum       : Sum
     // Joda time
-  , dateTime       : DateTime
-  , localDate      : LocalDate
-  , localDateTime  : LocalDateTime
+  , jodaDateTime       : jot.DateTime
+  , jodaLocalDate      : jot.LocalDate
+  , jodaLocalDateTime  : jot.LocalDateTime
+    // Java time
+  , javaInstant        : jat.Instant
+  , javaLocalDate      : jat.LocalDate
+  , javaLocalDateTime  : jat.LocalDateTime
   )
 
   implicit lazy val stringWrapperFormat: Format[StringWrapper] =
@@ -219,43 +237,51 @@ object PlayMongoCollectionSpec {
   }
 
   import MongoJodaFormats.Implicits._
+  // Note without the following import, it will compile, but use plays Javatime formats, and fail in runtime
+  import MongoJavatimeFormats.Implicits._
 
   val myObjectFormat =
-    ( (__ \ "string"       ).format[StringWrapper]
-    ~ (__ \ "boolean"      ).format[BooleanWrapper]
-    ~ (__ \ "int"          ).format[IntWrapper]
-    ~ (__ \ "long"         ).format[LongWrapper]
-    ~ (__ \ "double"       ).format[DoubleWrapper]
-    ~ (__ \ "bigDecimal"   ).format[BigDecimalWrapper]
-    ~ (__ \ "sum"          ).format[Sum]
-    ~ (__ \ "dateTime"     ).format[DateTime]
-    ~ (__ \ "localDate"    ).format[LocalDate]
-    ~ (__ \ "localDateTime").format[LocalDateTime]
+    ( (__ \ "string"           ).format[StringWrapper]
+    ~ (__ \ "boolean"          ).format[BooleanWrapper]
+    ~ (__ \ "int"              ).format[IntWrapper]
+    ~ (__ \ "long"             ).format[LongWrapper]
+    ~ (__ \ "double"           ).format[DoubleWrapper]
+    ~ (__ \ "bigDecimal"       ).format[BigDecimalWrapper]
+    ~ (__ \ "sum"              ).format[Sum]
+    ~ (__ \ "jodaDateTime"     ).format[jot.DateTime]
+    ~ (__ \ "jodaLocalDate"    ).format[jot.LocalDate]
+    ~ (__ \ "jodaLocalDateTime").format[jot.LocalDateTime]
+    ~ (__ \ "javaInstant"      ).format[jat.Instant]
+    ~ (__ \ "javaLocalDate"    ).format[jat.LocalDate]
+    ~ (__ \ "javaLocalDateTime").format[jat.LocalDateTime]
     )(MyObject.apply _, unlift(MyObject.unapply))
 
 
   def myObjectGen =
     for {
-      s       <- Arbitrary.arbitrary[String]
-      b       <- Arbitrary.arbitrary[Boolean]
-      i       <- Arbitrary.arbitrary[Int]
-      l       <- Arbitrary.arbitrary[Long]
-      d       <- Arbitrary.arbitrary[Double]
-      bd      <- Arbitrary.arbitrary[BigDecimal]
+      s           <- Arbitrary.arbitrary[String]
+      b           <- Arbitrary.arbitrary[Boolean]
+      i           <- Arbitrary.arbitrary[Int]
+      l           <- Arbitrary.arbitrary[Long]
+      d           <- Arbitrary.arbitrary[Double]
+      bd          <- Arbitrary.arbitrary[BigDecimal]
                    // TODO is it reasonable to only handle BigDecimal within Decimal128 range?
                    .suchThat(bd => scala.util.Try(new org.bson.types.Decimal128(bd.bigDecimal)).isSuccess)
-      instant <- Gen.choose(0L, System.currentTimeMillis * 2) // Keep Dates within range (ArithmeticException for any Long.MAX_VALUE)
+      epochMillis <- Gen.choose(0L, System.currentTimeMillis * 2) // Keep Dates within range (ArithmeticException for any Long.MAX_VALUE)
     } yield
       MyObject(
-          string        = StringWrapper(s)
-        , boolean       = BooleanWrapper(b)
-        , int           = IntWrapper(i)
-        , long          = LongWrapper(l)
-        , double        = DoubleWrapper(d)
-        , bigDecimal    = BigDecimalWrapper(bd)
-        , sum           = Sum.Sum1
-        , dateTime      = new DateTime(instant, DateTimeZone.UTC) // Mongo db assumes UTC (timezone is not stored in db - when read back, it will represent the same instant, but with timezone UTC)
-        , localDate     = new LocalDate(instant)
-        , localDateTime = new LocalDateTime(instant)
+          string            = StringWrapper(s)
+        , boolean           = BooleanWrapper(b)
+        , int               = IntWrapper(i)
+        , long              = LongWrapper(l)
+        , double            = DoubleWrapper(d)
+        , bigDecimal        = BigDecimalWrapper(bd)
+        , sum               = Sum.Sum1
+        , jodaDateTime      = new jot.DateTime(epochMillis, jot.DateTimeZone.UTC) // Mongo db assumes UTC (timezone is not stored in db - when read back, it will represent the same instant, but with timezone UTC)
+        , jodaLocalDate     = new jot.LocalDate(epochMillis)
+        , jodaLocalDateTime = new jot.LocalDateTime(epochMillis)
+        , javaInstant       = jat.Instant.ofEpochMilli(epochMillis)
+        , javaLocalDate     = jat.LocalDate.ofEpochDay(epochMillis / (24 * 60 * 60 * 1000))
+        , javaLocalDateTime = jat.LocalDateTime.ofInstant(jat.Instant.ofEpochMilli(epochMillis), jat.ZoneId.of("Z"))
         )
 }

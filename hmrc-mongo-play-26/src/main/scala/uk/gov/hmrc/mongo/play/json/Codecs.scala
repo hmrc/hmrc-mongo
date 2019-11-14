@@ -49,15 +49,15 @@ trait Codecs {
         case JsNumber(n) if n.isValidInt      => new BsonInt32(n.intValue)
         case JsNumber(n) if n.isValidLong     => new BsonInt64(n.longValue)
         case JsNumber(n) if n.isDecimalDouble => new BsonDouble(n.doubleValue)
-        case JsNumber(n)                      => println(s"Converting Number: $n");
+        case JsNumber(n)                      => //println(s"Converting Number: $n");
                                                  val res = new BsonDecimal128(new Decimal128(n.bigDecimal))
                                                  // How to handle `java.lang.NumberFormatException, with message: Conversion to Decimal128 would require inexact rounding of -4.2176255923279509728936555398034786404E-54.`
                                                  // Alternative format? For now, avoiding in BigDecimal test data generation.
-                                                 println(s"Converted $res");
+                                                 //println(s"Converted $res");
                                                  res
         case JsString(s)                      => new BsonString(s)
         case JsArray(a)                       => new BsonArray(a.map(jsonToBson).asJava)
-        case o: JsObject                      => println(s"Converting Doc: $o")
+        case o: JsObject                      => //println(s"Converting Doc: $o")
                                                  val res =
                                                    if (o.keys.exists(k => k.startsWith("$") && !List("$numberDecimal", "$numberLong").contains(k)))
                                                      // mongo types, identified with $ in `MongoDB Extended JSON format`  (e.g. BsonObjectId, BsonDateTime)
@@ -70,7 +70,7 @@ trait Codecs {
                                                          new BsonElement(k, jsonToBson(v))
                                                        }.asJava
                                                      )
-                                                 println(s"Converted $res")
+                                                 //println(s"Converted $res")
                                                  res
 
       }
@@ -89,8 +89,8 @@ trait Codecs {
                                    )
         case other              => // other types, attempt to convert to json object (Strict = `MongoDB Extended JSON format`)
                                    toJsonDefault(other, JsonMode.STRICT) match {
-                                     case JsDefined(s)   => println(s"Converted $other to $s"); s
-                                     case _: JsUndefined => println(s"Could not convert $other to Json"); JsNull
+                                     case JsDefined(s)   => /*println(s"Converted $other to $s");*/ s
+                                     case _: JsUndefined => println(s"Could not convert $other to Json"); JsNull // TODO logger
                                    }
       }
 
@@ -110,7 +110,7 @@ trait Codecs {
     }
 
     override def decode(reader: BsonReader, decoderContext: DecoderContext): A = {
-      println(s">>>>>>>> reader.getCurrentBsonType=${reader.getCurrentBsonType}")
+      //println(s">>>>>>>> reader.getCurrentBsonType=${reader.getCurrentBsonType}")
 
       val bs: BsonValue =
         bsonTypeCodecMap.get(reader.getCurrentBsonType)
