@@ -249,24 +249,24 @@ class MongoLockRepositorySpec extends WordSpecLike with Matchers with DefaultMon
   private val now    = LocalDateTime.now(ZoneOffset.UTC)
 
   private def findAll(): Future[Seq[Lock]] =
-    mongoCollection()
+    mongoCollection
       .find()
       .toFuture
       .map(_.map(toLock))
 
   private def count(): Future[Long] =
-    mongoCollection()
+    mongoCollection
       .count()
       .toFuture()
 
   private def find(id: String): Future[Seq[Lock]] =
-    mongoCollection()
+    mongoCollection
       .find(mongoEq(Lock.id, id))
       .toFuture()
       .map(_.map(toLock))
 
   private def insert[T](obj: T)(implicit tjs: Writes[T]): Future[Completed] =
-    mongoCollection()
+    mongoCollection
       .insertOne(Document(Json.toJson(obj).toString()))
       .toFuture()
 

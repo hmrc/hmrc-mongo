@@ -29,19 +29,18 @@ trait MongoSupport extends ScalaFutures {
   protected val databaseName: String = "test-" + this.getClass.getSimpleName
   protected val mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
 
-  protected val mongoComponent : MongoComponent = MongoComponent(mongoUri)
-  protected val mongoClient    : MongoClient    = mongoComponent.client
-  protected def mongoDatabase(): MongoDatabase  = mongoComponent.database
+  protected lazy val mongoComponent: MongoComponent = MongoComponent(mongoUri)
+  protected lazy val mongoClient   : MongoClient    = mongoComponent.client
+  protected lazy val mongoDatabase : MongoDatabase  = mongoComponent.database
 
   protected def dropDatabase(): Unit =
-    mongoDatabase()
+    mongoDatabase
       .drop()
       .toFuture
       .futureValue
 
   protected def prepareDatabase(): Unit = {
     dropDatabase()
-    mongoDatabase()
   }
 
   protected def updateIndexPreference(onlyAllowIndexedQuery: Boolean): Future[Boolean] = {
@@ -61,24 +60,24 @@ trait MongoCollectionSupport extends MongoSupport {
 
   protected val indexes: Seq[IndexModel]
 
-  protected def mongoCollection(): MongoCollection[Document] =
-    mongoDatabase().getCollection(collectionName)
+  protected lazy val mongoCollection: MongoCollection[Document] =
+    mongoDatabase.getCollection(collectionName)
 
   protected def createCollection(): Unit =
-    mongoDatabase()
+    mongoDatabase
       .createCollection(collectionName)
       .toFuture
       .futureValue
 
   protected def dropCollection(): Unit =
-    mongoCollection()
+    mongoCollection
       .drop()
       .toFuture
       .futureValue
 
   protected def createIndexes(): Seq[String] =
     if (indexes.nonEmpty) {
-      mongoCollection()
+      mongoCollection
         .createIndexes(indexes)
         .toFuture
         .futureValue

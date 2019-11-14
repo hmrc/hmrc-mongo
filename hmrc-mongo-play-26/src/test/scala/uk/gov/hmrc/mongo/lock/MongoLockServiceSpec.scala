@@ -154,24 +154,24 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
   private val mongoLockService    = mongoLockRepository.toService(lockId, ttl)
 
   private def findAll(): Future[Seq[Lock]] =
-    mongoCollection()
+    mongoCollection
       .find()
       .toFuture
       .map(_.map(toLock))
 
   private def count(): Future[Long] =
-    mongoCollection()
+    mongoCollection
       .countDocuments()
       .toFuture()
 
   private def find(id: String): Future[Seq[Lock]] =
-    mongoCollection()
+    mongoCollection
       .find(mongoEq(Lock.id, id))
       .toFuture()
       .map(_.map(toLock))
 
   private def insert[T](obj: T)(implicit tjs: Writes[T]): Future[Completed] =
-    mongoCollection()
+    mongoCollection
       .insertOne(Document(Json.toJson(obj).toString()))
       .toFuture()
 
