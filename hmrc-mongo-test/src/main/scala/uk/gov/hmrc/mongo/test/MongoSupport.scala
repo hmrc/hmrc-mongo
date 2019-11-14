@@ -29,15 +29,9 @@ trait MongoSupport extends ScalaFutures {
   protected val databaseName: String = "test-" + this.getClass.getSimpleName
   protected val mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
 
-  protected val mongoClient: MongoClient = MongoClient(mongoUri)
-
-  protected val mongoComponent: MongoComponent = new MongoComponent {
-    override def client: MongoClient     = mongoClient
-    override def database: MongoDatabase = mongoDatabase()
-  }
-
-  protected def mongoDatabase(): MongoDatabase =
-    mongoClient.getDatabase(databaseName)
+  protected val mongoComponent : MongoComponent = MongoComponent(mongoUri)
+  protected val mongoClient    : MongoClient    = mongoComponent.client
+  protected def mongoDatabase(): MongoDatabase  = mongoComponent.database
 
   protected def dropDatabase(): Unit =
     mongoDatabase()

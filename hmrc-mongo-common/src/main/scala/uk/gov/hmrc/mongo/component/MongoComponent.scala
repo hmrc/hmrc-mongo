@@ -27,7 +27,7 @@ trait MongoComponent {
 object MongoComponent {
   def apply(mongoUri: String): MongoComponent =
     new MongoComponent {
-      override def client  : MongoClient   = MongoClient(mongoUri)
+      override val client  : MongoClient   = MongoClient(mongoUri)
       override def database: MongoDatabase = client.getDatabase((new ConnectionString(mongoUri)).getDatabase)
     }
 }
