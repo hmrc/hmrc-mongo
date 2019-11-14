@@ -81,13 +81,10 @@ class PlayMongoCollectionSpec
       forAll(myObjectGen) { myObj =>
         dropDatabase()
 
-        println(s"In: ${myObj.javaLocalDateTime}")
-
         val result = playMongoCollection.collection.insertOne(myObj).toFuture
         result.futureValue shouldBe Completed()
 
         val writtenObj = playMongoCollection.collection.find().toFuture
-        println(s"Out: ${writtenObj.javaLocalDateTime}")
         writtenObj.futureValue shouldBe List(myObj)
       }
     }

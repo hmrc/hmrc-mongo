@@ -27,7 +27,16 @@ import scala.collection.JavaConverters._
 
 import scala.reflect.ClassTag
 
+trait BsonConversion {
+  def toBson[A: Writes](a: A): Document =
+    Document(Json.toJson(a).toString)
+}
+
+object BsonConversion extends BsonConversion
+
 trait Codecs {
+  import BsonConversion._
+
   def playFormatCodec[A](format: Format[A])(implicit ct: ClassTag[A]): Codec[A] = new Codec[A] {
     private val bsonDocumentCodec = DEFAULT_CODEC_REGISTRY.get(classOf[BsonDocument])
     private val bsonValueCodec    = DEFAULT_CODEC_REGISTRY.get(classOf[BsonValue])

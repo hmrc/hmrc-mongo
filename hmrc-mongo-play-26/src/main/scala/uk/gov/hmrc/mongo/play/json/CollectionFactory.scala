@@ -24,7 +24,6 @@ import play.api.libs.json.Format
 import scala.reflect.ClassTag
 
 trait CollectionFactory {
-
   def collection[A: ClassTag](
     db            : MongoDatabase,
     collectionName: String,

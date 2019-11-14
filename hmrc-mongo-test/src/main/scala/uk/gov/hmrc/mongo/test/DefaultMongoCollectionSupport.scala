@@ -19,10 +19,7 @@ package uk.gov.hmrc.mongo.test
 import com.mongodb.MongoQueryException
 import org.scalatest._
 
-
-trait DefaultMongoCollectionSupport
-  extends CleanMongoCollectionSupport
-     with IndexedMongoQueriesSupport {
+trait DefaultMongoCollectionSupport extends CleanMongoCollectionSupport with IndexedMongoQueriesSupport {
   this: TestSuite =>
 }
 

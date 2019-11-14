@@ -17,22 +17,29 @@
 package uk.gov.hmrc.mongo.test
 
 import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{Completed, Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
+import org.mongodb.scala.{Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
 import org.scalatest.concurrent.ScalaFutures
+import uk.gov.hmrc.mongo.component.MongoComponent
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 
 trait MongoSupport extends ScalaFutures {
   protected val databaseName: String = "test-" + this.getClass.getSimpleName
-  protected val mongoUri    : String = s"mongodb://localhost:27017/$databaseName"
+  protected val mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
 
   protected val mongoClient: MongoClient = MongoClient(mongoUri)
+
+  protected val mongoComponent: MongoComponent = new MongoComponent {
+    override def client: MongoClient     = mongoClient
+    override def database: MongoDatabase = mongoDatabase()
+  }
 
   protected def mongoDatabase(): MongoDatabase =
     mongoClient.getDatabase(databaseName)
 
-  protected def dropDatabase(): Completed =
+  protected def dropDatabase(): Unit =
     mongoDatabase()
       .drop()
       .toFuture
@@ -63,23 +70,27 @@ trait MongoCollectionSupport extends MongoSupport {
   protected def mongoCollection(): MongoCollection[Document] =
     mongoDatabase().getCollection(collectionName)
 
-  protected def createCollection(): Completed =
+  protected def createCollection(): Unit =
     mongoDatabase()
       .createCollection(collectionName)
       .toFuture
       .futureValue
 
-  protected def dropCollection(): Completed =
+  protected def dropCollection(): Unit =
     mongoCollection()
       .drop()
       .toFuture
       .futureValue
 
   protected def createIndexes(): Seq[String] =
-    mongoCollection()
-      .createIndexes(indexes)
-      .toFuture
-      .futureValue
+    if (indexes.nonEmpty) {
+      mongoCollection()
+        .createIndexes(indexes)
+        .toFuture
+        .futureValue
+    } else {
+      Seq.empty
+    }
 
   override protected def prepareDatabase(): Unit = {
     super.prepareDatabase()
@@ -90,7 +101,7 @@ trait MongoCollectionSupport extends MongoSupport {
 object MongoCollectionSupport {
   def apply(name: String, allIndexes: Seq[IndexModel]): MongoCollectionSupport =
     new MongoCollectionSupport {
-      override protected val collectionName: String          = name
-      override protected val indexes       : Seq[IndexModel] = allIndexes
+      override protected val collectionName: String   = name
+      override protected val indexes: Seq[IndexModel] = allIndexes
     }
 }

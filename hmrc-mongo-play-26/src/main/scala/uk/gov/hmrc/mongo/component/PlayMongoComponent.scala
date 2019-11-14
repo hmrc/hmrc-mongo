@@ -16,34 +16,20 @@
 
 package uk.gov.hmrc.mongo.component
 
-import com.google.inject.{ImplementedBy, Inject, Singleton}
+import com.google.inject.{Inject, Singleton}
 import com.mongodb.ConnectionString
 import org.mongodb.scala.{MongoClient, MongoDatabase}
-import play.api.{Configuration, Environment, Logger}
 import play.api.inject.ApplicationLifecycle
+import play.api.{Configuration, Environment, Logger}
 
 import scala.concurrent.Future
-
-@ImplementedBy(classOf[PlayMongoComponent])
-trait MongoComponent {
-  def client: MongoClient
-  def database: MongoDatabase
-}
-
-object MongoComponent {
-  def apply(mongoUri: String): MongoComponent =
-    new MongoComponent {
-      override def client  : MongoClient   = MongoClient(mongoUri)
-      override def database: MongoDatabase = client.getDatabase((new ConnectionString(mongoUri)).getDatabase)
-    }
-}
 
 @Singleton
 class PlayMongoComponent @Inject()(
   configuration: Configuration,
-  environment  : Environment,
-  lifecycle    : ApplicationLifecycle)
-    extends MongoComponent {
+  environment: Environment,
+  lifecycle: ApplicationLifecycle
+) extends MongoComponent {
 
   Logger.info("MongoComponent starting...")
 

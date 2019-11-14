@@ -21,15 +21,16 @@ import org.mongodb.scala._
 import org.mongodb.scala.model.IndexModel
 import play.api.Logger
 import play.api.libs.json.Format
+import uk.gov.hmrc.mongo.collection.MongoDatabaseCollection
 import uk.gov.hmrc.mongo.component.MongoComponent
 import uk.gov.hmrc.mongo.play.json.CollectionFactory
 
-import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
 import scala.reflect.ClassTag
 
 class PlayMongoCollection[A: ClassTag](
-      mongoComponent: MongoComponent,
+  mongoComponent: MongoComponent,
   val collectionName: String,
       domainFormat  : Format[A],
       optRegistry   : Option[CodecRegistry] = None,
@@ -43,15 +44,30 @@ class PlayMongoCollection[A: ClassTag](
 
   Await.result(createIndexes(), 3.seconds)
 
-  def createIndexes(): Future[Seq[String]] = {
-    val futureIndexes = collection
-      .createIndexes(indexes)
-      .toFuture
-      .recover {
-        case throwable: Throwable =>
-          logger.error("Failed to create indexes", throwable)
-          Seq.empty
-      }
-    futureIndexes
-  }
+  //todo can we ensure indexes exist before attempting to create them?
+  def createIndexes(): Future[Seq[String]] =
+    if (indexes.nonEmpty) {
+      collection
+        .createIndexes(indexes)
+        .toFuture
+        .recover {
+          case throwable: Throwable =>
+            logger.error("Failed to create indexes", throwable)
+            Seq.empty
+        }
+    } else {
+      logger.info("Skipping Mongo index creation as no indexes supplied")
+      Future.successful(Seq.empty)
+    }
+
+}
+
+object PlayMongoCollection {
+  def apply[A: ClassTag](
+    mongoComponent: MongoComponent,
+    collectionName: String,
+    domainFormat  : Format[A],
+    optRegistry   : Option[CodecRegistry] = None,
+    indexes       : Seq[IndexModel])(implicit ec: ExecutionContext): MongoCollection[A] =
+    new PlayMongoCollection[A](mongoComponent, collectionName, domainFormat, optRegistry, indexes).collection
 }
