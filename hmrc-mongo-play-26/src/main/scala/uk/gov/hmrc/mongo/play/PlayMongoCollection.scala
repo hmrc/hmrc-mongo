@@ -21,7 +21,6 @@ import org.mongodb.scala._
 import org.mongodb.scala.model.IndexModel
 import play.api.Logger
 import play.api.libs.json.Format
-import uk.gov.hmrc.mongo.collection.MongoDatabaseCollection
 import uk.gov.hmrc.mongo.component.MongoComponent
 import uk.gov.hmrc.mongo.play.json.CollectionFactory
 

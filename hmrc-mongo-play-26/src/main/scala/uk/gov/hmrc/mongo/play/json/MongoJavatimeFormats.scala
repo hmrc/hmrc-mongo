@@ -20,8 +20,6 @@ import java.time.{Instant, LocalDate, LocalDateTime, ZoneId, ZoneOffset}
 
 import play.api.libs.json._
 
-import scala.util.{Success, Try}
-
 trait MongoJavatimeFormats {
   outer =>
 

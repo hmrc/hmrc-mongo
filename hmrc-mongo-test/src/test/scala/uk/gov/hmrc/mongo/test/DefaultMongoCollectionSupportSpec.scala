@@ -24,11 +24,8 @@ import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.Matchers.{include, _}
 import org.scalatest.WordSpec
-import scala.concurrent.duration.DurationInt
 
 class DefaultMongoCollectionSupportSpec extends WordSpec with DefaultMongoCollectionSupport {
-
-  override implicit val patienceConfig = PatienceConfig(timeout = 30.seconds, interval = 100.millis)
 
   "updateIndexPreference" should {
 

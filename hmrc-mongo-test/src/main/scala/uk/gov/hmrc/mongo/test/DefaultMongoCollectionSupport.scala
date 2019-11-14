@@ -18,9 +18,12 @@ package uk.gov.hmrc.mongo.test
 
 import com.mongodb.MongoQueryException
 import org.scalatest._
+import scala.concurrent.duration.DurationInt
 
 trait DefaultMongoCollectionSupport extends CleanMongoCollectionSupport with IndexedMongoQueriesSupport {
   this: TestSuite =>
+
+  override implicit val patienceConfig = PatienceConfig(timeout = 30.seconds, interval = 100.millis)
 }
 
 trait CleanMongoCollectionSupport extends MongoCollectionSupport with BeforeAndAfterEach {

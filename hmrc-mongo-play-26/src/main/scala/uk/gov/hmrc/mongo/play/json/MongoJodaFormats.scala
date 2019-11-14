@@ -19,8 +19,6 @@ package uk.gov.hmrc.mongo.play.json
 import org.joda.time.{DateTime, DateTimeZone, LocalDate, LocalDateTime}
 import play.api.libs.json._
 
-import scala.util.{Success, Try}
-
 trait MongoJodaFormats {
   outer =>
 

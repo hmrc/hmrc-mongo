@@ -32,10 +32,7 @@ class MongoMetricRepositorySpec extends UnitSpec with MongoSupport with ScalaFut
 
   override implicit val patienceConfig = PatienceConfig(timeout = 30.seconds, interval = 100.millis)
 
-  lazy val metricsRepo = new MongoMetricRepository(databaseName,  new MongoComponent {
-    override def client: MongoClient = mongoClient
-    override def database: MongoDatabase = mongoDatabase()
-  })
+  lazy val metricsRepo = new MongoMetricRepository(databaseName, mongoComponent)
 
   override def beforeEach(): Unit = {
     super.beforeEach()

@@ -18,15 +18,14 @@ package uk.gov.hmrc.mongo.play
 
 import org.joda.{time => jot}
 import java.{time => jat}
-import org.bson.codecs.configuration.{CodecRegistries, CodecRegistry}
+import org.bson.codecs.configuration.CodecRegistries
 import org.scalacheck.{Arbitrary, Gen, Prop}
-import org.scalatest.{AppendedClues, Matchers, OptionValues, WordSpecLike}
+import org.scalatest.WordSpecLike
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.compatible.Assertion
-import org.scalatest.Matchers.{equal => equal2, _}
+import org.scalatest.Matchers._
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import org.mongodb.scala.{Completed, MongoCollection, MongoDatabase}
-import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
+import org.mongodb.scala.Completed
 import org.mongodb.scala.model.{Filters, Updates}
 import play.api.libs.functional.syntax._
 import play.api.libs.json._

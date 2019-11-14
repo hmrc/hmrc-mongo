@@ -33,9 +33,7 @@ import scala.concurrent.duration.DurationInt
 
 import ExecutionContext.Implicits.global
 
-class MongoLockRepositorySpec extends WordSpecLike with Matchers with DefaultMongoCollectionSupport with ScalaFutures {
-
-  override implicit val patienceConfig = PatienceConfig(timeout = 30.seconds, interval = 100.millis)
+class MongoLockRepositorySpec extends WordSpecLike with Matchers with DefaultMongoCollectionSupport {
 
   "lock" should {
 
@@ -225,7 +223,7 @@ class MongoLockRepositorySpec extends WordSpecLike with Matchers with DefaultMon
       val lock2 = Lock("lockName", "owner2", now.plusDays(3), now.plusDays(4))
       insert(lock1).futureValue
 
-      ScalaFutures.whenReady(insert(lock2).failed) { exception =>
+      whenReady(insert(lock2).failed) { exception =>
         exception            shouldBe a[MongoWriteException]
         exception.getMessage should include(duplicateKey)
       }

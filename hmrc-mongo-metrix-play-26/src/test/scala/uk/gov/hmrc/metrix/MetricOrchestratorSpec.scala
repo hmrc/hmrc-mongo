@@ -23,7 +23,6 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.Inside._
 import org.scalatest.LoneElement
-import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
 import uk.gov.hmrc.metrix.domain.{MetricRepository, MetricSource, PersistedMetric}
 import uk.gov.hmrc.metrix.persistence.MongoMetricRepository
 import uk.gov.hmrc.mongo.lock.{CurrentTimestampSupport, MongoLockRepository, MongoLockService}
@@ -34,12 +33,9 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 class MetricOrchestratorSpec extends UnitSpec
-  with ScalaFutures
-  with Eventually
   with LoneElement
   with MockitoSugar
   with ArgumentMatchersSugar
-  with IntegrationPatience
   with DefaultMongoCollectionSupport {
 
   val metricRegistry = new MetricRegistry()

@@ -21,9 +21,9 @@ import org.mongodb.scala.{Document, MongoClient, MongoCollection, MongoDatabase,
 import org.scalatest.concurrent.ScalaFutures
 import uk.gov.hmrc.mongo.component.MongoComponent
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
+
+import ExecutionContext.Implicits.global
 
 trait MongoSupport extends ScalaFutures {
   protected val databaseName: String = "test-" + this.getClass.getSimpleName

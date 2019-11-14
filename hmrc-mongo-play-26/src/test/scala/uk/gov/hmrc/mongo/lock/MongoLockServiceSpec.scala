@@ -15,12 +15,12 @@
  */
 
 package uk.gov.hmrc.mongo.lock
+
 import java.time.{LocalDateTime, ZoneOffset}
 
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.{Completed, Document}
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
 import play.api.libs.json.{Json, Writes}
 import uk.gov.hmrc.mongo.lock.model.Lock
@@ -31,7 +31,7 @@ import scala.concurrent.duration.{Duration, DurationInt}
 
 import ExecutionContext.Implicits.global
 
-class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoCollectionSupport with ScalaFutures {
+class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoCollectionSupport  {
 
   "attemptLockWithRelease" should {
     "obtain lock, run the block supplied and release the lock" in {
