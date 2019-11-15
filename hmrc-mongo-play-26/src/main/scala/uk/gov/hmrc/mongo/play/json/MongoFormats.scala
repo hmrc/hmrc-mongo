@@ -35,7 +35,7 @@ trait MongoFormats {
 
   val objectIdWrite: Writes[BsonObjectId] = new Writes[BsonObjectId] {
     def writes(objectId: BsonObjectId): JsValue = Json.obj(
-      "$oid" -> objectId.toString
+      "$oid" -> objectId.getValue.toString
     )
   }
 
