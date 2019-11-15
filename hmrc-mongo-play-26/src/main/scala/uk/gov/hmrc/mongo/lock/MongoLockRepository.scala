@@ -30,9 +30,9 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
-class MongoLockRepository @Inject()(mongoComponent: MongoComponent, timestampSupport: TimestampSupport)(
-  implicit ec: ExecutionContext)
-    extends PlayMongoCollection[Lock](mongoComponent, "locks", Lock.format, Seq()) {
+class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSupport: TimestampSupport)(
+  implicit ec: ExecutionContext
+) extends PlayMongoCollection[Lock](mongoComponent, "locks", Lock.format, indexes = Seq.empty) {
 
   private val logger       = Logger(getClass)
   private val duplicateKey = "11000"
@@ -104,7 +104,8 @@ class MongoLockRepository @Inject()(mongoComponent: MongoComponent, timestampSup
       .map(_.nonEmpty)
 
   def attemptLockWithRelease[T](lockId: String, owner: String, ttl: Duration, body: => Future[T])(
-    implicit ec: ExecutionContext): Future[Option[T]] = {
+    implicit ec: ExecutionContext
+  ): Future[Option[T]] = {
     val result = for {
       acquired <- lock(lockId, owner, ttl)
       result   <- futureCond(acquired, body.flatMap(value => releaseLock(lockId, owner).map(_ => Some(value))), None)
@@ -113,7 +114,8 @@ class MongoLockRepository @Inject()(mongoComponent: MongoComponent, timestampSup
   }
 
   def attemptLockWithRefreshExpiry[T](lockId: String, owner: String, ttl: Duration, body: => Future[T])(
-    implicit ec: ExecutionContext): Future[Option[T]] = {
+    implicit ec: ExecutionContext
+  ): Future[Option[T]] = {
     val result = for {
       refreshed <- refreshExpiry(lockId, owner, ttl)
       acquired  <- futureCond(!refreshed, lock(lockId, owner, ttl), false)

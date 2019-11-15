@@ -25,17 +25,19 @@ import uk.gov.hmrc.metrix.domain.PersistedMetric
 import uk.gov.hmrc.mongo.component.MongoComponent
 import uk.gov.hmrc.mongo.test.MongoSupport
 
-import scala.concurrent.ExecutionContext.Implicits._
-import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.DurationInt
 
-class MongoMetricRepositorySpec extends UnitSpec with MongoSupport with ScalaFutures with LoneElement with BeforeAndAfterEach {
+class MongoMetricRepositorySpec
+    extends UnitSpec
+    with MongoSupport
+    with ScalaFutures
+    with LoneElement
+    with BeforeAndAfterEach {
 
   override implicit val patienceConfig = PatienceConfig(timeout = 30.seconds, interval = 100.millis)
 
-  lazy val metricsRepo = new MongoMetricRepository(databaseName,  new MongoComponent {
-    override def client: MongoClient = mongoClient
-    override def database: MongoDatabase = mongoDatabase()
-  })
+  lazy val metricsRepo = new MongoMetricRepository(databaseName, mongoComponent)
 
   override def beforeEach(): Unit = {
     super.beforeEach()

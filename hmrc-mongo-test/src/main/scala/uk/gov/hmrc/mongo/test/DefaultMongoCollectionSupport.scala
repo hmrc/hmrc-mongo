@@ -16,11 +16,13 @@
 
 package uk.gov.hmrc.mongo.test
 
-import com.mongodb.MongoQueryException
 import org.scalatest._
+import scala.concurrent.duration.DurationInt
 
 trait DefaultMongoCollectionSupport extends CleanMongoCollectionSupport with IndexedMongoQueriesSupport {
   this: TestSuite =>
+
+  override implicit val patienceConfig = PatienceConfig(timeout = 30.seconds, interval = 100.millis)
 }
 
 trait CleanMongoCollectionSupport extends MongoCollectionSupport with BeforeAndAfterEach {
@@ -32,7 +34,10 @@ trait CleanMongoCollectionSupport extends MongoCollectionSupport with BeforeAndA
   }
 }
 
-trait IndexedMongoQueriesSupport extends MongoCollectionSupport with BeforeAndAfterAll with TestSuiteMixin {
+/** Causes queries which don't use an index to generate [[com.mongodb.MongoQueryException]]
+  * or [[com.mongodb.MongoWriteException]] containing message 'No query solutions'
+  */
+trait IndexedMongoQueriesSupport extends MongoCollectionSupport with BeforeAndAfterAll {
   this: TestSuite =>
 
   override protected def beforeAll(): Unit = {
@@ -44,11 +49,4 @@ trait IndexedMongoQueriesSupport extends MongoCollectionSupport with BeforeAndAf
     super.afterAll()
     updateIndexPreference(onlyAllowIndexedQuery = false)
   }
-
-  abstract override def withFixture(test: NoArgTest): Outcome =
-    super.withFixture(test) match {
-      case Failed(e: MongoQueryException) if e.getMessage contains "No query solutions" =>
-        Failed("Mongo query could not be satisfied by an index:\n" + e.getMessage, e)
-      case other => other
-    }
 }

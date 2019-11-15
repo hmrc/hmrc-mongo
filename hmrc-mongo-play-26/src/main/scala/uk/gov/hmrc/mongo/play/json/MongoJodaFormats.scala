@@ -19,29 +19,10 @@ package uk.gov.hmrc.mongo.play.json
 import org.joda.time.{DateTime, DateTimeZone, LocalDate, LocalDateTime}
 import play.api.libs.json._
 
-import scala.util.{Success, Try}
-
 trait MongoJodaFormats {
   outer =>
 
-  val localDateAsStringWrites: Writes[LocalDate] = new Writes[LocalDate] {
-    def writes(d: LocalDate): JsValue =
-      JsString(d.toString)
-  }
-
-  val localDateAsStringReads: Reads[LocalDate] = new Reads[LocalDate] {
-
-    def reads(json: JsValue): JsResult[LocalDate] = json match {
-      case JsString(s) =>
-        Try(LocalDate.parse(s)) match {
-          case Success(d) => JsSuccess(d)
-          case _          => JsError(__, "error.expected.jodadate.format")
-        }
-      case _ => JsError(__, "error.expected.date")
-    }
-  }
-
-  val localDateAsStringFormats = Format(localDateAsStringReads, localDateAsStringWrites)
+  // LocalDate
 
   val localDateRead: Reads[LocalDate] =
     (__ \ "$date")
@@ -55,6 +36,8 @@ trait MongoJodaFormats {
 
   val localDateFormats = Format(localDateRead, localDateWrite)
 
+  // LocalDateTime
+
   val localDateTimeRead: Reads[LocalDateTime] =
     (__ \ "$date")
       .read[Long]
@@ -66,6 +49,8 @@ trait MongoJodaFormats {
   }
 
   val localDateTimeFormats = Format(localDateTimeRead, localDateTimeWrite)
+
+  // DateTime
 
   val dateTimeRead: Reads[DateTime] =
     (__ \ "$date")
@@ -80,9 +65,9 @@ trait MongoJodaFormats {
   val dateTimeFormats = Format(dateTimeRead, dateTimeWrite)
 
   trait Implicits {
-    implicit val localDateFormats: Format[LocalDate]         = outer.localDateFormats
-    implicit val localDateTimeFormats: Format[LocalDateTime] = outer.localDateTimeFormats
-    implicit val dateTimeFormats: Format[DateTime]           = outer.dateTimeFormats
+    implicit val jotLocalDateFormats: Format[LocalDate]         = outer.localDateFormats
+    implicit val jotLocalDateTimeFormats: Format[LocalDateTime] = outer.localDateTimeFormats
+    implicit val jotDateTimeFormats: Format[DateTime]           = outer.dateTimeFormats
   }
 
   object Implicits extends Implicits

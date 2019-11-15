@@ -15,22 +15,23 @@
  */
 
 package uk.gov.hmrc.mongo.lock
+
 import java.time.{LocalDateTime, ZoneOffset}
 
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.{Completed, Document}
-import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
 import play.api.libs.json.{Json, Writes}
 import uk.gov.hmrc.mongo.lock.model.Lock
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.{Duration, DurationInt}
 
-class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoCollectionSupport with ScalaFutures {
+import ExecutionContext.Implicits.global
+
+class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoCollectionSupport {
 
   "attemptLockWithRelease" should {
     "obtain lock, run the block supplied and release the lock" in {
@@ -153,24 +154,24 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
   private val mongoLockService    = mongoLockRepository.toService(lockId, ttl)
 
   private def findAll(): Future[Seq[Lock]] =
-    mongoCollection()
+    mongoCollection
       .find()
       .toFuture
       .map(_.map(toLock))
 
   private def count(): Future[Long] =
-    mongoCollection()
+    mongoCollection
       .countDocuments()
       .toFuture()
 
   private def find(id: String): Future[Seq[Lock]] =
-    mongoCollection()
+    mongoCollection
       .find(mongoEq(Lock.id, id))
       .toFuture()
       .map(_.map(toLock))
 
   private def insert[T](obj: T)(implicit tjs: Writes[T]): Future[Completed] =
-    mongoCollection()
+    mongoCollection
       .insertOne(Document(Json.toJson(obj).toString()))
       .toFuture()
 

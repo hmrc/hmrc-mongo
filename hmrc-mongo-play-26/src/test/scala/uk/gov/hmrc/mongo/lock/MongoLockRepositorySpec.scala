@@ -28,11 +28,12 @@ import play.api.libs.json.{Json, Writes}
 import uk.gov.hmrc.mongo.lock.model.Lock
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
 
-class MongoLockRepositorySpec extends WordSpecLike with Matchers with DefaultMongoCollectionSupport with ScalaFutures {
+import ExecutionContext.Implicits.global
+
+class MongoLockRepositorySpec extends WordSpecLike with Matchers with DefaultMongoCollectionSupport {
 
   "lock" should {
 
@@ -222,7 +223,7 @@ class MongoLockRepositorySpec extends WordSpecLike with Matchers with DefaultMon
       val lock2 = Lock("lockName", "owner2", now.plusDays(3), now.plusDays(4))
       insert(lock1).futureValue
 
-      ScalaFutures.whenReady(insert(lock2).failed) { exception =>
+      whenReady(insert(lock2).failed) { exception =>
         exception            shouldBe a[MongoWriteException]
         exception.getMessage should include(duplicateKey)
       }
@@ -248,24 +249,24 @@ class MongoLockRepositorySpec extends WordSpecLike with Matchers with DefaultMon
   private val now    = LocalDateTime.now(ZoneOffset.UTC)
 
   private def findAll(): Future[Seq[Lock]] =
-    mongoCollection()
+    mongoCollection
       .find()
       .toFuture
       .map(_.map(toLock))
 
   private def count(): Future[Long] =
-    mongoCollection()
+    mongoCollection
       .count()
       .toFuture()
 
   private def find(id: String): Future[Seq[Lock]] =
-    mongoCollection()
+    mongoCollection
       .find(mongoEq(Lock.id, id))
       .toFuture()
       .map(_.map(toLock))
 
   private def insert[T](obj: T)(implicit tjs: Writes[T]): Future[Completed] =
-    mongoCollection()
+    mongoCollection
       .insertOne(Document(Json.toJson(obj).toString()))
       .toFuture()
 

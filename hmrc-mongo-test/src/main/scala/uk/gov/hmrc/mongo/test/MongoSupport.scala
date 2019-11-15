@@ -21,34 +21,26 @@ import org.mongodb.scala.{Document, MongoClient, MongoCollection, MongoDatabase,
 import org.scalatest.concurrent.ScalaFutures
 import uk.gov.hmrc.mongo.component.MongoComponent
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Future}
+
+import ExecutionContext.Implicits.global
 
 trait MongoSupport extends ScalaFutures {
   protected val databaseName: String = "test-" + this.getClass.getSimpleName
   protected val mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
 
-  protected val mongoClient: MongoClient = MongoClient(mongoUri)
-
-  protected val mongoComponent: MongoComponent = new MongoComponent {
-    override def client: MongoClient     = mongoClient
-    override def database: MongoDatabase = mongoDatabase()
-  }
-
-  protected def mongoDatabase(): MongoDatabase =
-    mongoClient.getDatabase(databaseName)
+  protected lazy val mongoComponent: MongoComponent = MongoComponent(mongoUri)
+  protected lazy val mongoClient: MongoClient       = mongoComponent.client
+  protected lazy val mongoDatabase: MongoDatabase   = mongoComponent.database
 
   protected def dropDatabase(): Unit =
-    mongoDatabase()
+    mongoDatabase
       .drop()
       .toFuture
       .futureValue
 
-  protected def prepareDatabase(): Unit = {
+  protected def prepareDatabase(): Unit =
     dropDatabase()
-    mongoDatabase()
-  }
 
   protected def updateIndexPreference(onlyAllowIndexedQuery: Boolean): Future[Boolean] = {
     val notablescan = if (onlyAllowIndexedQuery) 1 else 0
@@ -60,8 +52,6 @@ trait MongoSupport extends ScalaFutures {
       .toFuture
       .map(_.getBoolean("was"))
   }
-
-  override implicit val patienceConfig: PatienceConfig = PatienceConfig(5.seconds)
 }
 
 trait MongoCollectionSupport extends MongoSupport {
@@ -69,24 +59,24 @@ trait MongoCollectionSupport extends MongoSupport {
 
   protected val indexes: Seq[IndexModel]
 
-  protected def mongoCollection(): MongoCollection[Document] =
-    mongoDatabase().getCollection(collectionName)
+  protected lazy val mongoCollection: MongoCollection[Document] =
+    mongoDatabase.getCollection(collectionName)
 
   protected def createCollection(): Unit =
-    mongoDatabase()
+    mongoDatabase
       .createCollection(collectionName)
       .toFuture
       .futureValue
 
   protected def dropCollection(): Unit =
-    mongoCollection()
+    mongoCollection
       .drop()
       .toFuture
       .futureValue
 
   protected def createIndexes(): Seq[String] =
     if (indexes.nonEmpty) {
-      mongoCollection()
+      mongoCollection
         .createIndexes(indexes)
         .toFuture
         .futureValue

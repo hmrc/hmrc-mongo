@@ -19,8 +19,8 @@ package uk.gov.hmrc.metrix.domain
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
- * A source of metrics to collect from your application
- */
+  * A source of metrics to collect from your application
+  */
 trait MetricSource {
   def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]]
 }

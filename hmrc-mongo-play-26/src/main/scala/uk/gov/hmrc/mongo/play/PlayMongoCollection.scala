@@ -16,30 +16,30 @@
 
 package uk.gov.hmrc.mongo.play
 
+import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala._
 import org.mongodb.scala.model.IndexModel
 import play.api.Logger
 import play.api.libs.json.Format
-import uk.gov.hmrc.mongo.collection.MongoDatabaseCollection
 import uk.gov.hmrc.mongo.component.MongoComponent
 import uk.gov.hmrc.mongo.play.json.CollectionFactory
 
-import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
 import scala.reflect.ClassTag
 
 class PlayMongoCollection[A: ClassTag](
   mongoComponent: MongoComponent,
   val collectionName: String,
   domainFormat: Format[A],
+  optRegistry: Option[CodecRegistry] = None,
   val indexes: Seq[IndexModel]
-)(implicit ec: ExecutionContext)
-    extends MongoDatabaseCollection {
+)(implicit ec: ExecutionContext) {
 
   private val logger = Logger(getClass)
 
   val collection: MongoCollection[A] =
-    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat)
+    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, optRegistry)
 
   Await.result(createIndexes(), 3.seconds)
 
@@ -66,6 +66,8 @@ object PlayMongoCollection {
     mongoComponent: MongoComponent,
     collectionName: String,
     domainFormat: Format[A],
-    indexes: Seq[IndexModel])(implicit ec: ExecutionContext): MongoCollection[A] =
-    new PlayMongoCollection[A](mongoComponent, collectionName, domainFormat, indexes).collection
+    optRegistry: Option[CodecRegistry] = None,
+    indexes: Seq[IndexModel]
+  )(implicit ec: ExecutionContext): MongoCollection[A] =
+    new PlayMongoCollection[A](mongoComponent, collectionName, domainFormat, optRegistry, indexes).collection
 }

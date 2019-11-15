@@ -25,7 +25,7 @@ import play.api.{Configuration, Environment, Logger}
 import scala.concurrent.Future
 
 @Singleton
-class PlayMongoComponent @Inject()(
+class PlayMongoComponent @Inject() (
   configuration: Configuration,
   environment: Environment,
   lifecycle: ApplicationLifecycle
@@ -33,15 +33,13 @@ class PlayMongoComponent @Inject()(
 
   Logger.info("MongoComponent starting...")
 
-  private val dbUri =
+  private val mongoUri =
     configuration.get[String]("mongodb.uri")
 
-  private val connection: ConnectionString = new ConnectionString(dbUri)
+  override val client: MongoClient     = MongoClient(uri = mongoUri)
+  override val database: MongoDatabase = client.getDatabase((new ConnectionString(mongoUri)).getDatabase)
 
-  override val client: MongoClient     = MongoClient(uri = dbUri)
-  override val database: MongoDatabase = client.getDatabase(connection.getDatabase)
-
-  Logger.debug(s"MongoComponent: MongoConnector configuration being used: $dbUri")
+  Logger.debug(s"MongoComponent: MongoConnector configuration being used: $mongoUri")
 
   lifecycle.addStopHook { () =>
     Future.successful {

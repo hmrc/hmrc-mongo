@@ -15,6 +15,7 @@
  */
 
 package uk.gov.hmrc.mongo.collection
+
 import org.mongodb.scala.model.IndexModel
 
 trait MongoDatabaseCollection {

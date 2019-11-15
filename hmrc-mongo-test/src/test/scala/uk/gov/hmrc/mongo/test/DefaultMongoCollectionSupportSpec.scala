@@ -30,13 +30,13 @@ class DefaultMongoCollectionSupportSpec extends WordSpec with DefaultMongoCollec
   "updateIndexPreference" should {
 
     "throw and exception in a unindexed query" in {
-      mongoCollection()
+      mongoCollection
         .insertOne(Document("unindexed" -> "value"))
         .toFuture
         .futureValue
 
       whenReady {
-        mongoCollection()
+        mongoCollection
           .find(mongoEq("unindexed", "value"))
           .toFuture
           .failed
@@ -47,12 +47,12 @@ class DefaultMongoCollectionSupportSpec extends WordSpec with DefaultMongoCollec
     }
 
     "not throw an exception in indexed query" in {
-      mongoCollection()
+      mongoCollection
         .insertOne(Document("indexed" -> "value"))
         .toFuture
         .futureValue
 
-      mongoCollection()
+      mongoCollection
         .find(mongoEq("indexed", "value"))
         .first()
         .toFuture
