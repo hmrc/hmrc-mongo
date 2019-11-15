@@ -26,7 +26,7 @@ class MetricCache {
 
   private val cache = new ConcurrentHashMap[String, Int]().asScala
 
-  def refreshWith(allMetrics: List[PersistedMetric]):Unit = synchronized {
+  def refreshWith(allMetrics: List[PersistedMetric]): Unit = synchronized {
     allMetrics.foreach(m => cache.put(m.name, m.count))
     val asMap: Map[String, Int] = allMetrics.map(m => m.name -> m.count).toMap
     cache.keys.foreach(key => if (!asMap.contains(key)) cache.remove(key))

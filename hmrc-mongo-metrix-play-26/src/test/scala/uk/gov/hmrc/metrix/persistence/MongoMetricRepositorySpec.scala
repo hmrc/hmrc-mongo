@@ -28,7 +28,12 @@ import uk.gov.hmrc.mongo.test.MongoSupport
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 
-class MongoMetricRepositorySpec extends UnitSpec with MongoSupport with ScalaFutures with LoneElement with BeforeAndAfterEach {
+class MongoMetricRepositorySpec
+    extends UnitSpec
+    with MongoSupport
+    with ScalaFutures
+    with LoneElement
+    with BeforeAndAfterEach {
 
   override implicit val patienceConfig = PatienceConfig(timeout = 30.seconds, interval = 100.millis)
 

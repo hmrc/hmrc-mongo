@@ -31,7 +31,7 @@ import scala.concurrent.duration.{Duration, DurationInt}
 
 import ExecutionContext.Implicits.global
 
-class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoCollectionSupport  {
+class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoCollectionSupport {
 
   "attemptLockWithRelease" should {
     "obtain lock, run the block supplied and release the lock" in {

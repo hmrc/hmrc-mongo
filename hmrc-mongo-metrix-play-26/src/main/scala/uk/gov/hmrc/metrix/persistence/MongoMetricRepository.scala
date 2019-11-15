@@ -27,16 +27,18 @@ import uk.gov.hmrc.mongo.play.PlayMongoCollection
 import scala.concurrent.{ExecutionContext, Future}
 
 class MongoMetricRepository(collectionName: String = "metrics", mongo: MongoComponent)(implicit ec: ExecutionContext)
-  extends PlayMongoCollection[PersistedMetric](
-    collectionName = collectionName,
-    mongoComponent = mongo,
-    domainFormat   = PersistedMetric.format,
-    indexes        = Seq(
-      IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
-    ))
+    extends PlayMongoCollection[PersistedMetric](
+      collectionName = collectionName,
+      mongoComponent = mongo,
+      domainFormat   = PersistedMetric.format,
+      indexes = Seq(
+        IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
+      )
+    )
     with MetricRepository {
 
-  override def findAll(): Future[List[PersistedMetric]] = collection.withReadPreference(ReadPreference.secondaryPreferred).find().toFuture().map(_.toList)
+  override def findAll(): Future[List[PersistedMetric]] =
+    collection.withReadPreference(ReadPreference.secondaryPreferred).find().toFuture().map(_.toList)
 
   override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
     collection
@@ -45,6 +47,7 @@ class MongoMetricRepository(collectionName: String = "metrics", mongo: MongoComp
         calculatedMetric,
         FindOneAndReplaceOptions().upsert(true)
       )
-      .toFuture().map(_ => ())
+      .toFuture()
+      .map(_ => ())
 
 }

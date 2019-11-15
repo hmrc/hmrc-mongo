@@ -25,7 +25,7 @@ import play.api.{Configuration, Environment, Logger}
 import scala.concurrent.Future
 
 @Singleton
-class PlayMongoComponent @Inject()(
+class PlayMongoComponent @Inject() (
   configuration: Configuration,
   environment: Environment,
   lifecycle: ApplicationLifecycle

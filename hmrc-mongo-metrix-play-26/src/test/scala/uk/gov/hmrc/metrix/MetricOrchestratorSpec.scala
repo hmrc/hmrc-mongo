@@ -32,21 +32,23 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-class MetricOrchestratorSpec extends UnitSpec
-  with LoneElement
-  with MockitoSugar
-  with ArgumentMatchersSugar
-  with DefaultMongoCollectionSupport {
+class MetricOrchestratorSpec
+    extends UnitSpec
+    with LoneElement
+    with MockitoSugar
+    with ArgumentMatchersSugar
+    with DefaultMongoCollectionSupport {
 
-  val metricRegistry = new MetricRegistry()
+  val metricRegistry                = new MetricRegistry()
   private val mongoMetricRepository = new MongoMetricRepository(mongo = mongoComponent)
 
-  override protected val collectionName: String = mongoMetricRepository.collectionName
+  override protected val collectionName: String   = mongoMetricRepository.collectionName
   override protected val indexes: Seq[IndexModel] = mongoMetricRepository.indexes
 
   private val mongoLockService: MongoLockService = new MongoLockService {
     override val lockId: String = "test-metrics"
-    override val mongoLockRepository: MongoLockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
+    override val mongoLockRepository: MongoLockRepository =
+      new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
     override val ttl = Duration(0, TimeUnit.MICROSECONDS)
   }
 
@@ -57,43 +59,36 @@ class MetricOrchestratorSpec extends UnitSpec
     })
   }
 
-  def metricOrchestratorFor(sources: List[MetricSource],
-                            metricRepository: MetricRepository = mongoMetricRepository) = new MetricOrchestrator(
-    metricSources = sources,
-    lockService = mongoLockService,
-    metricRepository = metricRepository,
-    metricRegistry = metricRegistry
-  )
+  def metricOrchestratorFor(sources: List[MetricSource], metricRepository: MetricRepository = mongoMetricRepository) =
+    new MetricOrchestrator(
+      metricSources    = sources,
+      lockService      = mongoLockService,
+      metricRepository = metricRepository,
+      metricRegistry   = metricRegistry
+    )
 
   def persistedMetricsFrom(metricsMap: Map[String, Int]): Seq[PersistedMetric] =
-    metricsMap.map { case (name, count) => PersistedMetric(name, count) }.
-      toSeq
+    metricsMap.map { case (name, count) => PersistedMetric(name, count) }.toSeq
 
-  def sourceReturning(metricsMap: Map[String, Int]): MetricSource = {
+  def sourceReturning(metricsMap: Map[String, Int]): MetricSource =
     new MetricSource {
-      override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] = {
+      override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] =
         Future.successful(metricsMap)
-      }
     }
-  }
 
-  def sourceReturningFirstAndThen(firstMetricsMap: Map[String, Int],
-                                  secondMetricsMap: Map[String, Int]): MetricSource = {
+  def sourceReturningFirstAndThen(firstMetricsMap: Map[String, Int], secondMetricsMap: Map[String, Int]): MetricSource =
     new MetricSource {
       var iteration = 0
 
-      override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] = {
+      override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] =
         if (iteration % 2 == 0) {
           iteration += 1
           Future.successful(firstMetricsMap)
-        }
-        else {
+        } else {
           iteration += 1
           Future.successful(secondMetricsMap)
         }
-      }
     }
-  }
 
   "metric orchestrator" should {
 
@@ -114,13 +109,15 @@ class MetricOrchestratorSpec extends UnitSpec
     }
 
     "be calculated across multiple sources" in {
-      val acquiredMetrics = Map("a" -> 1, "b" -> 2)
+      val acquiredMetrics      = Map("a" -> 1, "b" -> 2)
       val otherAcquiredMetrics = Map("z" -> 3, "x" -> 4)
 
-      val orchestrator = metricOrchestratorFor(List(
-        sourceReturning(acquiredMetrics),
-        sourceReturning(otherAcquiredMetrics)
-      ))
+      val orchestrator = metricOrchestratorFor(
+        List(
+          sourceReturning(acquiredMetrics),
+          sourceReturning(otherAcquiredMetrics)
+        )
+      )
 
       // when
       orchestrator.attemptMetricRefresh().futureValue shouldResultIn MetricsUpdatedAndRefreshed(
@@ -136,11 +133,13 @@ class MetricOrchestratorSpec extends UnitSpec
     }
 
     "update the metrics when the source changes" in {
-      val firstMetrics = Map("metric1" -> 32, "metric2" -> 43)
+      val firstMetrics  = Map("metric1" -> 32, "metric2" -> 43)
       val secondMetrics = Map("metric1" -> 11, "metric2" -> 87, "metric3" -> 22)
-      val orchestrator = metricOrchestratorFor(List(
-        sourceReturningFirstAndThen(firstMetrics, secondMetrics)
-      ))
+      val orchestrator = metricOrchestratorFor(
+        List(
+          sourceReturningFirstAndThen(firstMetrics, secondMetrics)
+        )
+      )
 
       // when
       orchestrator.attemptMetricRefresh().futureValue
@@ -158,76 +157,90 @@ class MetricOrchestratorSpec extends UnitSpec
 
     "skip reporting all the metrics matching when the skip filter matches all" in {
       val acquiredMetrics = Map("opened.name" -> 4, "ravaged.name" -> 2, "not.ravaged.name" -> 8)
-      val orchestrator = metricOrchestratorFor(List(sourceReturning(acquiredMetrics)))
+      val orchestrator    = metricOrchestratorFor(List(sourceReturning(acquiredMetrics)))
 
-      orchestrator.attemptMetricRefresh(
-        skipReportingFor = Some((_: PersistedMetric) => true)
-      ).futureValue shouldResultIn MetricsUpdatedAndRefreshed(acquiredMetrics, Seq.empty)
+      orchestrator
+        .attemptMetricRefresh(
+          skipReportingFor = Some((_: PersistedMetric) => true)
+        )
+        .futureValue shouldResultIn MetricsUpdatedAndRefreshed(acquiredMetrics, Seq.empty)
 
       metricRegistry.getGauges shouldBe empty
     }
 
     "skip reporting the metrics matching the specific skip filter" in {
-      val openedMetricName = "opened.name"
+      val openedMetricName     = "opened.name"
       val notRavagedMetricName = "not.ravaged.name"
-      val acquiredMetrics = Map(openedMetricName -> 4, "ravaged.name" -> 2, notRavagedMetricName -> 8)
-      val orchestrator = metricOrchestratorFor(List(sourceReturning(acquiredMetrics)))
+      val acquiredMetrics      = Map(openedMetricName -> 4, "ravaged.name" -> 2, notRavagedMetricName -> 8)
+      val orchestrator         = metricOrchestratorFor(List(sourceReturning(acquiredMetrics)))
 
-      orchestrator.attemptMetricRefresh(skipReportingFor = Some((metric: PersistedMetric) => {
-        metric.name.contains("ravaged") && metric.count < 3
-      })).futureValue shouldResultIn MetricsUpdatedAndRefreshed(
+      orchestrator
+        .attemptMetricRefresh(skipReportingFor = Some((metric: PersistedMetric) => {
+          metric.name.contains("ravaged") && metric.count < 3
+        }))
+        .futureValue shouldResultIn MetricsUpdatedAndRefreshed(
         acquiredMetrics,
         List(PersistedMetric(openedMetricName, 4), PersistedMetric(notRavagedMetricName, 8))
       )
 
-      metricRegistry.getGauges should have size 2
-      metricRegistry.getGauges.get(openedMetricName).getValue shouldBe 4
+      metricRegistry.getGauges                                    should have size 2
+      metricRegistry.getGauges.get(openedMetricName).getValue     shouldBe 4
       metricRegistry.getGauges.get(notRavagedMetricName).getValue shouldBe 8
     }
 
     "not reset value if metrics matching filter when a new value is provided" in {
-      val otherMetricName = "opened.name"
-      val notResetedMetricName = "not.reseted.name"
+      val otherMetricName                = "opened.name"
+      val notResetedMetricName           = "not.reseted.name"
       val resetableButProvidedMetricName = "reseted.name"
 
       val acquiredMetrics = Map(otherMetricName -> 4, resetableButProvidedMetricName -> 2, notResetedMetricName -> 8)
-      val orchestrator = metricOrchestratorFor(List(sourceReturning(acquiredMetrics)))
+      val orchestrator    = metricOrchestratorFor(List(sourceReturning(acquiredMetrics)))
 
-      orchestrator.attemptMetricRefresh(resetToZeroFor = Some(m => m.name == resetableButProvidedMetricName)).futureValue shouldResultIn
+      orchestrator
+        .attemptMetricRefresh(resetToZeroFor = Some(m => m.name == resetableButProvidedMetricName))
+        .futureValue shouldResultIn
         MetricsUpdatedAndRefreshed(
           acquiredMetrics,
-          List(PersistedMetric(otherMetricName, 4), PersistedMetric(resetableButProvidedMetricName, 2), PersistedMetric(notResetedMetricName, 8))
+          List(
+            PersistedMetric(otherMetricName, 4),
+            PersistedMetric(resetableButProvidedMetricName, 2),
+            PersistedMetric(notResetedMetricName, 8)
+          )
         )
 
-      metricRegistry.getGauges should have size 3
-      metricRegistry.getGauges.get(otherMetricName).getValue shouldBe 4
+      metricRegistry.getGauges                                              should have size 3
+      metricRegistry.getGauges.get(otherMetricName).getValue                shouldBe 4
       metricRegistry.getGauges.get(resetableButProvidedMetricName).getValue shouldBe 2
-      metricRegistry.getGauges.get(notResetedMetricName).getValue shouldBe 8
+      metricRegistry.getGauges.get(notResetedMetricName).getValue           shouldBe 8
     }
 
     "reset value if metrics matching reset filter and no metric is provided" in {
-      val otherMetricName = "opened.name"
+      val otherMetricName      = "opened.name"
       val notResetedMetricName = "not.reseted.name"
-      val resetableMetricName = "reseted.name"
+      val resetableMetricName  = "reseted.name"
 
       val mockMetricSource = mock[MetricSource]
-      val orchestrator = metricOrchestratorFor(List(mockMetricSource))
+      val orchestrator     = metricOrchestratorFor(List(mockMetricSource))
 
       val acquiredMetrics = Map(otherMetricName -> 4, resetableMetricName -> 2, notResetedMetricName -> 8)
       when(mockMetricSource.metrics(any)).thenReturn(Future.successful(acquiredMetrics))
-      orchestrator.attemptMetricRefresh(resetToZeroFor = Some((metric: PersistedMetric) => {
-        metric.name == "reseted.name"
-      })).futureValue
+      orchestrator
+        .attemptMetricRefresh(resetToZeroFor = Some((metric: PersistedMetric) => {
+          metric.name == "reseted.name"
+        }))
+        .futureValue
 
       val newAcquiredMetrics = Map(otherMetricName -> 5, notResetedMetricName -> 6)
       when(mockMetricSource.metrics(any)).thenReturn(Future.successful(newAcquiredMetrics))
-      orchestrator.attemptMetricRefresh(resetToZeroFor = Some((metric: PersistedMetric) => {
-        metric.name == "reseted.name"
-      })).futureValue
+      orchestrator
+        .attemptMetricRefresh(resetToZeroFor = Some((metric: PersistedMetric) => {
+          metric.name == "reseted.name"
+        }))
+        .futureValue
 
-      metricRegistry.getGauges should have size 3
-      metricRegistry.getGauges.get(otherMetricName).getValue shouldBe 5
-      metricRegistry.getGauges.get(resetableMetricName).getValue shouldBe 0
+      metricRegistry.getGauges                                    should have size 3
+      metricRegistry.getGauges.get(otherMetricName).getValue      shouldBe 5
+      metricRegistry.getGauges.get(resetableMetricName).getValue  shouldBe 0
       metricRegistry.getGauges.get(notResetedMetricName).getValue shouldBe 6
     }
 
@@ -238,9 +251,9 @@ class MetricOrchestratorSpec extends UnitSpec
 
       val orchestrator = new MetricOrchestrator(
         metricRepository = metricRepository,
-        metricSources = List(sourceReturning(acquiredMetrics)),
-        lockService = mongoLockService,
-        metricRegistry = metricRegistry
+        metricSources    = List(sourceReturning(acquiredMetrics)),
+        lockService      = mongoLockService,
+        metricRegistry   = metricRegistry
       )
 
       when(metricRepository.findAll())
@@ -272,13 +285,14 @@ class MetricOrchestratorSpec extends UnitSpec
         override def lock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = Future(false)
       }
 
-      val lockService = MongoLockService(repository = lockRepo, lock = "test-lock", duration = Duration(1, TimeUnit.MILLISECONDS))
+      val lockService =
+        MongoLockService(repository = lockRepo, lock = "test-lock", duration = Duration(1, TimeUnit.MILLISECONDS))
 
       val orchestrator = new MetricOrchestrator(
         metricRepository = mockedMetricRepository,
-        metricSources = List(sourceReturning(Map("a" -> 1, "b" -> 2))),
-        lockService = lockService,
-        metricRegistry = metricRegistry
+        metricSources    = List(sourceReturning(Map("a" -> 1, "b" -> 2))),
+        lockService      = lockService,
+        metricRegistry   = metricRegistry
       )
 
       when(mockedMetricRepository.findAll()).thenReturn(Future(List(PersistedMetric("a", 4), PersistedMetric("b", 5))))
@@ -295,12 +309,10 @@ class MetricOrchestratorSpec extends UnitSpec
       verifyNoMoreInteractions(mockedMetricRepository)
     }
 
-    class SlowlyWritingMetricRepository extends MongoMetricRepository(
-      collectionName = "metrics",
-      mongo = mongoComponent) {
-      override def persist(calculatedMetric: PersistedMetric): Future[Unit] = {
+    class SlowlyWritingMetricRepository
+        extends MongoMetricRepository(collectionName = "metrics", mongo = mongoComponent) {
+      override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
         Future(Thread.sleep(200)).flatMap(_ => super.persist(calculatedMetric))
-      }
     }
 
     "gauges are registered after all metrics are written to mongo even if writing takes a long time" in {
@@ -308,7 +320,7 @@ class MetricOrchestratorSpec extends UnitSpec
       val acquiredMetrics = Map("a" -> 1, "b" -> 2)
 
       val orchestrator = metricOrchestratorFor(
-        sources = List(sourceReturning(acquiredMetrics)),
+        sources          = List(sourceReturning(acquiredMetrics)),
         metricRepository = new SlowlyWritingMetricRepository
       )
 
@@ -322,22 +334,19 @@ class MetricOrchestratorSpec extends UnitSpec
       metricRegistry.getGauges.get(s"b").getValue shouldBe 2
     }
 
-
     implicit class MetricOrchestrationResultComparison(metricUpdateResult: MetricOrchestrationResult) {
-      def shouldResultIn(expectedUpdateResult: MetricsOnlyRefreshed): Unit = {
+      def shouldResultIn(expectedUpdateResult: MetricsOnlyRefreshed): Unit =
         inside(metricUpdateResult) {
           case MetricsOnlyRefreshed(refreshedMetrics) =>
             refreshedMetrics should contain theSameElementsAs expectedUpdateResult.refreshedMetrics
         }
-      }
 
-      def shouldResultIn(expectedUpdateResult: MetricsUpdatedAndRefreshed): Unit = {
+      def shouldResultIn(expectedUpdateResult: MetricsUpdatedAndRefreshed): Unit =
         inside(metricUpdateResult) {
           case MetricsUpdatedAndRefreshed(updatedMetrics, refreshedMetrics) =>
-            updatedMetrics shouldBe expectedUpdateResult.updatedMetrics
+            updatedMetrics   shouldBe expectedUpdateResult.updatedMetrics
             refreshedMetrics should contain theSameElementsAs expectedUpdateResult.refreshedMetrics
         }
-      }
     }
   }
 }

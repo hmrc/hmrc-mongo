@@ -30,8 +30,8 @@ trait MongoSupport extends ScalaFutures {
   protected val mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
 
   protected lazy val mongoComponent: MongoComponent = MongoComponent(mongoUri)
-  protected lazy val mongoClient   : MongoClient    = mongoComponent.client
-  protected lazy val mongoDatabase : MongoDatabase  = mongoComponent.database
+  protected lazy val mongoClient: MongoClient       = mongoComponent.client
+  protected lazy val mongoDatabase: MongoDatabase   = mongoComponent.database
 
   protected def dropDatabase(): Unit =
     mongoDatabase
@@ -39,9 +39,8 @@ trait MongoSupport extends ScalaFutures {
       .toFuture
       .futureValue
 
-  protected def prepareDatabase(): Unit = {
+  protected def prepareDatabase(): Unit =
     dropDatabase()
-  }
 
   protected def updateIndexPreference(onlyAllowIndexedQuery: Boolean): Future[Boolean] = {
     val notablescan = if (onlyAllowIndexedQuery) 1 else 0

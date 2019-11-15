@@ -31,10 +31,10 @@ import scala.reflect.ClassTag
 class PlayMongoCollection[A: ClassTag](
   mongoComponent: MongoComponent,
   val collectionName: String,
-      domainFormat  : Format[A],
-      optRegistry   : Option[CodecRegistry] = None,
-  val indexes       : Seq[IndexModel]
-  )(implicit ec: ExecutionContext) {
+  domainFormat: Format[A],
+  optRegistry: Option[CodecRegistry] = None,
+  val indexes: Seq[IndexModel]
+)(implicit ec: ExecutionContext) {
 
   private val logger = Logger(getClass)
 
@@ -65,8 +65,9 @@ object PlayMongoCollection {
   def apply[A: ClassTag](
     mongoComponent: MongoComponent,
     collectionName: String,
-    domainFormat  : Format[A],
-    optRegistry   : Option[CodecRegistry] = None,
-    indexes       : Seq[IndexModel])(implicit ec: ExecutionContext): MongoCollection[A] =
+    domainFormat: Format[A],
+    optRegistry: Option[CodecRegistry] = None,
+    indexes: Seq[IndexModel]
+  )(implicit ec: ExecutionContext): MongoCollection[A] =
     new PlayMongoCollection[A](mongoComponent, collectionName, domainFormat, optRegistry, indexes).collection
 }
