@@ -57,9 +57,11 @@ trait MongoFormats {
     val publicIdPath: JsPath  = __ \ '_id
     val privateIdPath: JsPath = __ \ 'id
     new Format[A] {
-      def reads(json: JsValue): JsResult[A] = baseFormat.compose(copyKey(publicIdPath, privateIdPath)).reads(json)
+      def reads(json: JsValue): JsResult[A] =
+        baseFormat.compose(copyKey(publicIdPath, privateIdPath)).reads(json)
 
-      def writes(o: A): JsValue = baseFormat.transform(moveKey(privateIdPath, publicIdPath)).writes(o)
+      def writes(o: A): JsValue =
+        baseFormat.transform(moveKey(privateIdPath, publicIdPath)).writes(o)
     }
   }
 }

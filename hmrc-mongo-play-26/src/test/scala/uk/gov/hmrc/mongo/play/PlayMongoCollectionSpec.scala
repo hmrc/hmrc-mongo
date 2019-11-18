@@ -53,7 +53,7 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaC
   val playMongoCollection = new PlayMongoCollection[MyObject](
     mongoComponent = mongoComponent,
     collectionName = "myobject",
-    domainFormat   = myObjectFormat,
+    domainFormat   = MongoFormats.mongoEntity(myObjectFormat),
     optRegistry = Some(
       CodecRegistries.fromCodecs(
         Codecs.playFormatCodec(stringWrapperFormat),
@@ -101,6 +101,7 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaC
             .toFuture
             .futureValue shouldBe List(myObj)
 
+        checkFind("_id"              , myObj.id) // Note, we'd have to use internal key (is mongoEntity support providing any value?)
         checkFind("string"           , myObj.string)
         checkFind("boolean"          , myObj.boolean)
         checkFind("int"              , myObj.int)
@@ -133,6 +134,7 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaC
               .futureValue
               .wasAcknowledged shouldBe true
 
+          // Note, not checking update of `_id` since immutable
           checkUpdate("string"           , targetObj.string)
           checkUpdate("boolean"          , targetObj.boolean)
           checkUpdate("int"              , targetObj.int)
@@ -149,7 +151,7 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaC
           checkUpdate("objectId"         , targetObj.objectId)
 
           val writtenObj = playMongoCollection.collection.find().toFuture
-          writtenObj.futureValue shouldBe List(targetObj)
+          writtenObj.futureValue shouldBe List(targetObj.copy(id = originalObj.id))
         }
       }
     }
@@ -178,6 +180,7 @@ object PlayMongoCollectionSpec {
   }
 
   case class MyObject(
+    id        : BsonObjectId,
     // Wrappers
     string    : StringWrapper,
     boolean   : BooleanWrapper,
@@ -242,7 +245,8 @@ object PlayMongoCollectionSpec {
   import MongoJavatimeFormats.Implicits._
 
   val myObjectFormat =
-    ( (__ \ "string"           ).format[StringWrapper]
+    ( (__ \ "id"               ).format[BsonObjectId]
+    ~ (__ \ "string"           ).format[StringWrapper]
     ~ (__ \ "boolean"          ).format[BooleanWrapper]
     ~ (__ \ "int"              ).format[IntWrapper]
     ~ (__ \ "long"             ).format[LongWrapper]
@@ -271,6 +275,7 @@ object PlayMongoCollectionSpec {
              .suchThat(bd => scala.util.Try(new org.bson.types.Decimal128(bd.bigDecimal)).isSuccess)
       epochMillis <- Gen.choose(0L, System.currentTimeMillis * 2) // Keep Dates within range (ArithmeticException for any Long.MAX_VALUE)
     } yield MyObject(
+      id                = new BsonObjectId(new org.bson.types.ObjectId(new java.util.Date(epochMillis))),
       string            = StringWrapper(s),
       boolean           = BooleanWrapper(b),
       int               = IntWrapper(i),
