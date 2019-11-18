@@ -24,6 +24,8 @@ import scala.util.{Failure, Success, Try}
 trait MongoFormats {
   outer =>
 
+  // ObjectId
+
   val objectIdRead: Reads[ObjectId] = Reads[ObjectId] { json =>
     (json \ "$oid").validate[String].flatMap { str =>
       Try(new ObjectId(str)) match {
@@ -47,12 +49,26 @@ trait MongoFormats {
 
   object Implicits extends Implicits
 
+  // MongoEntity
+
   private def copyKey(fromPath: JsPath, toPath: JsPath): Reads[JsObject] =
     __.json.update(toPath.json.copyFrom(fromPath.json.pick))
 
   private def moveKey(fromPath: JsPath, toPath: JsPath): JsValue => JsObject =
     (json: JsValue) => json.transform(copyKey(fromPath, toPath) andThen fromPath.json.prune).get
 
+  /** Maps a Format for an entity with 'id' field to mongo by renaming the id field to internal '_id'.
+    * Useful for auto generated Formats, where the model id key is named 'id'.
+    *
+    * {{{
+    * case class MyObject(id: ObjectId)
+    * val formats: Format[MyObject] = mongoEntity(Json.format[MyObject]}
+    * }}}
+    *
+    * This is deprecated since an explicit Format, mapping id to `_id` is preferred.
+    * Also any queries on id would still need to use the underlying '_id' name.
+    */
+  @deprecated("Map entity `id` directly to `_id`, rather than using JSON automated macro.")
   def mongoEntity[A](baseFormat: Format[A]): Format[A] = {
     val publicIdPath: JsPath  = __ \ '_id
     val privateIdPath: JsPath = __ \ 'id
