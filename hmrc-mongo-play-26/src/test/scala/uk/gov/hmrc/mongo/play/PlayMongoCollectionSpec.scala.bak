@@ -18,12 +18,13 @@ package uk.gov.hmrc.mongo.play
 
 import org.joda.{time => jot}
 import java.{time => jat}
+
 import org.bson.codecs.configuration.CodecRegistries
-import org.bson.types.ObjectId
 import org.scalacheck.{Arbitrary, Gen, Prop}
-import org.scalatest.WordSpecLike
+import org.scalatest.{Succeeded, WordSpecLike}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.compatible.Assertion
+import org.scalatest.matchers.Matcher
 import org.scalatest.Matchers._
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.mongodb.scala.Completed
@@ -31,12 +32,11 @@ import org.mongodb.scala.model.{Filters, Updates}
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.component.MongoComponent
-import uk.gov.hmrc.mongo.play.json.{Codecs, MongoFormats, MongoJavatimeFormats, MongoJodaFormats}
+import uk.gov.hmrc.mongo.play.json.{Codecs, MongoJavatimeFormats, MongoJodaFormats}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.reflect.ClassTag
-
 import ExecutionContext.Implicits.global
 
 class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaCheckDrivenPropertyChecks {
@@ -53,7 +53,7 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaC
   val playMongoCollection = new PlayMongoCollection[MyObject](
     mongoComponent = mongoComponent,
     collectionName = "myobject",
-    domainFormat   = MongoFormats.mongoEntity(myObjectFormat),
+    domainFormat   = myObjectFormat,
     optRegistry = Some(
       CodecRegistries.fromCodecs(
         Codecs.playFormatCodec(stringWrapperFormat),
@@ -84,7 +84,7 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaC
         result.futureValue shouldBe Completed()
 
         val writtenObj = playMongoCollection.collection.find().toFuture
-        writtenObj.futureValue shouldBe List(myObj)
+        assertMyObjectsEqual(Seq(myObj), writtenObj.futureValue)
       }
     }
 
@@ -95,27 +95,28 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaC
         val result = playMongoCollection.collection.insertOne(myObj).toFuture
         result.futureValue shouldBe Completed()
 
-        def checkFind(key: String, value: Any): Assertion =
-          playMongoCollection.collection
-            .find(filter = Filters.equal(key, value))
-            .toFuture
-            .futureValue shouldBe List(myObj)
+        def checkFind(key: String, value: Any): Assertion = {
+          val res =
+            playMongoCollection.collection
+              .find(filter = Filters.equal(key, value))
+              .toFuture
+              .futureValue
+          assertMyObjectsEqual(List(myObj), res)
+        }
 
-        checkFind("_id"              , myObj.id) // Note, we'd have to use internal key (is mongoEntity support providing any value?)
-        checkFind("string"           , myObj.string)
-        checkFind("boolean"          , myObj.boolean)
-        checkFind("int"              , myObj.int)
-        checkFind("long"             , myObj.long)
-        checkFind("double"           , myObj.double)
-        checkFind("bigDecimal"       , myObj.bigDecimal)
-        checkFind("jodaDateTime"     , myObj.jodaDateTime)
-        checkFind("jodaLocalDate"    , myObj.jodaLocalDate)
-        checkFind("jodaLocalDateTime", myObj.jodaLocalDateTime)
-        checkFind("javaInstant"      , myObj.javaInstant)
-        checkFind("javaLocalDate"    , myObj.javaLocalDate)
-        checkFind("javaLocalDateTime", myObj.javaLocalDateTime)
-        // checkFind("sum"              , myObj.sum)
-        checkFind("objectId"         , myObj.objectId)
+        checkFind("string"          , myObj.string)
+        checkFind("boolean"         , myObj.boolean)
+        checkFind("int"             , myObj.int)
+        checkFind("long"            , myObj.long)
+        checkFind("double"          , myObj.double)
+        checkFind("bigDecimal"      , myObj.bigDecimal)
+        checkFind("jotDateTime"     , myObj.jotDateTime)
+        checkFind("jotLocalDate"    , myObj.jotLocalDate)
+        checkFind("jotLocalDateTime", myObj.jotLocalDateTime)
+        checkFind("jatInstant"      , myObj.jatInstant)
+        checkFind("jatLocalDate"    , myObj.jatLocalDate)
+        checkFind("jatLocalDateTime", myObj.jatLocalDateTime)
+      // checkFind("sum"          , myObj.sum                  )
       }
     }
 
@@ -134,24 +135,22 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaC
               .futureValue
               .wasAcknowledged shouldBe true
 
-          // Note, not checking update of `_id` since immutable
-          checkUpdate("string"           , targetObj.string)
-          checkUpdate("boolean"          , targetObj.boolean)
-          checkUpdate("int"              , targetObj.int)
-          checkUpdate("long"             , targetObj.long)
-          checkUpdate("double"           , targetObj.double)
-          checkUpdate("bigDecimal"       , targetObj.bigDecimal)
-          checkUpdate("jodaDateTime"     , targetObj.jodaDateTime)
-          checkUpdate("jodaLocalDate"    , targetObj.jodaLocalDate)
-          checkUpdate("jodaLocalDateTime", targetObj.jodaLocalDateTime)
-          checkUpdate("javaInstant"      , targetObj.javaInstant)
-          checkUpdate("javaLocalDate"    , targetObj.javaLocalDate)
-          checkUpdate("javaLocalDateTime", targetObj.javaLocalDateTime)
-          // checkUpdate("sum"              , targetObj.sum)
-          checkUpdate("objectId"         , targetObj.objectId)
+          checkUpdate("string"          , targetObj.string)
+          checkUpdate("boolean"         , targetObj.boolean)
+          checkUpdate("int"             , targetObj.int)
+          checkUpdate("long"            , targetObj.long)
+          checkUpdate("double"          , targetObj.double)
+          checkUpdate("bigDecimal"      , targetObj.bigDecimal)
+          checkUpdate("jotDateTime"     , targetObj.jotDateTime)
+          checkUpdate("jotLocalDate"    , targetObj.jotLocalDate)
+          checkUpdate("jotLocalDateTime", targetObj.jotLocalDateTime)
+          checkUpdate("jatInstant"      , targetObj.jatInstant)
+          checkUpdate("jatLocalDate"    , targetObj.jatLocalDate)
+          checkUpdate("jatLocalDateTime", targetObj.jatLocalDateTime)
+          // checkUpdate("sum"          , targetObj.sum                  )
 
           val writtenObj = playMongoCollection.collection.find().toFuture
-          writtenObj.futureValue shouldBe List(targetObj.copy(id = originalObj.id))
+          assertMyObjectsEqual(List(targetObj), writtenObj.futureValue)
         }
       }
     }
@@ -180,26 +179,26 @@ object PlayMongoCollectionSpec {
   }
 
   case class MyObject(
-    id        : ObjectId,
     // Wrappers
     string    : StringWrapper,
     boolean   : BooleanWrapper,
     int       : IntWrapper,
     long      : LongWrapper,
     double    : DoubleWrapper,
-    bigDecimal: BigDecimalWrapper,
+    bigDecimal: BigDecimalWrapper
     // Sum type (WIP)
-    sum: Sum,
+    ,
+    sum: Sum
     // Joda time
-    jodaDateTime     : jot.DateTime,
-    jodaLocalDate    : jot.LocalDate,
-    jodaLocalDateTime: jot.LocalDateTime,
+    ,
+    jotDateTime     : jot.DateTime,
+    jotLocalDate    : jot.LocalDate,
+    jotLocalDateTime: jot.LocalDateTime
     // Java time
-    javaInstant      : jat.Instant,
-    javaLocalDate    : jat.LocalDate,
-    javaLocalDateTime: jat.LocalDateTime,
-
-    objectId: ObjectId
+    ,
+    jatInstant      : jat.Instant,
+    jatLocalDate    : jat.LocalDate,
+    jatLocalDateTime: jat.LocalDateTime
   )
 
   implicit lazy val stringWrapperFormat: Format[StringWrapper] =
@@ -239,56 +238,75 @@ object PlayMongoCollectionSpec {
       }
   }
 
-  import MongoFormats.Implicits._
   import MongoJodaFormats.Implicits._
   // Note without the following import, it will compile, but use plays Javatime formats, and fail in runtime
   import MongoJavatimeFormats.Implicits._
 
   val myObjectFormat =
-    ( (__ \ "id"               ).format[ObjectId]
-    ~ (__ \ "string"           ).format[StringWrapper]
-    ~ (__ \ "boolean"          ).format[BooleanWrapper]
-    ~ (__ \ "int"              ).format[IntWrapper]
-    ~ (__ \ "long"             ).format[LongWrapper]
-    ~ (__ \ "double"           ).format[DoubleWrapper]
-    ~ (__ \ "bigDecimal"       ).format[BigDecimalWrapper]
-    ~ (__ \ "sum"              ).format[Sum]
-    ~ (__ \ "jodaDateTime"     ).format[jot.DateTime]
-    ~ (__ \ "jodaLocalDate"    ).format[jot.LocalDate]
-    ~ (__ \ "jodaLocalDateTime").format[jot.LocalDateTime]
-    ~ (__ \ "javaInstant"      ).format[jat.Instant]
-    ~ (__ \ "javaLocalDate"    ).format[jat.LocalDate]
-    ~ (__ \ "javaLocalDateTime").format[jat.LocalDateTime]
-    ~ (__ \ "objectId"         ).format[ObjectId]
+    ( (__ \ "string"          ).format[StringWrapper]
+    ~ (__ \ "boolean"         ).format[BooleanWrapper]
+    ~ (__ \ "int"             ).format[IntWrapper]
+    ~ (__ \ "long"            ).format[LongWrapper]
+    ~ (__ \ "double"          ).format[DoubleWrapper]
+    ~ (__ \ "bigDecimal"      ).format[BigDecimalWrapper]
+    ~ (__ \ "sum"             ).format[Sum]
+    ~ (__ \ "jotDateTime"     ).format[jot.DateTime]
+    ~ (__ \ "jotLocalDate"    ).format[jot.LocalDate]
+    ~ (__ \ "jotLocalDateTime").format[jot.LocalDateTime]
+    ~ (__ \ "jatInstant"      ).format[jat.Instant]
+    ~ (__ \ "jatLocalDate"    ).format[jat.LocalDate]
+    ~ (__ \ "jatLocalDateTime").format[jat.LocalDateTime]
     )(MyObject.apply _, unlift(MyObject.unapply))
 
   def myObjectGen =
     for {
-      s  <- Arbitrary.arbitrary[String]
-      b  <- Arbitrary.arbitrary[Boolean]
-      i  <- Arbitrary.arbitrary[Int]
-      l  <- Arbitrary.arbitrary[Long]
-      d  <- Arbitrary.arbitrary[Double]
-      bd <- Arbitrary
-             .arbitrary[BigDecimal]
-             // Only support handle BigDecimal within Decimal128 range
-             .suchThat(bd => scala.util.Try(new org.bson.types.Decimal128(bd.bigDecimal)).isSuccess)
+      s           <- Arbitrary.arbitrary[String]
+      b           <- Arbitrary.arbitrary[Boolean]
+      i           <- Arbitrary.arbitrary[Int]
+      l           <- Arbitrary.arbitrary[Long]
+      d           <- Arbitrary.arbitrary[Double]
+      bd          <- Arbitrary.arbitrary[BigDecimal]
       epochMillis <- Gen.choose(0L, System.currentTimeMillis * 2) // Keep Dates within range (ArithmeticException for any Long.MAX_VALUE)
     } yield MyObject(
-      id                = new org.bson.types.ObjectId(new java.util.Date(epochMillis)),
-      string            = StringWrapper(s),
-      boolean           = BooleanWrapper(b),
-      int               = IntWrapper(i),
-      long              = LongWrapper(l),
-      double            = DoubleWrapper(d),
-      bigDecimal        = BigDecimalWrapper(bd),
-      sum               = Sum.Sum1,
-      jodaDateTime      = new jot.DateTime(epochMillis, jot.DateTimeZone.UTC), // Mongo db assumes UTC (timezone is not stored in db - when read back, it will represent the same instant, but with timezone UTC)
-      jodaLocalDate     = new jot.LocalDate(epochMillis),
-      jodaLocalDateTime = new jot.LocalDateTime(epochMillis),
-      javaInstant       = jat.Instant.ofEpochMilli(epochMillis),
-      javaLocalDate     = jat.LocalDate.ofEpochDay(epochMillis / (24 * 60 * 60 * 1000)),
-      javaLocalDateTime = jat.LocalDateTime.ofInstant(jat.Instant.ofEpochMilli(epochMillis), jat.ZoneId.of("Z")),
-      objectId          = new org.bson.types.ObjectId(new java.util.Date(epochMillis))
+      string       = StringWrapper(s),
+      boolean      = BooleanWrapper(b),
+      int          = IntWrapper(i),
+      long         = LongWrapper(l),
+      double       = DoubleWrapper(d),
+      bigDecimal   = BigDecimalWrapper(bd),
+      sum          = Sum.Sum1,
+      jotDateTime      = new jot.DateTime(epochMillis, jot.DateTimeZone.UTC), // Mongo db assumes UTC (timezone is not stored in db - when read back, it will represent the same instant, but with timezone UTC)
+      jotLocalDate     = new jot.LocalDate(epochMillis),
+      jotLocalDateTime = new jot.LocalDateTime(epochMillis),
+      jatInstant       = jat.Instant.ofEpochMilli(epochMillis),
+      jatLocalDate     = jat.LocalDate.ofEpochDay(epochMillis / (24 * 60 * 60 * 1000)),
+      jatLocalDateTime = jat.LocalDateTime.ofInstant(jat.Instant.ofEpochMilli(epochMillis), jat.ZoneId.of("Z"))
     )
+
+  def assertMyObjectEquals(expected: MyObject, actual: MyObject): Assertion = {
+      actual.string shouldBe expected.string
+
+      actual.boolean             shouldBe expected.boolean
+      actual.int                 shouldBe expected.int
+      // actual.long                shouldBe expected.long
+      println(s"Rather than comparing ${actual.long} to ${expected.long}, comparing ${actual.bigDecimal.unwrap.toDouble} to ${expected.bigDecimal.unwrap.toDouble}")
+      actual.long                shouldBe expected.long
+      actual.double              shouldBe expected.double
+      // actual.bigDecimal        shouldBe expected.bigDecimal
+      println(s"Rather than comparing ${actual.bigDecimal} to ${expected.bigDecimal}, comparing ${actual.bigDecimal.unwrap.toDouble} to ${expected.bigDecimal.unwrap.toDouble}")
+      actual.bigDecimal.unwrap.toDouble shouldBe expected.bigDecimal.unwrap.toDouble
+      actual.jotDateTime         shouldBe expected.jotDateTime
+      actual.jotLocalDate        shouldBe expected.jotLocalDate
+      actual.jotLocalDateTime    shouldBe expected.jotLocalDateTime
+      actual.jatInstant          shouldBe expected.jatInstant
+      actual.jatLocalDate        shouldBe expected.jatLocalDate
+      actual.jatLocalDateTime    shouldBe expected.jatLocalDateTime
+      actual.sum                 shouldBe expected.sum
+  }
+
+  def assertMyObjectsEqual(expected: Seq[MyObject], actual: Seq[MyObject]): Assertion = {
+    expected.length shouldBe actual.length
+    expected.zip(actual).foreach { case (e, a) => assertMyObjectEquals(e, a) }
+    Succeeded
+  }
 }

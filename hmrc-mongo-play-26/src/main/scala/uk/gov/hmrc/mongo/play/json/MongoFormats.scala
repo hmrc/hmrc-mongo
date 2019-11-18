@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import org.mongodb.scala.bson.BsonObjectId
+import org.bson.types.ObjectId
 import play.api.libs.json._
 
 import scala.util.{Failure, Success, Try}
@@ -24,25 +24,25 @@ import scala.util.{Failure, Success, Try}
 trait MongoFormats {
   outer =>
 
-  val objectIdRead: Reads[BsonObjectId] = Reads[BsonObjectId] { json =>
+  val objectIdRead: Reads[ObjectId] = Reads[ObjectId] { json =>
     (json \ "$oid").validate[String].flatMap { str =>
-      Try(BsonObjectId(str)) match {
+      Try(new ObjectId(str)) match {
         case Success(bsonId) => JsSuccess(bsonId)
         case Failure(err)    => JsError(__, s"Invalid BSON Object ID $json; ${err.getMessage}")
       }
     }
   }
 
-  val objectIdWrite: Writes[BsonObjectId] = new Writes[BsonObjectId] {
-    def writes(objectId: BsonObjectId): JsValue = Json.obj(
-      "$oid" -> objectId.getValue.toString
+  val objectIdWrite: Writes[ObjectId] = new Writes[ObjectId] {
+    def writes(objectId: ObjectId): JsValue = Json.obj(
+      "$oid" -> objectId.toString
     )
   }
 
-  val objectIdFormats: Format[BsonObjectId] = Format(objectIdRead, objectIdWrite)
+  val objectIdFormats: Format[ObjectId] = Format(objectIdRead, objectIdWrite)
 
   trait Implicits {
-    implicit val objectIdFormats: Format[BsonObjectId] = outer.objectIdFormats
+    implicit val objectIdFormats: Format[ObjectId] = outer.objectIdFormats
   }
 
   object Implicits extends Implicits
