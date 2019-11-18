@@ -24,7 +24,7 @@ import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.bson.collection.immutable.Document
 import play.api.libs.json._
 import scala.collection.JavaConverters._
-import org.slf4j.{Logger, LoggerFactory}
+import org.slf4j.LoggerFactory
 
 import scala.reflect.ClassTag
 
@@ -40,8 +40,10 @@ trait Codecs {
 
   /** @param legacyNumbers `true` will preserve the Number modifications which occured with simple-reactivemongo when storing
     * extremely large and small numbers.
-    * The default value `false` should suffice since the affected numbers are not within typical usage (e.g. 4.648216657858037E+74),
-    * and if occur, should probably  be stored and retrieved accurately.
+    * The default value `false` should be preferred in most cases. This does change the previous behaviour from reactivemongo,
+    * but only for extreme values not within typical usage (e.g. 4.648216657858037E+74). This ensures that should numbers in
+    * this extreme range occur, they will be stored and retrieved accurately, whereas with the legacy behaviour they may be
+    * modified in unexpected ways.
     */
   def playFormatCodec[A](
       format       : Format[A],

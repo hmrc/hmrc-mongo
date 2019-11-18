@@ -101,7 +101,7 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaC
             .toFuture
             .futureValue shouldBe List(myObj)
 
-        checkFind("_id"              , myObj.id) // Note, we'd have to use internal key (is mongoEntity support providing any value?)
+        checkFind("_id"              , myObj.id) // Note, even with mongoEntity, we have to use internal key
         checkFind("string"           , myObj.string)
         checkFind("boolean"          , myObj.boolean)
         checkFind("int"              , myObj.int)
@@ -271,7 +271,7 @@ object PlayMongoCollectionSpec {
       d  <- Arbitrary.arbitrary[Double]
       bd <- Arbitrary
              .arbitrary[BigDecimal]
-             // Only support handle BigDecimal within Decimal128 range
+             // Only BigDecimal within Decimal128 range is supported.
              .suchThat(bd => scala.util.Try(new org.bson.types.Decimal128(bd.bigDecimal)).isSuccess)
       epochMillis <- Gen.choose(0L, System.currentTimeMillis * 2) // Keep Dates within range (ArithmeticException for any Long.MAX_VALUE)
     } yield MyObject(

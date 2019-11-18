@@ -2,12 +2,17 @@ import sbt._
 
 val name = "hmrc-mongo"
 
+lazy val commonSettings = Seq(
+  organization := "uk.gov.hmrc.mongo",
+  majorVersion := 0
+)
+
 lazy val library = Project(name, file("."))
   .enablePlugins(SbtAutoBuildPlugin, SbtGitVersioning, SbtArtifactory)
   .settings(
+    commonSettings,
     publish := {},
     publishAndDistribute := {},
-    majorVersion := 0,
     scalaVersion := "2.11.12",
     crossScalaVersions := Seq("2.11.12", "2.12.8")
   )
@@ -16,7 +21,7 @@ lazy val library = Project(name, file("."))
 lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
-    majorVersion := 0,
+    commonSettings,
     libraryDependencies ++= AppDependencies.hmrcMongoPlay26,
     makePublicallyAvailableOnBintray := true,
     resolvers := Seq(
@@ -29,7 +34,7 @@ lazy val hmrcMongoPlay26 = Project("hmrc-mongo-play-26", file("hmrc-mongo-play-2
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .dependsOn(hmrcMongoCommon, hmrcMongoTest % Test)
   .settings(
-    majorVersion := 0,
+    commonSettings,
     libraryDependencies ++= AppDependencies.hmrcMongoPlay26,
     makePublicallyAvailableOnBintray := true,
     resolvers := Seq(
@@ -42,7 +47,7 @@ lazy val hmrcMongoPlay27 = Project("hmrc-mongo-play-27", file("hmrc-mongo-play-2
   .dependsOn(hmrcMongoCommon, hmrcMongoTest % Test)
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
-    majorVersion := 0,
+    commonSettings,
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-play-26/src/main/scala",
     libraryDependencies ++= AppDependencies.hmrcMongoPlay27,
     makePublicallyAvailableOnBintray := true,
@@ -56,7 +61,7 @@ lazy val hmrcMongoTest = Project("hmrc-mongo-test", file("hmrc-mongo-test"))
   .dependsOn(hmrcMongoCommon)
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
-    majorVersion := 0,
+    commonSettings,
     libraryDependencies ++= AppDependencies.hmrcMongoTest,
     makePublicallyAvailableOnBintray := true,
     resolvers := Seq(
@@ -69,7 +74,7 @@ lazy val metrixPlay26 = Project("hmrc-mongo-metrix-play-26", file("hmrc-mongo-me
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .dependsOn(hmrcMongoPlay26 % Compile, hmrcMongoTest % Compile)
   .settings(
-    majorVersion := 0,
+    commonSettings,
     libraryDependencies ++= AppDependencies.metrixPlay26,
     makePublicallyAvailableOnBintray := true,
     resolvers := Seq(
