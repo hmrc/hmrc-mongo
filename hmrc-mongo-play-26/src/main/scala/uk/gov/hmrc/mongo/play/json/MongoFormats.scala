@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import org.mongodb.scala.bson.BsonObjectId
+import org.bson.types.ObjectId
 import play.api.libs.json._
 
 import scala.util.{Failure, Success, Try}
@@ -24,28 +24,32 @@ import scala.util.{Failure, Success, Try}
 trait MongoFormats {
   outer =>
 
-  val objectIdRead: Reads[BsonObjectId] = Reads[BsonObjectId] { json =>
+  // ObjectId
+
+  val objectIdRead: Reads[ObjectId] = Reads[ObjectId] { json =>
     (json \ "$oid").validate[String].flatMap { str =>
-      Try(BsonObjectId(str)) match {
+      Try(new ObjectId(str)) match {
         case Success(bsonId) => JsSuccess(bsonId)
         case Failure(err)    => JsError(__, s"Invalid BSON Object ID $json; ${err.getMessage}")
       }
     }
   }
 
-  val objectIdWrite: Writes[BsonObjectId] = new Writes[BsonObjectId] {
-    def writes(objectId: BsonObjectId): JsValue = Json.obj(
+  val objectIdWrite: Writes[ObjectId] = new Writes[ObjectId] {
+    def writes(objectId: ObjectId): JsValue = Json.obj(
       "$oid" -> objectId.toString
     )
   }
 
-  val objectIdFormats: Format[BsonObjectId] = Format(objectIdRead, objectIdWrite)
+  val objectIdFormats: Format[ObjectId] = Format(objectIdRead, objectIdWrite)
 
   trait Implicits {
-    implicit val objectIdFormats: Format[BsonObjectId] = outer.objectIdFormats
+    implicit val objectIdFormats: Format[ObjectId] = outer.objectIdFormats
   }
 
   object Implicits extends Implicits
+
+  // MongoEntity
 
   private def copyKey(fromPath: JsPath, toPath: JsPath): Reads[JsObject] =
     __.json.update(toPath.json.copyFrom(fromPath.json.pick))
@@ -53,13 +57,27 @@ trait MongoFormats {
   private def moveKey(fromPath: JsPath, toPath: JsPath): JsValue => JsObject =
     (json: JsValue) => json.transform(copyKey(fromPath, toPath) andThen fromPath.json.prune).get
 
+  /** Maps a Format for an entity with 'id' field to mongo by renaming the id field to internal '_id'.
+    * Useful for auto generated Formats, where the model id key is named 'id'.
+    *
+    * {{{
+    * case class MyObject(id: ObjectId)
+    * val formats: Format[MyObject] = mongoEntity(Json.format[MyObject]}
+    * }}}
+    *
+    * This is deprecated since an explicit Format, mapping id to `_id` is preferred.
+    * Also any queries on id would still need to use the underlying '_id' name.
+    */
+  @deprecated("Map entity `id` directly to `_id`, rather than using JSON automated macro.")
   def mongoEntity[A](baseFormat: Format[A]): Format[A] = {
     val publicIdPath: JsPath  = __ \ '_id
     val privateIdPath: JsPath = __ \ 'id
     new Format[A] {
-      def reads(json: JsValue): JsResult[A] = baseFormat.compose(copyKey(publicIdPath, privateIdPath)).reads(json)
+      def reads(json: JsValue): JsResult[A] =
+        baseFormat.compose(copyKey(publicIdPath, privateIdPath)).reads(json)
 
-      def writes(o: A): JsValue = baseFormat.transform(moveKey(privateIdPath, publicIdPath)).writes(o)
+      def writes(o: A): JsValue =
+        baseFormat.transform(moveKey(privateIdPath, publicIdPath)).writes(o)
     }
   }
 }
