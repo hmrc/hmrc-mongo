@@ -54,7 +54,7 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaC
     mongoComponent = mongoComponent,
     collectionName = "myobject",
     domainFormat   = MongoFormats.mongoEntity(myObjectFormat),
-    optRegistry = Some(
+    optRegistry    = Some(
       CodecRegistries.fromCodecs(
         Codecs.playFormatCodec(stringWrapperFormat),
         Codecs.playFormatCodec(booleanWrapperFormat),
@@ -68,10 +68,13 @@ class PlayMongoCollectionSpec extends WordSpecLike with ScalaFutures with ScalaC
         Codecs.playFormatCodec(MongoJavatimeFormats.instantFormats),
         Codecs.playFormatCodec(MongoJavatimeFormats.localDateFormats),
         Codecs.playFormatCodec(MongoJavatimeFormats.localDateTimeFormats),
+        // TODO this is ineffective - codec is looked up by val.getClass
+        // i.e. classOf[Sum.Sum1] not classOf[Sum]
+        // Note, codec macro would generate a codec for both classOf[Sum.Sum1] and classOf[Sum.Sum2]
         Codecs.playFormatCodec(sumFormat)
       )
     ),
-    indexes = Seq.empty
+    indexes        = Seq.empty
   )
 
   "PlayMongoCollection.collection" should {
@@ -202,28 +205,25 @@ object PlayMongoCollectionSpec {
     objectId: ObjectId
   )
 
-  implicit lazy val stringWrapperFormat: Format[StringWrapper] =
+  val stringWrapperFormat: Format[StringWrapper] =
     implicitly[Format[String]].inmap(StringWrapper.apply, unlift(StringWrapper.unapply))
 
-  implicit lazy val booleanWrapperFormat: Format[BooleanWrapper] =
+  val booleanWrapperFormat: Format[BooleanWrapper] =
     implicitly[Format[Boolean]].inmap(BooleanWrapper.apply, unlift(BooleanWrapper.unapply))
 
-  implicit lazy val intWrapperFormat: Format[IntWrapper] =
+  val intWrapperFormat: Format[IntWrapper] =
     implicitly[Format[Int]].inmap(IntWrapper.apply, unlift(IntWrapper.unapply))
 
-  implicit lazy val longWrapperFormat: Format[LongWrapper] =
+  val longWrapperFormat: Format[LongWrapper] =
     implicitly[Format[Long]].inmap(LongWrapper.apply, unlift(LongWrapper.unapply))
 
-  implicit lazy val doubleWrapperFormat: Format[DoubleWrapper] =
+  val doubleWrapperFormat: Format[DoubleWrapper] =
     implicitly[Format[Double]].inmap(DoubleWrapper.apply, unlift(DoubleWrapper.unapply))
 
-  implicit lazy val bigDecimalWrapperFormat: Format[BigDecimalWrapper] =
+  val bigDecimalWrapperFormat: Format[BigDecimalWrapper] =
     implicitly[Format[BigDecimal]].inmap(BigDecimalWrapper.apply, unlift(BigDecimalWrapper.unapply))
 
-  // TODO this is ineffective - codec is looked up by val.getClass
-  // i.e. classOf[Sum.Sum1] not classOf[Sum]
-  // Note, codec macro would generate a codec for both classOf[Sum.Sum1] and classOf[Sum.Sum2]
-  implicit lazy val sumFormat: Format[Sum] = new Format[Sum] {
+  val sumFormat: Format[Sum] = new Format[Sum] {
     override def reads(js: JsValue) =
       js.validate[String]
         .flatMap {
@@ -239,12 +239,22 @@ object PlayMongoCollectionSpec {
       }
   }
 
-  import MongoFormats.Implicits._
-  import MongoJodaFormats.Implicits._
-  // Note without the following import, it will compile, but use plays Javatime formats, and fail in runtime
-  import MongoJavatimeFormats.Implicits._
+  object Implicits {
+    implicit val swf  = stringWrapperFormat
+    implicit val bwf  = booleanWrapperFormat
+    implicit val iwf  = intWrapperFormat
+    implicit val lwf  = longWrapperFormat
+    implicit val dwf  = doubleWrapperFormat
+    implicit val bdwf = bigDecimalWrapperFormat
+    implicit val sf   = sumFormat
+  }
 
-  val myObjectFormat =
+  val myObjectFormat = {
+    import Implicits._
+    import MongoFormats.Implicits._
+    import MongoJodaFormats.Implicits._
+    // Note without the following import, it will compile, but use plays Javatime formats, and fail in runtime
+    import MongoJavatimeFormats.Implicits._
     ( (__ \ "id"               ).format[ObjectId]
     ~ (__ \ "string"           ).format[StringWrapper]
     ~ (__ \ "boolean"          ).format[BooleanWrapper]
@@ -261,6 +271,7 @@ object PlayMongoCollectionSpec {
     ~ (__ \ "javaLocalDateTime").format[jat.LocalDateTime]
     ~ (__ \ "objectId"         ).format[ObjectId]
     )(MyObject.apply _, unlift(MyObject.unapply))
+  }
 
   def myObjectGen =
     for {
