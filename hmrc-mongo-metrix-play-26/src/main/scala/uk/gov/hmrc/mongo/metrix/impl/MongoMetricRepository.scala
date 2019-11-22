@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.metrix.persistence
+package uk.gov.hmrc.mongo.metrix.impl
 
 import org.mongodb.scala.ReadPreference
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Indexes.ascending
 import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptions}
 import uk.gov.hmrc.mongo.component.MongoComponent
-import uk.gov.hmrc.mongo.metrix.domain.{MetricRepository, PersistedMetric}
+import uk.gov.hmrc.mongo.metrix.{MetricRepository, PersistedMetric}
 import uk.gov.hmrc.mongo.play.PlayMongoCollection
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,9 +31,9 @@ class MongoMetricRepository(collectionName: String = "metrics", mongo: MongoComp
       collectionName = collectionName,
       mongoComponent = mongo,
       domainFormat   = PersistedMetric.format,
-      indexes = Seq(
-        IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
-      )
+      indexes        = Seq(
+                         IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
+                       )
     )
     with MetricRepository {
 
@@ -49,5 +49,4 @@ class MongoMetricRepository(collectionName: String = "metrics", mongo: MongoComp
       )
       .toFuture()
       .map(_ => ())
-
 }

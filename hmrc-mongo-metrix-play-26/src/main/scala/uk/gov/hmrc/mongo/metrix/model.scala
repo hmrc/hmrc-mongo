@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.metrix.gauge
+package uk.gov.hmrc.mongo.metrix
 
-import com.codahale.metrics.Gauge
-import play.api.Logger
-import uk.gov.hmrc.mongo.metrix.cache.MetricCache
+import play.api.libs.json.{Json, OFormat}
 
-final case class CachedMetricGauge(name: String, metrics: MetricCache) extends Gauge[Int] {
-  override def getValue: Int = {
-    val value = metrics.valueOf(name)
-    Logger.debug(s"Gauge for metric $name is reporting on value: $value")
-    value
-  }
+final case class PersistedMetric(name: String, count: Int)
+
+object PersistedMetric {
+  val format: OFormat[PersistedMetric] = Json.format[PersistedMetric]
 }

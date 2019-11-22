@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.metrix.cache
+package uk.gov.hmrc.mongo.metrix.internal
 
+import uk.gov.hmrc.mongo.metrix.PersistedMetric
 import uk.gov.hmrc.mongo.metrix.UnitSpec
-import uk.gov.hmrc.mongo.metrix.domain.PersistedMetric
 
 class MetricCacheSpec extends UnitSpec {
 

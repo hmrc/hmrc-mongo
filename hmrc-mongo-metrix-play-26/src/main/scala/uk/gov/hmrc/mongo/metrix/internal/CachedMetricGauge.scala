@@ -14,11 +14,15 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.metrix.domain
+package uk.gov.hmrc.mongo.metrix.internal
 
-import scala.concurrent.Future
+import com.codahale.metrics.Gauge
+import play.api.Logger
 
-trait MetricRepository {
-  def persist(calculatedMetric: PersistedMetric): Future[Unit]
-  def findAll(): Future[List[PersistedMetric]]
+final case class CachedMetricGauge(name: String, metrics: MetricCache) extends Gauge[Int] {
+  override def getValue: Int = {
+    val value = metrics.valueOf(name)
+    Logger.debug(s"Gauge for metric $name is reporting on value: $value")
+    value
+  }
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.metrix.domain
+package uk.gov.hmrc.mongo.metrix
 
 import scala.concurrent.{ExecutionContext, Future}
 

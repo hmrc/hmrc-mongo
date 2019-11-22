@@ -24,8 +24,7 @@ import org.mongodb.scala.model.IndexModel
 import org.scalatest.Inside._
 import org.scalatest.LoneElement
 import uk.gov.hmrc.mongo.lock.{CurrentTimestampSupport, MongoLockRepository, MongoLockService}
-import uk.gov.hmrc.mongo.metrix.domain.{MetricRepository, MetricSource, PersistedMetric}
-import uk.gov.hmrc.mongo.metrix.persistence.MongoMetricRepository
+import uk.gov.hmrc.mongo.metrix.impl.MongoMetricRepository
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
