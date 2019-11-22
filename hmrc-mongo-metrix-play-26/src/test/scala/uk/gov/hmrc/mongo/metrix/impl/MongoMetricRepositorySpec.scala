@@ -20,7 +20,7 @@ import com.mongodb.BasicDBObject
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterEach, LoneElement}
-import uk.gov.hmrc.mongo.component.MongoComponent
+import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.metrix.UnitSpec
 import uk.gov.hmrc.mongo.metrix.PersistedMetric
 import uk.gov.hmrc.mongo.test.MongoSupport
@@ -58,5 +58,4 @@ class MongoMetricRepositorySpec
       metricsRepo.findAll().futureValue.loneElement shouldBe storedMetric
     }
   }
-
 }

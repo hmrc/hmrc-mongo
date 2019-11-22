@@ -20,7 +20,7 @@ import java.time.LocalDateTime
 
 import play.api.libs.json.{Format, __}
 import play.api.libs.functional.syntax._
-import uk.gov.hmrc.mongo.play.json.{MongoFormats, MongoJavatimeFormats}
+import uk.gov.hmrc.mongo.play.json.formats.{MongoFormats, MongoJavatimeFormats}
 
 case class Lock(
   id         : String,

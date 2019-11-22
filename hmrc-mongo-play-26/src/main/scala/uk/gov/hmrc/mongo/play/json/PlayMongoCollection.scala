@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.play
+package uk.gov.hmrc.mongo.play.json
 
 import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala._
 import org.mongodb.scala.model.IndexModel
 import play.api.Logger
 import play.api.libs.json.Format
-import uk.gov.hmrc.mongo.component.MongoComponent
-import uk.gov.hmrc.mongo.play.json.CollectionFactory
+import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection}
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -34,7 +33,7 @@ class PlayMongoCollection[A: ClassTag](
   domainFormat: Format[A],
   optRegistry: Option[CodecRegistry] = None,
   val indexes: Seq[IndexModel]
-)(implicit ec: ExecutionContext) {
+)(implicit ec: ExecutionContext) extends MongoDatabaseCollection {
 
   private val logger = Logger(getClass)
 
@@ -43,7 +42,6 @@ class PlayMongoCollection[A: ClassTag](
 
   Await.result(createIndexes(), 3.seconds)
 
-  //todo can we ensure indexes exist before attempting to create them?
   def createIndexes(): Future[Seq[String]] =
     if (indexes.nonEmpty) {
       collection
@@ -58,16 +56,4 @@ class PlayMongoCollection[A: ClassTag](
       logger.info("Skipping Mongo index creation as no indexes supplied")
       Future.successful(Seq.empty)
     }
-
-}
-
-object PlayMongoCollection {
-  def apply[A: ClassTag](
-    mongoComponent: MongoComponent,
-    collectionName: String,
-    domainFormat: Format[A],
-    optRegistry: Option[CodecRegistry] = None,
-    indexes: Seq[IndexModel]
-  )(implicit ec: ExecutionContext): MongoCollection[A] =
-    new PlayMongoCollection[A](mongoComponent, collectionName, domainFormat, optRegistry, indexes).collection
 }

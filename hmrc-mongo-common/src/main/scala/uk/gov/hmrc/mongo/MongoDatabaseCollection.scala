@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.module
-import com.google.inject.AbstractModule
-import uk.gov.hmrc.mongo.component.{MongoComponent, PlayMongoComponent}
+package uk.gov.hmrc.mongo
 
-class PlayMongoModule extends AbstractModule {
-  override def configure(): Unit = bind(classOf[MongoComponent]).to(classOf[PlayMongoComponent]).asEagerSingleton()
+import org.mongodb.scala.model.IndexModel
+
+trait MongoDatabaseCollection {
+  def collectionName: String
+  def indexes: Seq[IndexModel]
 }

@@ -19,7 +19,7 @@ package uk.gov.hmrc.mongo.test
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.{Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
 import org.scalatest.concurrent.ScalaFutures
-import uk.gov.hmrc.mongo.component.MongoComponent
+import uk.gov.hmrc.mongo.MongoComponent
 
 import scala.concurrent.{ExecutionContext, Future}
 

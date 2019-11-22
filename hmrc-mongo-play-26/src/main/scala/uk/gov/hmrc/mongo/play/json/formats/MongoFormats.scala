@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.play.json
+package uk.gov.hmrc.mongo.play.json.formats
 
 import org.bson.types.ObjectId
 import play.api.libs.json._
