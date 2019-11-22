@@ -14,8 +14,16 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix
+package uk.gov.hmrc.mongo.metrix.gauge
 
-import org.scalatest.{Matchers, OptionValues, WordSpecLike}
+import com.codahale.metrics.Gauge
+import play.api.Logger
+import uk.gov.hmrc.mongo.metrix.cache.MetricCache
 
-trait UnitSpec extends WordSpecLike with Matchers with OptionValues
+final case class CachedMetricGauge(name: String, metrics: MetricCache) extends Gauge[Int] {
+  override def getValue: Int = {
+    val value = metrics.valueOf(name)
+    Logger.debug(s"Gauge for metric $name is reporting on value: $value")
+    value
+  }
+}

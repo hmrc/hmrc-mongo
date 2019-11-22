@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix.persistence
+package uk.gov.hmrc.mongo.metrix.persistence
 
 import org.mongodb.scala.ReadPreference
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Indexes.ascending
 import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptions}
-import uk.gov.hmrc.metrix.domain.{MetricRepository, PersistedMetric}
 import uk.gov.hmrc.mongo.component.MongoComponent
+import uk.gov.hmrc.mongo.metrix.domain.{MetricRepository, PersistedMetric}
 import uk.gov.hmrc.mongo.play.PlayMongoCollection
 
 import scala.concurrent.{ExecutionContext, Future}

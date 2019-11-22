@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix.domain
+package uk.gov.hmrc.mongo.metrix.domain
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
-/**
-  * A source of metrics to collect from your application
-  */
-trait MetricSource {
-  def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]]
+trait MetricRepository {
+  def persist(calculatedMetric: PersistedMetric): Future[Unit]
+  def findAll(): Future[List[PersistedMetric]]
 }

@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix
+package uk.gov.hmrc.mongo.metrix
 
 import com.codahale.metrics.MetricRegistry
 import play.api.Logger
-import uk.gov.hmrc.metrix.cache.MetricCache
-import uk.gov.hmrc.metrix.domain.{MetricRepository, MetricSource, PersistedMetric}
-import uk.gov.hmrc.metrix.gauge.CachedMetricGauge
 import uk.gov.hmrc.mongo.lock.MongoLockService
+import uk.gov.hmrc.mongo.metrix.cache.MetricCache
+import uk.gov.hmrc.mongo.metrix.domain.{MetricRepository, MetricSource, PersistedMetric}
+import uk.gov.hmrc.mongo.metrix.gauge.CachedMetricGauge
 
 import scala.concurrent.{ExecutionContext, Future}
 

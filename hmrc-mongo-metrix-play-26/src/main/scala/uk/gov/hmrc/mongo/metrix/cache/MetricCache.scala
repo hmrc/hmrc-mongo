@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix.cache
+package uk.gov.hmrc.mongo.metrix.cache
 
 import java.util.concurrent.ConcurrentHashMap
 
-import uk.gov.hmrc.metrix.domain.PersistedMetric
+import uk.gov.hmrc.mongo.metrix.domain.PersistedMetric
 
 import scala.collection.convert.decorateAsScala._
 

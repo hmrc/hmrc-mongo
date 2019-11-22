@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix
+package uk.gov.hmrc.mongo.metrix
 
 import java.util.concurrent.TimeUnit
 
@@ -23,9 +23,9 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.Inside._
 import org.scalatest.LoneElement
-import uk.gov.hmrc.metrix.domain.{MetricRepository, MetricSource, PersistedMetric}
-import uk.gov.hmrc.metrix.persistence.MongoMetricRepository
 import uk.gov.hmrc.mongo.lock.{CurrentTimestampSupport, MongoLockRepository, MongoLockService}
+import uk.gov.hmrc.mongo.metrix.domain.{MetricRepository, MetricSource, PersistedMetric}
+import uk.gov.hmrc.mongo.metrix.persistence.MongoMetricRepository
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
 import scala.concurrent.ExecutionContext.Implicits.global

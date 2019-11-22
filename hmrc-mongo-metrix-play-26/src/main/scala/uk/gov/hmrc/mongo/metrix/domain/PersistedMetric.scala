@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix.domain
+package uk.gov.hmrc.mongo.metrix.domain
 
-import scala.concurrent.Future
+import play.api.libs.json.{Json, OFormat}
 
-trait MetricRepository {
-  def persist(calculatedMetric: PersistedMetric): Future[Unit]
-  def findAll(): Future[List[PersistedMetric]]
+final case class PersistedMetric(name: String, count: Int)
+
+object PersistedMetric {
+  val format: OFormat[PersistedMetric] = Json.format[PersistedMetric]
 }

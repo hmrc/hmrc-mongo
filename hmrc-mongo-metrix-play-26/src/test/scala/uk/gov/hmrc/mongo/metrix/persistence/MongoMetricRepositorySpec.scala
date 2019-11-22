@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix.persistence
+package uk.gov.hmrc.mongo.metrix.persistence
 
 import com.mongodb.BasicDBObject
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterEach, LoneElement}
-import uk.gov.hmrc.metrix.UnitSpec
-import uk.gov.hmrc.metrix.domain.PersistedMetric
 import uk.gov.hmrc.mongo.component.MongoComponent
+import uk.gov.hmrc.mongo.metrix.UnitSpec
+import uk.gov.hmrc.mongo.metrix.domain.PersistedMetric
 import uk.gov.hmrc.mongo.test.MongoSupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
