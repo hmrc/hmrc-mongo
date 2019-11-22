@@ -33,7 +33,7 @@ trait Codecs {
 
   private val bsonDocumentCodec = DEFAULT_CODEC_REGISTRY.get(classOf[BsonDocument])
   private val bsonValueCodec    = DEFAULT_CODEC_REGISTRY.get(classOf[BsonValue])
-  private val bsonTypeCodecMap =
+  private val bsonTypeCodecMap  =
     new BsonTypeCodecMap(org.bson.codecs.BsonValueCodecProvider.getBsonTypeClassMap(), DEFAULT_CODEC_REGISTRY)
 
   /** @param legacyNumbers `true` will preserve the Number modifications which occured with simple-reactivemongo when storing
@@ -110,7 +110,7 @@ trait Codecs {
     else if (bd.isValidLong)     new BsonInt64(bd.longValue)
     else if (bd.isDecimalDouble) new BsonDouble(bd.doubleValue)
     else                         // Not all bigDecimals are representable as Decimal128. Will throw [java.lang.NumberFormatException] with message: `Conversion to Decimal128 would require inexact rounding of -4.2176255923279509728936555398034786404E-54.`
-                                  new BsonDecimal128(new Decimal128(bd.bigDecimal))
+                                 new BsonDecimal128(new Decimal128(bd.bigDecimal))
 
   private def bsonToJson(bs: BsonValue): JsValue =
     bs match {
@@ -120,8 +120,8 @@ trait Codecs {
       case l: BsonInt64       => JsNumber(l.getValue)
       case d: BsonDouble      => JsNumber(d.getValue)
       case bd: BsonDecimal128 => // throws ArithmeticException if the Decimal128 value is NaN, Infinity, -Infinity, or -0, none of which can be represented as a BigDecimal
-                                  // Should be OK since these values will not have been written to db from BigDecimal.
-                                  JsNumber(bd.getValue.bigDecimalValue)
+                                 // Should be OK since these values will not have been written to db from BigDecimal.
+                                 JsNumber(bd.getValue.bigDecimalValue)
       case s: BsonString      => JsString(s.getValue)
       case d: BsonDocument    =>
         JsObject(

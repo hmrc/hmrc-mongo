@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix.domain
+package uk.gov.hmrc.mongo.metrix
 
-import scala.concurrent.Future
+import org.scalatest.{Matchers, OptionValues, WordSpecLike}
 
-trait MetricRepository {
-  def persist(calculatedMetric: PersistedMetric): Future[Unit]
-  def findAll(): Future[List[PersistedMetric]]
-}
+trait UnitSpec extends WordSpecLike with Matchers with OptionValues

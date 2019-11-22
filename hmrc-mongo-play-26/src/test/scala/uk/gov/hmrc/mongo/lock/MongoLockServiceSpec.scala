@@ -23,7 +23,6 @@ import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.{Completed, Document}
 import org.scalatest.{Matchers, WordSpecLike}
 import play.api.libs.json.{Json, Writes}
-import uk.gov.hmrc.mongo.lock.model.Lock
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -86,7 +85,6 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
 
       findAll().futureValue.head shouldBe existingLock
     }
-
   }
 
   "attemptLockWithRefreshExpiry" should {
@@ -126,7 +124,6 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
       }.futureValue
 
       counter shouldBe 1
-
     }
 
     "execute the body if run after the ttl time has expired" in {
@@ -180,5 +177,4 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
 
   private def toLock(document: Document): Lock =
     Json.parse(document.toJson()).as[Lock]
-
 }

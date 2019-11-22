@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.metrix
+package uk.gov.hmrc.mongo.metrix
 
-import org.scalatest.{Matchers, OptionValues, WordSpecLike}
+import play.api.libs.json.{Json, OFormat}
 
-trait UnitSpec extends WordSpecLike with Matchers with OptionValues
+final case class PersistedMetric(name: String, count: Int)
+
+object PersistedMetric {
+  val format: OFormat[PersistedMetric] = Json.format[PersistedMetric]
+}

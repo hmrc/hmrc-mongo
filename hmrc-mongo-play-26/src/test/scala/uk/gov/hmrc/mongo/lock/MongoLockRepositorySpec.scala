@@ -25,7 +25,6 @@ import org.mongodb.scala.{Completed, Document}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpecLike}
 import play.api.libs.json.{Json, Writes}
-import uk.gov.hmrc.mongo.lock.model.Lock
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -43,7 +42,6 @@ class MongoLockRepositorySpec extends WordSpecLike with Matchers with DefaultMon
       count().futureValue shouldBe 1
 
       findAll().futureValue.head shouldBe Lock(lockId, owner, now, now.plusSeconds(1))
-
     }
 
     "successfully create a lock if a different one already exists" in {

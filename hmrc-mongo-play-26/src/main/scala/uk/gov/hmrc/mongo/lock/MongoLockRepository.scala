@@ -23,7 +23,6 @@ import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.Updates
 import play.api.Logger
 import uk.gov.hmrc.mongo.component.MongoComponent
-import uk.gov.hmrc.mongo.lock.model.Lock
 import uk.gov.hmrc.mongo.play.PlayMongoCollection
 
 import scala.concurrent.duration.Duration
@@ -37,10 +36,10 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
   private val logger       = Logger(getClass)
   private val duplicateKey = "11000"
 
-  def toService(lockId: String, ttl: Duration) = MongoLockService(this, lockId, ttl)
+  def toService(lockId: String, ttl: Duration) =
+    MongoLockService(this, lockId, ttl)
 
   def lock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = {
-
     val timeCreated = timestampSupport.timestamp()
     val expiryTime  = timeCreated.plus(JavaDuration.ofMillis(ttl.toMillis))
 
@@ -48,12 +47,12 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
       deleteResult <- collection
                        .deleteOne(filter = and(equal(Lock.id, lockId), lte(Lock.expiryTime, timeCreated)))
                        .toFuture()
-      _ = if (deleteResult.getDeletedCount != 0)
-        logger.info(s"Removed ${deleteResult.getDeletedCount} expired locks for $lockId")
-      _ <- collection
-            .insertOne(Lock(id = lockId, owner = owner, timeCreated = timeCreated, expiryTime = expiryTime))
-            .toFuture()
-      _ = logger.debug(s"Took lock '$lockId' for '$owner' at $timeCreated. Expires at: $expiryTime")
+      _            =  if (deleteResult.getDeletedCount != 0)
+                        logger.info(s"Removed ${deleteResult.getDeletedCount} expired locks for $lockId")
+      _            <- collection
+                       .insertOne(Lock(id = lockId, owner = owner, timeCreated = timeCreated, expiryTime = expiryTime))
+                       .toFuture()
+      _            =  logger.debug(s"Took lock '$lockId' for '$owner' at $timeCreated. Expires at: $expiryTime")
     } yield true
 
     acquireLock.recover {
@@ -108,7 +107,9 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
   ): Future[Option[T]] = {
     val result = for {
       acquired <- lock(lockId, owner, ttl)
-      result   <- futureCond(acquired, body.flatMap(value => releaseLock(lockId, owner).map(_ => Some(value))), None)
+      result   <- when(acquired)(
+                    body.flatMap(value => releaseLock(lockId, owner).map(_ => Some(value))),
+                    None)
     } yield result
     result.recoverWith { case ex => releaseLock(lockId, owner).flatMap(_ => Future.failed(ex)) }
   }
@@ -118,8 +119,12 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
   ): Future[Option[T]] = {
     val result = for {
       refreshed <- refreshExpiry(lockId, owner, ttl)
-      acquired  <- futureCond(!refreshed, lock(lockId, owner, ttl), false)
-      result    <- futureCond(refreshed || acquired, body.map(Option.apply), None)
+      acquired  <- when(!refreshed)(
+                     lock(lockId, owner, ttl),
+                     false)
+      result    <- when(refreshed || acquired)(
+                     body.map(Option.apply),
+                     None)
     } yield result
 
     result.recoverWith {
@@ -127,7 +132,7 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
     }
   }
 
-  private def futureCond[A](predicate: Boolean, matched: => Future[A], unmatched: => A): Future[A] =
-    if (predicate) matched else Future.successful(unmatched)
-
+  private def when[A](predicate: Boolean)(matched: => Future[A], unmatched: => A): Future[A] =
+    if (predicate) matched
+    else Future.successful(unmatched)
 }

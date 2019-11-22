@@ -15,6 +15,7 @@
  */
 
 package uk.gov.hmrc.mongo.lock
+
 import java.time.{LocalDateTime, ZoneOffset}
 
 import com.google.inject.{ImplementedBy, Singleton}
