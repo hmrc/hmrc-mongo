@@ -3,7 +3,7 @@ import sbt._
 val name = "hmrc-mongo"
 
 lazy val commonSettings = Seq(
-  organization := "uk.gov.hmrc.mongo",
+  organization := "uk.gov.hmrc",
   majorVersion := 0
 )
 
