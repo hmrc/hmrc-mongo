@@ -14,23 +14,33 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.lock.model
+package uk.gov.hmrc.mongo.lock
 
 import java.time.LocalDateTime
 
-import play.api.libs.json.{Format, Json}
+import play.api.libs.json.{Format, __}
+import play.api.libs.functional.syntax._
 import uk.gov.hmrc.mongo.play.json.{MongoFormats, MongoJavatimeFormats}
 
-case class Lock(id: String, owner: String, timeCreated: LocalDateTime, expiryTime: LocalDateTime)
+case class Lock(
+  id         : String,
+  owner      : String,
+  timeCreated: LocalDateTime,
+  expiryTime : LocalDateTime)
 
 object Lock {
-  implicit val dateTimeFormat: Format[LocalDateTime] = MongoJavatimeFormats.localDateTimeFormats
 
-  implicit val format: Format[Lock] = MongoFormats.mongoEntity(Format(Json.reads[Lock], Json.writes[Lock]))
+  implicit val format: Format[Lock] = {
+    implicit val dtf = MongoJavatimeFormats.localDateTimeFormats
+    ( (__ \ "_id"        ).format[String]
+    ~ (__ \ "owner"      ).format[String]
+    ~ (__ \ "timeCreated").format[LocalDateTime]
+    ~ (__ \ "expiryTime" ).format[LocalDateTime]
+    )(Lock.apply _, unlift(Lock.unapply))
+  }
 
   val id          = "_id"
   val owner       = "owner"
   val timeCreated = "timeCreated"
   val expiryTime  = "expiryTime"
-
 }
