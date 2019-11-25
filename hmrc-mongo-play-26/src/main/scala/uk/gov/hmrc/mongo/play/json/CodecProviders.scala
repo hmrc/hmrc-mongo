@@ -24,11 +24,12 @@ import scala.reflect.ClassTag
 
 trait CodecProviders {
 
-  def createProvider[A](codec: Codec[A])(implicit ct: ClassTag[A]): CodecProvider = new CodecProvider {
-    override def get[T](clazz: Class[T], registry: CodecRegistry): Codec[T] =
-      if (clazz == ct.runtimeClass) codec.asInstanceOf[Codec[T]]
-      else null
-  }
+  def createProvider[A](codec: Codec[A])(implicit ct: ClassTag[A]): CodecProvider =
+    new CodecProvider {
+      override def get[T](clazz: Class[T], registry: CodecRegistry): Codec[T] =
+        if (clazz == ct.runtimeClass) codec.asInstanceOf[Codec[T]]
+        else null
+    }
 
   def playFormatCodecProvider[A: ClassTag](format: Format[A]): CodecProvider =
     createProvider[A](Codecs.playFormatCodec(format))

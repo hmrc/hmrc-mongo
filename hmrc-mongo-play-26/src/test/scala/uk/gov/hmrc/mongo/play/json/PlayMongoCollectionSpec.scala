@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.play
+package uk.gov.hmrc.mongo.play.json
 
 import org.joda.{time => jot}
 import java.{time => jat}
@@ -30,8 +30,8 @@ import org.mongodb.scala.Completed
 import org.mongodb.scala.model.{Filters, Updates}
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import uk.gov.hmrc.mongo.component.MongoComponent
-import uk.gov.hmrc.mongo.play.json.{Codecs, MongoFormats, MongoJavatimeFormats, MongoJodaFormats}
+import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.play.json.formats.{MongoFormats, MongoJavatimeFormats, MongoJodaFormats}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt

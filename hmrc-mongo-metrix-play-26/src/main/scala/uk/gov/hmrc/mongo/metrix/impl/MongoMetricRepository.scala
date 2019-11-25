@@ -20,9 +20,9 @@ import org.mongodb.scala.ReadPreference
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Indexes.ascending
 import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptions}
-import uk.gov.hmrc.mongo.component.MongoComponent
+import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.metrix.{MetricRepository, PersistedMetric}
-import uk.gov.hmrc.mongo.play.PlayMongoCollection
+import uk.gov.hmrc.mongo.play.json.PlayMongoCollection
 
 import scala.concurrent.{ExecutionContext, Future}
 

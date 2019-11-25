@@ -14,11 +14,20 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.collection
+package uk.gov.hmrc.mongo
 
-import org.mongodb.scala.model.IndexModel
+import com.mongodb.ConnectionString
+import org.mongodb.scala.{MongoClient, MongoDatabase}
 
-trait MongoDatabaseCollection {
-  def collectionName: String
-  def indexes: Seq[IndexModel]
+trait MongoComponent {
+  def client: MongoClient
+  def database: MongoDatabase
+}
+
+object MongoComponent {
+  def apply(mongoUri: String): MongoComponent =
+    new MongoComponent {
+      override val client: MongoClient     = MongoClient(mongoUri)
+      override val database: MongoDatabase = client.getDatabase((new ConnectionString(mongoUri)).getDatabase)
+    }
 }

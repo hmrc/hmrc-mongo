@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.component
+package uk.gov.hmrc.mongo.play
 
-import com.google.inject.{Inject, Singleton}
+import com.google.inject.{AbstractModule, Inject, Singleton}
 import com.mongodb.ConnectionString
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Environment, Logger}
+import uk.gov.hmrc.mongo.MongoComponent
 
 import scala.concurrent.Future
 
@@ -47,4 +48,9 @@ class PlayMongoComponent @Inject() (
       client.close()
     }
   }
+}
+
+class PlayMongoModule extends AbstractModule {
+  override def configure(): Unit =
+    bind(classOf[MongoComponent]).to(classOf[PlayMongoComponent]).asEagerSingleton()
 }

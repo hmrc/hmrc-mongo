@@ -14,38 +14,24 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.play.json
+package uk.gov.hmrc.mongo.play.json.formats
 
-import java.time.{Instant, LocalDate, LocalDateTime, ZoneId, ZoneOffset}
-
+import org.joda.time.{DateTime, DateTimeZone, LocalDate, LocalDateTime}
 import play.api.libs.json._
 
-trait MongoJavatimeFormats {
+trait MongoJodaFormats {
   outer =>
 
-  // Instant
-
-  val instantWrites: Writes[Instant] = new Writes[Instant] {
-    def writes(datetime: Instant): JsValue = Json.obj("$date" -> datetime.toEpochMilli)
-  }
-
-  val instantReads: Reads[Instant] =
-    (__ \ "$date").read[Long].map(Instant.ofEpochMilli)
-
-  val instantFormats: Format[Instant] = Format(instantReads, instantWrites)
-
   // LocalDate
-
-  private val msInDay = 24 * 60 * 60 * 1000
 
   val localDateRead: Reads[LocalDate] =
     (__ \ "$date")
       .read[Long]
-      .map(date => LocalDate.ofEpochDay(date / msInDay))
+      .map(date => new LocalDate(date, DateTimeZone.UTC))
 
   val localDateWrite: Writes[LocalDate] = new Writes[LocalDate] {
     def writes(localDate: LocalDate): JsValue =
-      Json.obj("$date" -> msInDay * localDate.toEpochDay)
+      Json.obj("$date" -> localDate.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis)
   }
 
   val localDateFormats = Format(localDateRead, localDateWrite)
@@ -55,22 +41,36 @@ trait MongoJavatimeFormats {
   val localDateTimeRead: Reads[LocalDateTime] =
     (__ \ "$date")
       .read[Long]
-      .map(dateTime => LocalDateTime.ofInstant(Instant.ofEpochMilli(dateTime), ZoneId.of("Z")))
+      .map(dateTime => new LocalDateTime(dateTime, DateTimeZone.UTC))
 
   val localDateTimeWrite: Writes[LocalDateTime] = new Writes[LocalDateTime] {
     def writes(dateTime: LocalDateTime): JsValue =
-      Json.obj("$date" -> dateTime.toInstant(ZoneOffset.UTC).toEpochMilli)
+      Json.obj("$date" -> dateTime.toDateTime(DateTimeZone.UTC).getMillis)
   }
 
   val localDateTimeFormats = Format(localDateTimeRead, localDateTimeWrite)
 
+  // DateTime
+
+  val dateTimeRead: Reads[DateTime] =
+    (__ \ "$date")
+      .read[Long]
+      .map(dateTime => new DateTime(dateTime, DateTimeZone.UTC))
+
+  val dateTimeWrite: Writes[DateTime] = new Writes[DateTime] {
+    def writes(dateTime: DateTime): JsValue =
+      Json.obj("$date" -> dateTime.getMillis)
+  }
+
+  val dateTimeFormats = Format(dateTimeRead, dateTimeWrite)
+
   trait Implicits {
-    implicit val jatInstantFormats: Format[Instant]             = outer.instantFormats
-    implicit val jatLocalDateFormats: Format[LocalDate]         = outer.localDateFormats
-    implicit val jatLocalDateTimeFormats: Format[LocalDateTime] = outer.localDateTimeFormats
+    implicit val jotLocalDateFormats: Format[LocalDate]         = outer.localDateFormats
+    implicit val jotLocalDateTimeFormats: Format[LocalDateTime] = outer.localDateTimeFormats
+    implicit val jotDateTimeFormats: Format[DateTime]           = outer.dateTimeFormats
   }
 
   object Implicits extends Implicits
 }
 
-object MongoJavatimeFormats extends MongoJavatimeFormats
+object MongoJodaFormats extends MongoJodaFormats

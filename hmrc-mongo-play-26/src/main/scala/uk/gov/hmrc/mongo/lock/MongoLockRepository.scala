@@ -22,8 +22,8 @@ import javax.inject.{Inject, Singleton}
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.Updates
 import play.api.Logger
-import uk.gov.hmrc.mongo.component.MongoComponent
-import uk.gov.hmrc.mongo.play.PlayMongoCollection
+import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.play.json.PlayMongoCollection
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,7 +31,11 @@ import scala.concurrent.{ExecutionContext, Future}
 @Singleton
 class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSupport: TimestampSupport)(
   implicit ec: ExecutionContext
-) extends PlayMongoCollection[Lock](mongoComponent, "locks", Lock.format, indexes = Seq.empty) {
+) extends PlayMongoCollection[Lock](
+    mongoComponent,
+    collectionName = "locks",
+    domainFormat   = Lock.format,
+    indexes        = Seq.empty) {
 
   private val logger       = Logger(getClass)
   private val duplicateKey = "11000"
