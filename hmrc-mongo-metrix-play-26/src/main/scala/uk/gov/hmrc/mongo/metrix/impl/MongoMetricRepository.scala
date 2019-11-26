@@ -20,13 +20,19 @@ import org.mongodb.scala.ReadPreference
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Indexes.ascending
 import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptions}
+import play.api.Configuration
 import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.throttle.{ThrottlingConfig, WithThrottling}
 import uk.gov.hmrc.mongo.metrix.{MetricRepository, PersistedMetric}
 import uk.gov.hmrc.mongo.play.json.PlayMongoCollection
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class MongoMetricRepository(collectionName: String = "metrics", mongo: MongoComponent)(implicit ec: ExecutionContext)
+class MongoMetricRepository(
+  collectionName  : String         = "metrics",
+  mongo           : MongoComponent,
+  val throttlingConfig: ThrottlingConfig
+  )(implicit ec: ExecutionContext)
     extends PlayMongoCollection[PersistedMetric](
       collectionName = collectionName,
       mongoComponent = mongo,
@@ -35,18 +41,21 @@ class MongoMetricRepository(collectionName: String = "metrics", mongo: MongoComp
                          IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
                        )
     )
-    with MetricRepository {
+    with MetricRepository
+    with WithThrottling {
 
   override def findAll(): Future[List[PersistedMetric]] =
     collection.withReadPreference(ReadPreference.secondaryPreferred).find().toFuture().map(_.toList)
 
   override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
-    collection
-      .findOneAndReplace(
-        filter = equal("name", calculatedMetric.name),
-        calculatedMetric,
-        FindOneAndReplaceOptions().upsert(true)
-      )
+    throttled {
+      collection
+        .findOneAndReplace(
+          filter = equal("name", calculatedMetric.name),
+          calculatedMetric,
+          FindOneAndReplaceOptions().upsert(true)
+        )
+      }
       .toFuture()
       .map(_ => ())
 }
