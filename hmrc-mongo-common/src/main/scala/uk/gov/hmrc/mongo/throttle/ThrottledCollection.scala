@@ -17,19 +17,26 @@
 package uk.gov.hmrc.mongo.throttle
 
 import com.google.inject.{Inject, Singleton}
-import org.mongodb.scala.{AggregateObservable, DistinctObservable, FindObservable, MongoCollection, Observable, Observer, SingleObservable, Subscription}
-import org.mongodb.scala.bson.conversions.Bson
-import org.mongodb.scala.result.UpdateResult
+import org.mongodb.scala.{Observable, Observer, SingleObservable, Subscription}
 import play.api.{Configuration, Logger}
+
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
-import scala.util.{Success, Failure}
+import scala.util.{Failure, Success}
 
 
 /** Single instance to ensure same throttle is applied across all mongo queries */
 @Singleton
 class ThrottleConfig @Inject()(configuration: Configuration) {
-  val throttleSize = configuration.getOptional[Int]("mongodb.throttlesize").getOrElse(100)
+  // default size is 500 == default WaitQueueSize
+  // larger than this will cause `com.mongodb.MongoWaitQueueFullException: Too many operations are already waiting for a connection. Max number of operations (maxWaitQueueSize) of 500 has been exceeded.`
+  val maxWaitQueueSize = 500
+  // TODO look this up?
+  //   e.g. if inject PlayMongoComponent (which requires moving into hmrc-mongo-play), then:
+  //   (component: PlayMongoComponent).client.settings.getConnectionPoolSettings.getMaxWaitQueueSize
+  //   although .settings is deprecated...
+  // TODO if looked up, does it need to be overrideable in config?
+  val throttleSize = configuration.getOptional[Int]("mongodb.throttlesize").getOrElse(maxWaitQueueSize )
   Logger.debug(s"Throttling mongo queries using throttleSize=$throttleSize")
 
   val throttledEc =
@@ -49,29 +56,8 @@ trait WithThrottling{
     )(ec)
 
   // In addition to SingleObservable, would also need to support the types:
-  //   FindObservable,
-  //   AggregateObservable
-  //    DistinctObservable
-  //    DistinctObservable
-  //    MapReduceObservable
-  //    Observable
-  //    ListIndexesObservable
-  //    ChangeStreamObservable
+  //   FindObservable, AggregateObservable, DistinctObservable, DistinctObservable, MapReduceObservable, Observable, ListIndexesObservable, ChangeStreamObservable
   // But non-trivial to implement conversions from Future[Seq[A]] back to expected type...
-
-  // following convert to Future automatically (easy to implement)
-  // non-lazy param seems to work just as well (would not be able to overload with lazy param, since it would be erased to Function0, and conflict...)
-
-  def throttledF[A](f: SingleObservable[A])(implicit ec: ExecutionContext): Future[A] =
-    Future {
-      Await.result(f.toFuture, 100.seconds)
-    }(throttleConfig.throttledEc)
-
-  def throttledF[A](f: Observable[A])(implicit ec: ExecutionContext): Future[Seq[A]] =
-    Future {
-      Await.result(f.toFuture, 100.seconds)
-    }(throttleConfig.throttledEc)
-
 
   private def toSingleObservable[A](f: Future[A])(implicit ec: ExecutionContext): SingleObservable[A] =
     // based on SingleItemObservable implementation
@@ -103,4 +89,40 @@ trait WithThrottling{
         )
       }
     }
+
+  implicit class ScalaSingleObservable[T](observable: => SingleObservable[T]) {
+    def toThrottledFuture(): Future[T] =
+      Future {
+        Await.result(observable.toFuture, 20.seconds)
+      }(throttleConfig.throttledEc)
+
+    def toThrottledFutureOption(): Future[Option[T]] =
+      Future {
+        Await.result(observable.toFutureOption, 20.seconds)
+      }(throttleConfig.throttledEc)
+
+    // TODO preferable to overload toFuture. But how to ensure it is picked up instead of org.mongodb.scala.ScalaSingleObservable?
+
+    def toFuture(): Future[T] =
+      Future {
+        Await.result(observable.toFuture, 20.seconds)
+      }(throttleConfig.throttledEc)
+
+    def toFutureOption(): Future[Option[T]] =
+      Future {
+        Await.result(observable.toFutureOption, 20.seconds)
+      }(throttleConfig.throttledEc)
+  }
+
+  implicit class ScalaObservable[T](observable: => Observable[T]) {
+    def toThrottledFuture(): Future[Seq[T]] =
+      Future {
+        Await.result(observable.toFuture, 20.seconds)
+      }(throttleConfig.throttledEc)
+
+    def toFuture(): Future[Seq[T]] =
+      Future {
+        Await.result(observable.toFuture, 20.seconds)
+      }(throttleConfig.throttledEc)
+  }
 }

@@ -20,7 +20,6 @@ import org.mongodb.scala.ReadPreference
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Indexes.ascending
 import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptions}
-import play.api.Configuration
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.throttle.{ThrottleConfig, WithThrottling}
 import uk.gov.hmrc.mongo.metrix.{MetricRepository, PersistedMetric}
@@ -45,17 +44,18 @@ class MongoMetricRepository(
     with WithThrottling {
 
   override def findAll(): Future[List[PersistedMetric]] =
-    collection.withReadPreference(ReadPreference.secondaryPreferred).find().toFuture().map(_.toList)
+    collection.withReadPreference(ReadPreference.secondaryPreferred)
+      .find()
+      .toThrottledFuture
+      .map(_.toList)
 
   override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
-    throttled {
-      collection
-        .findOneAndReplace(
-          filter = equal("name", calculatedMetric.name),
-          calculatedMetric,
-          FindOneAndReplaceOptions().upsert(true)
-        )
-      }
-      .toFuture()
+    collection
+      .findOneAndReplace(
+        filter = equal("name", calculatedMetric.name),
+        calculatedMetric,
+        FindOneAndReplaceOptions().upsert(true)
+      )
+      .toThrottledFuture
       .map(_ => ())
 }

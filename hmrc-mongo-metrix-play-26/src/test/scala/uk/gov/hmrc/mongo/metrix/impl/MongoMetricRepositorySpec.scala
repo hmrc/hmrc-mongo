@@ -17,11 +17,10 @@
 package uk.gov.hmrc.mongo.metrix.impl
 
 import com.mongodb.BasicDBObject
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+import org.mongodb.scala.MongoClient
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterEach, LoneElement}
 import play.api.Configuration
-import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.metrix.UnitSpec
 import uk.gov.hmrc.mongo.metrix.PersistedMetric
 import uk.gov.hmrc.mongo.test.MongoSupport
