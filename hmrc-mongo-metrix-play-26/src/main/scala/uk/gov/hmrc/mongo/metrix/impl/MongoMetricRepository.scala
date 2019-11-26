@@ -22,16 +22,16 @@ import org.mongodb.scala.model.Indexes.ascending
 import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptions}
 import play.api.Configuration
 import uk.gov.hmrc.mongo.MongoComponent
-import uk.gov.hmrc.mongo.throttle.{ThrottlingConfig, WithThrottling}
+import uk.gov.hmrc.mongo.throttle.{ThrottleConfig, WithThrottling}
 import uk.gov.hmrc.mongo.metrix.{MetricRepository, PersistedMetric}
 import uk.gov.hmrc.mongo.play.json.PlayMongoCollection
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class MongoMetricRepository(
-  collectionName  : String         = "metrics",
-  mongo           : MongoComponent,
-  val throttlingConfig: ThrottlingConfig
+  collectionName    : String         = "metrics",
+  mongo             : MongoComponent,
+  val throttleConfig: ThrottleConfig
   )(implicit ec: ExecutionContext)
     extends PlayMongoCollection[PersistedMetric](
       collectionName = collectionName,

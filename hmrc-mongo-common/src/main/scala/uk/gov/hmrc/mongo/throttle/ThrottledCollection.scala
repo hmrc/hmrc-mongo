@@ -28,7 +28,7 @@ import scala.util.{Success, Failure}
 
 /** Single instance to ensure same throttle is applied across all mongo queries */
 @Singleton
-class ThrottlingConfig @Inject()(configuration: Configuration) {
+class ThrottleConfig @Inject()(configuration: Configuration) {
   val throttleSize = configuration.getOptional[Int]("mongodb.throttlesize").getOrElse(100)
   Logger.debug(s"Throttling mongo queries using throttleSize=$throttleSize")
 
@@ -39,13 +39,13 @@ class ThrottlingConfig @Inject()(configuration: Configuration) {
 
 // TODO preserving MDC?
 trait WithThrottling{
-  def throttlingConfig: ThrottlingConfig
+  def throttleConfig: ThrottleConfig
 
   def throttled[A](f: => SingleObservable[A])(implicit ec: ExecutionContext): SingleObservable[A] =
     toObservable(
       Future {
         scala.concurrent.Await.result(f.toFuture, 100.seconds)
-      }(throttlingConfig.throttledEc)
+      }(throttleConfig.throttledEc)
     )(ec)
 
   private def toObservable[A](f: Future[A])(implicit ec: ExecutionContext): SingleObservable[A] =

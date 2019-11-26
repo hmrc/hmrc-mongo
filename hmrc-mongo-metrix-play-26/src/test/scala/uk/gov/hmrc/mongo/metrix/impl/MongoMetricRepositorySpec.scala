@@ -20,10 +20,12 @@ import com.mongodb.BasicDBObject
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterEach, LoneElement}
+import play.api.Configuration
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.metrix.UnitSpec
 import uk.gov.hmrc.mongo.metrix.PersistedMetric
 import uk.gov.hmrc.mongo.test.MongoSupport
+import uk.gov.hmrc.mongo.throttle.ThrottleConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
@@ -37,7 +39,9 @@ class MongoMetricRepositorySpec
 
   override implicit val patienceConfig = PatienceConfig(timeout = 30.seconds, interval = 100.millis)
 
-  lazy val metricsRepo = new MongoMetricRepository(databaseName, mongoComponent)
+  val throttleConfig = new ThrottleConfig(Configuration())
+
+  val metricsRepo = new MongoMetricRepository(databaseName, mongoComponent, throttleConfig)
 
   override def beforeEach(): Unit = {
     super.beforeEach()
