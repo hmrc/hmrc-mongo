@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.lock
+package uk.gov.hmrc.mongo
 
 import java.time.{LocalDateTime, ZoneOffset}
 
