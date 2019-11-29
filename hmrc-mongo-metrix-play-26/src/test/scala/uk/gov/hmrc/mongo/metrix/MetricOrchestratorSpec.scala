@@ -44,12 +44,8 @@ class MetricOrchestratorSpec
   override protected val collectionName: String   = mongoMetricRepository.collectionName
   override protected val indexes: Seq[IndexModel] = mongoMetricRepository.indexes
 
-  private val mongoLockService: MongoLockService = new MongoLockService {
-    override val lockId: String = "test-metrics"
-    override val mongoLockRepository: MongoLockRepository =
-      new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
-    override val ttl = Duration(0, TimeUnit.MICROSECONDS)
-  }
+  private val mongoLockService: MongoLockService = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
+    .toService("test-metrics", Duration(0, TimeUnit.MICROSECONDS))
 
   override def beforeEach(): Unit = {
     super.beforeEach()
