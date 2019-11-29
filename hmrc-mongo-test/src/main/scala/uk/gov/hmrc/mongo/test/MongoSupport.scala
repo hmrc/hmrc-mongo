@@ -16,14 +16,14 @@
 
 package uk.gov.hmrc.mongo.test
 
+import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
+import org.mongodb.scala.{Completed, Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
 import org.scalatest.concurrent.ScalaFutures
 import uk.gov.hmrc.mongo.MongoComponent
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{ExecutionContext, Future}
-
-import ExecutionContext.Implicits.global
 
 trait MongoSupport extends ScalaFutures {
   protected val databaseName: String = "test-" + this.getClass.getSimpleName
@@ -61,6 +61,26 @@ trait MongoCollectionSupport extends MongoSupport {
 
   protected lazy val mongoCollection: MongoCollection[Document] =
     mongoDatabase.getCollection(collectionName)
+
+  protected def findAll(): Future[Seq[Document]] =
+    mongoCollection
+      .find()
+      .toFuture
+
+  protected def count(): Future[Long] =
+    mongoCollection
+      .countDocuments()
+      .toFuture()
+
+  protected def find(filter: Bson): Future[Seq[Document]] =
+    mongoCollection
+      .find(filter)
+      .toFuture()
+
+  protected def insert[T](document: Document): Future[Completed] =
+    mongoCollection
+      .insertOne(document)
+      .toFuture()
 
   protected def createCollection(): Unit =
     mongoDatabase
