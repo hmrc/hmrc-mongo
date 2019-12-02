@@ -37,7 +37,7 @@ object CacheItem {
   val modifiedAt = "modifiedAt"
   val atomicId   = "atomicId"
 
-  def format[A](implicit underlying: Format[A]): Format[CacheItem[A]] = {
+  def format[A: Format]: Format[CacheItem[A]] = {
     implicit val dtf: Format[LocalDateTime] = MongoJavatimeFormats.localDateTimeFormats
     ((__ \ id).format[String]
       ~ (__ \ data).format[A]

@@ -25,7 +25,7 @@ final case class Person(
 )
 
 object Person {
-  implicit val format: OFormat[Person] =
+  val format: OFormat[Person] =
     ((__ \ "name").format[String]
       ~ (__ \ "age").format[Int]
       ~ (__ \ "sex").format[String])(Person.apply, unlift(Person.unapply))
