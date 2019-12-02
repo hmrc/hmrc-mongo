@@ -25,7 +25,6 @@ import org.scalatest.Inside._
 import org.scalatest.LoneElement
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
 import uk.gov.hmrc.mongo.lock.{MongoLockRepository, MongoLockService}
-import uk.gov.hmrc.mongo.metrix.impl.MongoMetricRepository
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -38,53 +37,6 @@ class MetricOrchestratorSpec
     with MockitoSugar
     with ArgumentMatchersSugar
     with DefaultMongoCollectionSupport {
-
-  val metricRegistry                = new MetricRegistry()
-  private val mongoMetricRepository = new MongoMetricRepository(mongo = mongoComponent)
-
-  override protected val collectionName: String   = mongoMetricRepository.collectionName
-  override protected val indexes: Seq[IndexModel] = mongoMetricRepository.indexes
-
-  private val mongoLockService: MongoLockService = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
-    .toService("test-metrics", Duration(0, TimeUnit.MICROSECONDS))
-
-  override def beforeEach(): Unit = {
-    super.beforeEach()
-    metricRegistry.removeMatching(new MetricFilter {
-      override def matches(name: String, metric: Metric): Boolean = true
-    })
-  }
-
-  def metricOrchestratorFor(sources: List[MetricSource], metricRepository: MetricRepository = mongoMetricRepository) =
-    new MetricOrchestrator(
-      metricSources    = sources,
-      lockService      = mongoLockService,
-      metricRepository = metricRepository,
-      metricRegistry   = metricRegistry
-    )
-
-  def persistedMetricsFrom(metricsMap: Map[String, Int]): Seq[PersistedMetric] =
-    metricsMap.map { case (name, count) => PersistedMetric(name, count) }.toSeq
-
-  def sourceReturning(metricsMap: Map[String, Int]): MetricSource =
-    new MetricSource {
-      override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] =
-        Future.successful(metricsMap)
-    }
-
-  def sourceReturningFirstAndThen(firstMetricsMap: Map[String, Int], secondMetricsMap: Map[String, Int]): MetricSource =
-    new MetricSource {
-      var iteration = 0
-
-      override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] =
-        if (iteration % 2 == 0) {
-          iteration += 1
-          Future.successful(firstMetricsMap)
-        } else {
-          iteration += 1
-          Future.successful(secondMetricsMap)
-        }
-    }
 
   "metric orchestrator" should {
 
@@ -305,12 +257,6 @@ class MetricOrchestratorSpec
       verifyNoMoreInteractions(mockedMetricRepository)
     }
 
-    class SlowlyWritingMetricRepository
-        extends MongoMetricRepository(collectionName = "metrics", mongo = mongoComponent) {
-      override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
-        Future(Thread.sleep(200)).flatMap(_ => super.persist(calculatedMetric))
-    }
-
     "gauges are registered after all metrics are written to mongo even if writing takes a long time" in {
 
       val acquiredMetrics = Map("a" -> 1, "b" -> 2)
@@ -329,20 +275,77 @@ class MetricOrchestratorSpec
       metricRegistry.getGauges.get(s"a").getValue shouldBe 1
       metricRegistry.getGauges.get(s"b").getValue shouldBe 2
     }
+  }
 
-    implicit class MetricOrchestrationResultComparison(metricUpdateResult: MetricOrchestrationResult) {
-      def shouldResultIn(expectedUpdateResult: MetricsOnlyRefreshed): Unit =
-        inside(metricUpdateResult) {
-          case MetricsOnlyRefreshed(refreshedMetrics) =>
-            refreshedMetrics should contain theSameElementsAs expectedUpdateResult.refreshedMetrics
-        }
+  private val metricRegistry        = new MetricRegistry()
+  private val mongoMetricRepository = new MongoMetricRepository(mongoComponent = mongoComponent)
 
-      def shouldResultIn(expectedUpdateResult: MetricsUpdatedAndRefreshed): Unit =
-        inside(metricUpdateResult) {
-          case MetricsUpdatedAndRefreshed(updatedMetrics, refreshedMetrics) =>
-            updatedMetrics   shouldBe expectedUpdateResult.updatedMetrics
-            refreshedMetrics should contain theSameElementsAs expectedUpdateResult.refreshedMetrics
+  override protected val collectionName: String   = mongoMetricRepository.collectionName
+  override protected val indexes: Seq[IndexModel] = mongoMetricRepository.indexes
+
+  override def beforeEach(): Unit = {
+    super.beforeEach()
+    metricRegistry.removeMatching(new MetricFilter {
+      override def matches(name: String, metric: Metric): Boolean = true
+    })
+  }
+
+  private class SlowlyWritingMetricRepository extends MongoMetricRepository(mongoComponent = mongoComponent) {
+    override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
+      Future(Thread.sleep(200)).flatMap(_ => super.persist(calculatedMetric))
+  }
+
+  private val mongoLockService: MongoLockService = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
+    .toService("test-metrics", Duration(0, TimeUnit.MICROSECONDS))
+
+  private def metricOrchestratorFor(
+    sources: List[MetricSource],
+    metricRepository: MetricRepository = mongoMetricRepository) =
+    new MetricOrchestrator(
+      metricSources    = sources,
+      lockService      = mongoLockService,
+      metricRepository = metricRepository,
+      metricRegistry   = metricRegistry
+    )
+
+  private def persistedMetricsFrom(metricsMap: Map[String, Int]): Seq[PersistedMetric] =
+    metricsMap.map { case (name, count) => PersistedMetric(name, count) }.toSeq
+
+  private def sourceReturning(metricsMap: Map[String, Int]): MetricSource =
+    new MetricSource {
+      override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] =
+        Future.successful(metricsMap)
+    }
+
+  private def sourceReturningFirstAndThen(
+    firstMetricsMap: Map[String, Int],
+    secondMetricsMap: Map[String, Int]): MetricSource =
+    new MetricSource {
+      var iteration = 0
+
+      override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] =
+        if (iteration % 2 == 0) {
+          iteration += 1
+          Future.successful(firstMetricsMap)
+        } else {
+          iteration += 1
+          Future.successful(secondMetricsMap)
         }
     }
+
+  implicit class MetricOrchestrationResultComparison(metricUpdateResult: MetricOrchestrationResult) {
+    def shouldResultIn(expectedUpdateResult: MetricsOnlyRefreshed): Unit =
+      inside(metricUpdateResult) {
+        case MetricsOnlyRefreshed(refreshedMetrics) =>
+          refreshedMetrics should contain theSameElementsAs expectedUpdateResult.refreshedMetrics
+      }
+
+    def shouldResultIn(expectedUpdateResult: MetricsUpdatedAndRefreshed): Unit =
+      inside(metricUpdateResult) {
+        case MetricsUpdatedAndRefreshed(updatedMetrics, refreshedMetrics) =>
+          updatedMetrics   shouldBe expectedUpdateResult.updatedMetrics
+          refreshedMetrics should contain theSameElementsAs expectedUpdateResult.refreshedMetrics
+      }
   }
+
 }
