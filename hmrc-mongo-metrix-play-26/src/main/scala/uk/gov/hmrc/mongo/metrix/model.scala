@@ -16,10 +16,15 @@
 
 package uk.gov.hmrc.mongo.metrix
 
-import play.api.libs.json.{Json, OFormat}
+import play.api.libs.functional.syntax.{unlift, _}
+import play.api.libs.json.{Format, __}
 
 final case class PersistedMetric(name: String, count: Int)
 
 object PersistedMetric {
-  val format: OFormat[PersistedMetric] = Json.format[PersistedMetric]
+
+  val format: Format[PersistedMetric] =
+    ((__ \ "name").format[String]
+      ~ (__ \ "count").format[Int])(PersistedMetric.apply, unlift(PersistedMetric.unapply))
+
 }
