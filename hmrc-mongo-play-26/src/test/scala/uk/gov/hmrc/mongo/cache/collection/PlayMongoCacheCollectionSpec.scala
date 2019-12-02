@@ -44,7 +44,7 @@ class PlayMongoCacheCollectionSpec
       cacheRepository.upsert(cacheId, person).futureValue shouldBe ()
       count().futureValue                                 shouldBe 1
       findAll()
-        .map(_.asJson[CacheItem[Person]])
+        .map(_.fromBson[CacheItem[Person]])
         .futureValue
         .head shouldBe CacheItem(cacheId, person, now, now)
     }
@@ -52,11 +52,11 @@ class PlayMongoCacheCollectionSpec
     "successfully update a cacheItem if one does not already exist" in {
       val creationTimestamp = LocalDateTime.now(ZoneOffset.UTC)
 
-      insert(CacheItem(cacheId, person, creationTimestamp, creationTimestamp).asDocument()).futureValue
+      insert(CacheItem(cacheId, person, creationTimestamp, creationTimestamp).toDocument()).futureValue
 
       cacheRepository.upsert(cacheId, person).futureValue shouldBe ()
       count().futureValue                                 shouldBe 1
-      findAll().map(_.asJson[CacheItem[Person]]).futureValue.head shouldBe CacheItem(
+      findAll().map(_.fromBson[CacheItem[Person]]).futureValue.head shouldBe CacheItem(
         cacheId,
         person,
         creationTimestamp,
@@ -74,7 +74,7 @@ class PlayMongoCacheCollectionSpec
         timestampSupport = new CurrentTimestampSupport()
       )
 
-      insert(cacheItem.asDocument()).futureValue
+      insert(cacheItem.toDocument()).futureValue
       cacheRepository.find(cacheId).futureValue.map(_.data) shouldBe Some(person)
       Thread.sleep(500)
       cacheRepository.upsert(cacheId, person)
@@ -86,7 +86,7 @@ class PlayMongoCacheCollectionSpec
 
   "find" should {
     "successfully return CacheItem if cacheItem exists within ttl" in {
-      insert(cacheItem.asDocument()).futureValue
+      insert(cacheItem.toDocument()).futureValue
       cacheRepository.find(cacheId).futureValue shouldBe Some(cacheItem)
     }
 
@@ -95,7 +95,7 @@ class PlayMongoCacheCollectionSpec
     }
 
     "successfully return None if outside ttl" in {
-      insert(cacheItem.copy(id = "something-else").asDocument()).futureValue
+      insert(cacheItem.copy(id = "something-else").toDocument()).futureValue
       //Items can live beyond the TTL https://docs.mongodb.com/manual/core/index-ttl/#timing-of-the-delete-operation
       eventually(timeout(Span(60, Seconds)), interval(Span(500, Millis))) {
         cacheRepository.find("something-else").futureValue shouldBe None
@@ -105,7 +105,7 @@ class PlayMongoCacheCollectionSpec
 
   "remove" should {
     "successfully delete cacheItem that exists" in {
-      insert(cacheItem.asDocument()).futureValue
+      insert(cacheItem.toDocument()).futureValue
       count().futureValue shouldBe 1
 
       cacheRepository.remove(cacheId)
@@ -114,7 +114,7 @@ class PlayMongoCacheCollectionSpec
     }
 
     "not delete cacheItem if no cacheItem is found" in {
-      insert(cacheItem.copy(id = "another-id").asDocument()).futureValue
+      insert(cacheItem.copy(id = "another-id").toDocument()).futureValue
       count().futureValue shouldBe 1
 
       cacheRepository.remove(cacheId)
@@ -169,7 +169,7 @@ class PlayMongoCacheCollectionSpec
     ).collection
       .listIndexes()
       .toFuture()
-      .map(_.asJson[JsValue])
+      .map(_.fromBson[JsValue])
       .futureValue
       .find(index => (index \ "name").as[String] == "lastUpdatedIndex")
       .map(index => (index \ "expireAfterSeconds").as[Long])

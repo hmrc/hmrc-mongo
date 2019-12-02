@@ -29,6 +29,7 @@ import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 trait Codecs {
+  outer =>
   val logger: Logger = LoggerFactory.getLogger(classOf[Codecs].getName)
 
   private val bsonDocumentCodec = DEFAULT_CODEC_REGISTRY.get(classOf[BsonDocument])
@@ -63,7 +64,7 @@ trait Codecs {
           .decode(reader, decoderContext)
           .asInstanceOf[BsonValue]
 
-      val json = toJson(bs)
+      val json = bsonToJson(bs)
 
       format.reads(json) match {
         case JsSuccess(v, _) => v
@@ -75,27 +76,7 @@ trait Codecs {
   def toBson[A: Writes](a: A, legacyNumbers: Boolean = false): BsonValue =
     jsonToBson(legacyNumbers)(Json.toJson(a))
 
-  def toJson(bs: BsonValue): JsValue =
-    bs match {
-      case _: BsonNull        => JsNull
-      case b: BsonBoolean     => JsBoolean(b.getValue)
-      case i: BsonInt32       => JsNumber(i.getValue)
-      case l: BsonInt64       => JsNumber(l.getValue)
-      case d: BsonDouble      => JsNumber(d.getValue)
-      case bd: BsonDecimal128 => // throws ArithmeticException if the Decimal128 value is NaN, Infinity, -Infinity, or -0, none of which can be represented as a BigDecimal
-        // Should be OK since these values will not have been written to db from BigDecimal.
-        JsNumber(bd.getValue.bigDecimalValue)
-      case s: BsonString => JsString(s.getValue)
-      case d: BsonDocument =>
-        JsObject(
-          d.asScala.map { case (k, v) => (k, toJson(v)) }
-        )
-      case other => // other types, attempt to convert to json object (Strict = `MongoDB Extended JSON format`)
-        toJsonDefault(other, JsonMode.STRICT) match {
-          case JsDefined(s)   => s
-          case _: JsUndefined => logger.debug(s"Could not convert $other to Json"); JsNull
-        }
-    }
+  def fromBson[A: Reads](bs: BsonValue): A = bsonToJson(bs).as[A]
 
   private def jsonToBson(legacyNumbers: Boolean)(js: JsValue): BsonValue =
     js match {
@@ -119,6 +100,28 @@ trait Codecs {
                 new BsonElement(k, jsonToBson(legacyNumbers)(v))
             }.asJava
           )
+    }
+
+  private def bsonToJson(bs: BsonValue): JsValue =
+    bs match {
+      case _: BsonNull        => JsNull
+      case b: BsonBoolean     => JsBoolean(b.getValue)
+      case i: BsonInt32       => JsNumber(i.getValue)
+      case l: BsonInt64       => JsNumber(l.getValue)
+      case d: BsonDouble      => JsNumber(d.getValue)
+      case bd: BsonDecimal128 => // throws ArithmeticException if the Decimal128 value is NaN, Infinity, -Infinity, or -0, none of which can be represented as a BigDecimal
+        // Should be OK since these values will not have been written to db from BigDecimal.
+        JsNumber(bd.getValue.bigDecimalValue)
+      case s: BsonString => JsString(s.getValue)
+      case d: BsonDocument =>
+        JsObject(
+          d.asScala.map { case (k, v) => (k, bsonToJson(v)) }
+        )
+      case other => // other types, attempt to convert to json object (Strict = `MongoDB Extended JSON format`)
+        toJsonDefault(other, JsonMode.STRICT) match {
+          case JsDefined(s)   => s
+          case _: JsUndefined => logger.debug(s"Could not convert $other to Json"); JsNull
+        }
     }
 
   // Following number conversion comes from https://github.com/ReactiveMongo/Play-ReactiveMongo/blob/4071a4fd580d7c6edeccac318d839456f69a847d/src/main/scala/play/modules/reactivemongo/Formatters.scala#L62-L64
@@ -152,23 +155,22 @@ trait Codecs {
   }
 
   implicit class JsonOps[A: Writes](a: A) {
-    def asBson(legacyNumbers: Boolean = false): BsonValue = toBson(a, legacyNumbers)
+    def toBson(legacyNumbers: Boolean = false): BsonValue = outer.toBson(a, legacyNumbers)
 
-    def asDocument(legacyNumbers: Boolean = false): ScalaDocument = toBson(a, legacyNumbers).asDocument()
+    def toDocument(legacyNumbers: Boolean = false): ScalaDocument = outer.toBson(a, legacyNumbers).asDocument()
   }
 
   implicit class BsonOps(bs: BsonValue) {
-    def asJson[T](implicit fjs: Reads[T]): T = toJson(bs).as[T]
+    def fromBson[T: Reads]: T = outer.fromBson(bs)
   }
 
   implicit class DocumentOps(document: ScalaDocument) {
-    def asJson[T](implicit fjs: Reads[T]): T = toJson(document.toBsonDocument).as[T]
+    def fromBson[T: Reads]: T = outer.fromBson(document.toBsonDocument)
   }
 
   implicit class DocumentsOps(documents: Seq[ScalaDocument]) {
-    def asJson[T](implicit fjs: Reads[T]): Seq[T] = documents.map(document => toJson(document.toBsonDocument).as[T])
+    def fromBson[T: Reads]: Seq[T] = documents.map(document => outer.fromBson(document.toBsonDocument))
   }
-
 }
 
 object Codecs extends Codecs

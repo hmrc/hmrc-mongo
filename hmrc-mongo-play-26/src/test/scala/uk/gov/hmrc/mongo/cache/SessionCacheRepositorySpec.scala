@@ -41,7 +41,7 @@ class SessionCacheRepositorySpec
 
     "successfully return value of desired type if cache item exists" in {
 
-      insert(cacheItem.asDocument()).futureValue
+      insert(cacheItem.toDocument()).futureValue
       cacheRepository.fetch().futureValue shouldBe Some(person)
     }
 
@@ -53,26 +53,26 @@ class SessionCacheRepositorySpec
   "cache" should {
 
     "successfully create a cache entry if one does not already exist" in {
-      cacheRepository.cache(person).futureValue            shouldBe ()
-      count().futureValue                                  shouldBe 1
-      findAll().futureValue.head.asJson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, now, now)
+      cacheRepository.cache(person).futureValue              shouldBe ()
+      count().futureValue                                    shouldBe 1
+      findAll().futureValue.head.fromBson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, now, now)
 
     }
 
     "successfully update a cache entry if one does not already exist" in {
       val creationTimestamp = LocalDateTime.now(ZoneOffset.UTC)
 
-      insert(CacheItem(cacheId, person, creationTimestamp, creationTimestamp).asDocument()).futureValue
+      insert(CacheItem(cacheId, person, creationTimestamp, creationTimestamp).toDocument()).futureValue
 
-      cacheRepository.cache(person).futureValue            shouldBe ()
-      count().futureValue                                  shouldBe 1
-      findAll().futureValue.head.asJson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, creationTimestamp, now)
+      cacheRepository.cache(person).futureValue              shouldBe ()
+      count().futureValue                                    shouldBe 1
+      findAll().futureValue.head.fromBson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, creationTimestamp, now)
     }
   }
 
   "remove" should {
     "successfully remove cache entry that exists" in {
-      insert(cacheItem.asDocument()).futureValue
+      insert(cacheItem.toDocument()).futureValue
       count().futureValue shouldBe 1
 
       cacheRepository.remove().futureValue
@@ -81,7 +81,7 @@ class SessionCacheRepositorySpec
     }
 
     "not remove cacheItem if no cache entry is found" in {
-      insert(cacheItem.copy(id = "another-id").asDocument()).futureValue
+      insert(cacheItem.copy(id = "another-id").toDocument()).futureValue
       count().futureValue shouldBe 1
 
       cacheRepository.remove()

@@ -40,7 +40,7 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
           find(mongoEq(Lock.id, lockId)).map(_.head)
         }
         .futureValue
-        .map(_.asJson[Lock])
+        .map(_.fromBson[Lock])
 
       optionalLock.map { lock =>
         lock.id         shouldBe lockId
@@ -65,7 +65,7 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
 
     "not run the block supplied if the lock is owned by someone else and return None" in {
       val existingLock = Lock(lockId, "owner2", now, now.plusSeconds(100))
-      insert(existingLock.asDocument()).futureValue
+      insert(existingLock.toDocument()).futureValue
 
       mongoLockService
         .attemptLockWithRelease(fail("Should not execute!"))
@@ -73,12 +73,12 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
 
       count().futureValue shouldBe 1
 
-      findAll().futureValue.head.asJson[Lock] shouldBe existingLock
+      findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
     }
 
     "not run the block supplied if the lock is already owned by the caller and return None" in {
       val existingLock = Lock(lockId, owner, now, now.plusSeconds(100))
-      insert(existingLock.asDocument()).futureValue
+      insert(existingLock.toDocument()).futureValue
 
       mongoLockService
         .attemptLockWithRelease(fail("Should not execute!"))
@@ -86,7 +86,7 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
 
       count().futureValue shouldBe 1
 
-      findAll().futureValue.head.asJson[Lock] shouldBe existingLock
+      findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
     }
   }
 

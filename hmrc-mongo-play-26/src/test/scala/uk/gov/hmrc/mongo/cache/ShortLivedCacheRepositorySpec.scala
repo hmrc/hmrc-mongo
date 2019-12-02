@@ -38,7 +38,7 @@ class ShortLivedCacheRepositorySpec
   "fetch" should {
 
     "successfully return value of desired type if cache item exists" in {
-      insert(cacheItem.asDocument()).futureValue
+      insert(cacheItem.toDocument()).futureValue
       cacheRepository.fetch(cacheId).futureValue shouldBe Some(person)
     }
 
@@ -50,19 +50,19 @@ class ShortLivedCacheRepositorySpec
   "cache" should {
 
     "successfully create a cache entry if one does not already exist" in {
-      cacheRepository.cache(cacheId, person).futureValue   shouldBe ()
-      count().futureValue                                  shouldBe 1
-      findAll().futureValue.head.asJson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, now, now)
+      cacheRepository.cache(cacheId, person).futureValue     shouldBe ()
+      count().futureValue                                    shouldBe 1
+      findAll().futureValue.head.fromBson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, now, now)
     }
 
     "successfully update a cache entry if one does not already exist" in {
       val creationTimestamp = LocalDateTime.now(ZoneOffset.UTC)
 
-      insert(CacheItem(cacheId, person, creationTimestamp, creationTimestamp).asDocument()).futureValue
+      insert(CacheItem(cacheId, person, creationTimestamp, creationTimestamp).toDocument()).futureValue
 
-      cacheRepository.cache(cacheId, person).futureValue   shouldBe ()
-      count().futureValue                                  shouldBe 1
-      findAll().futureValue.head.asJson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, creationTimestamp, now)
+      cacheRepository.cache(cacheId, person).futureValue     shouldBe ()
+      count().futureValue                                    shouldBe 1
+      findAll().futureValue.head.fromBson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, creationTimestamp, now)
     }
   }
 
