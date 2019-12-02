@@ -35,7 +35,6 @@ class SessionCacheRepository[A: ClassTag] @Inject()(
       mongoComponent   = mongoComponent,
       collectionName   = collectionName,
       domainFormat     = format,
-      indexes          = Seq(),
       ttl              = ttl,
       timestampSupport = timestampSupport
     ) {

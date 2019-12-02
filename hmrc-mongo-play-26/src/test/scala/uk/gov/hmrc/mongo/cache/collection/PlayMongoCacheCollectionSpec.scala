@@ -70,7 +70,6 @@ class PlayMongoCacheCollectionSpec
         mongoComponent   = mongoComponent,
         collectionName   = "play-mongo-cache",
         domainFormat     = Person.format,
-        indexes          = Seq(),
         ttl              = 20.seconds,
         timestampSupport = new CurrentTimestampSupport()
       )
@@ -153,7 +152,6 @@ class PlayMongoCacheCollectionSpec
     mongoComponent   = mongoComponent,
     collectionName   = "play-mongo-cache",
     domainFormat     = Person.format,
-    indexes          = Seq(),
     ttl              = ttl,
     timestampSupport = timestampSupport
   )
@@ -166,7 +164,6 @@ class PlayMongoCacheCollectionSpec
       mongoComponent   = mongoComponent,
       collectionName   = "play-mongo-cache-index-test",
       domainFormat     = Person.format,
-      indexes          = Seq(),
       ttl              = ttl,
       timestampSupport = timestampSupport
     ).collection

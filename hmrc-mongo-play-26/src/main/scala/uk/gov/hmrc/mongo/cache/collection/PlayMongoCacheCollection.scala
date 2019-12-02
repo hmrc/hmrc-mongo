@@ -37,8 +37,7 @@ class PlayMongoCacheCollection[A: ClassTag](
   collectionName: String,
   domainFormat: Format[A],
   optRegistry: Option[CodecRegistry] = None,
-  indexes: Seq[IndexModel],
-  rebuildIndexes: Boolean = true,
+  rebuildIndexes: Boolean            = true,
   ttl: Duration,
   timestampSupport: TimestampSupport
 )(implicit ec: ExecutionContext)
@@ -47,7 +46,7 @@ class PlayMongoCacheCollection[A: ClassTag](
       collectionName = collectionName,
       domainFormat   = CacheItem.format(domainFormat),
       optRegistry    = None,
-      indexes = indexes ++ Seq(
+      indexes = Seq(
         IndexModel(
           Indexes.ascending("modifiedAt"),
           IndexOptions()

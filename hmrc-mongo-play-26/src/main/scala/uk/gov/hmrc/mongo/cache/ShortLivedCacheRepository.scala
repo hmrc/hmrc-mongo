@@ -34,13 +34,12 @@ class ShortLivedCacheRepository[A: ClassTag] @Inject()(
       mongoComponent   = mongoComponent,
       collectionName   = collectionName,
       domainFormat     = format,
-      indexes          = Seq(),
       ttl              = ttl,
       timestampSupport = timestampSupport
     ) {
 
   def cache(key: String, body: A): Future[Unit] = upsert(key, body)
 
-  def fetch(id: String): Future[Option[A]] = find(id).map(_.map(_.data))
+  def fetch(key: String): Future[Option[A]] = find(key).map(_.map(_.data))
 
 }
