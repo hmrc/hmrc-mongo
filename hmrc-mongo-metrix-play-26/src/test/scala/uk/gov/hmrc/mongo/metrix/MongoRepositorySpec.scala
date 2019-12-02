@@ -16,34 +16,21 @@
 
 package uk.gov.hmrc.mongo.metrix
 
-import com.mongodb.BasicDBObject
+import org.mongodb.scala.model.IndexModel
+import org.scalatest.LoneElement
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{BeforeAndAfterEach, LoneElement}
-import uk.gov.hmrc.mongo.test.MongoSupport
+import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, MongoSupport}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.DurationInt
 
 class MongoRepositorySpec
     extends UnitSpec
     with MongoSupport
     with ScalaFutures
     with LoneElement
-    with BeforeAndAfterEach {
-
-  override implicit val patienceConfig = PatienceConfig(timeout = 30.seconds, interval = 100.millis)
+    with DefaultMongoCollectionSupport {
 
   lazy val metricsRepo = new MongoMetricRepository(mongoComponent)
-
-  override def beforeEach(): Unit = {
-    super.beforeEach()
-    metricsRepo.collection.deleteMany(new BasicDBObject()).toFuture.map(_.wasAcknowledged())
-  }
-
-  override def afterEach(): Unit = {
-    super.afterEach()
-    metricsRepo.collection.deleteMany(new BasicDBObject()).toFuture.map(_.wasAcknowledged())
-  }
 
   "update" should {
     "store the provided MetricsStorage instance with the 'name' key" in {
@@ -54,4 +41,7 @@ class MongoRepositorySpec
       metricsRepo.findAll().futureValue.loneElement shouldBe storedMetric
     }
   }
+
+  override protected val collectionName: String   = metricsRepo.collectionName
+  override protected val indexes: Seq[IndexModel] = metricsRepo.indexes
 }
