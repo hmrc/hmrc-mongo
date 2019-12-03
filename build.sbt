@@ -26,7 +26,7 @@ lazy val library = Project(name, file("."))
     hmrcMongoPlay26_2_11, hmrcMongoPlay26_2_12,
     hmrcMongoPlay27_2_11, hmrcMongoPlay27_2_12,
     metrixPlay26_2_11   , metrixPlay26_2_12,
-    metrixPlay27_2_12,
+    metrixPlay27_2_12   ,
     hmrcMongoTest_2_11  , hmrcMongoTest_2_12
   )
 
@@ -96,7 +96,7 @@ lazy val metrixPlay26 = Project("hmrc-mongo-metrix-play-26", file("hmrc-mongo-me
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
-    libraryDependencies ++= AppDependencies.metrixPlay26,
+    libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay26,
     makePublicallyAvailableOnBintray := true,
     resolvers := Seq(
       Resolver.bintrayRepo("hmrc", "releases"),
@@ -111,7 +111,7 @@ lazy val metrixPlay27 = Project("hmrc-mongo-metrix-play-27", file("hmrc-mongo-me
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
-    libraryDependencies ++= AppDependencies.metrixPlay27,
+    libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay27,
     makePublicallyAvailableOnBintray := true,
     resolvers := Seq(
       Resolver.bintrayRepo("hmrc", "releases"),
