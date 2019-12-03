@@ -49,11 +49,12 @@ this information to graphite.
 
 ## Example construction
 ``` scala
-val mongoLockService = new MongoLockService {
-  override def mongoLockRepository: MongoLockRepository  = new MongoLockRepository()
-  override val lockId: String                            = "your-lock-id"
-  override val ttl: Duration                             = Duration(schedulerConfig.frequency().toMillis, TimeUnit.MILLISECONDS)
-}
+import scala.concurrent.duration.DurationInt
+
+
+val lockId: String                            = "your-lock-id"
+val ttl: Duration                             = 10.seconds
+val mongoLockService                          = mongoLockRepository.toService(lockId, ttl)
 
 val sources: List[MetricSource] = ... AddYourMetricSourcesHere ...
 

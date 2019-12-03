@@ -14,22 +14,29 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.metrix.impl
+package uk.gov.hmrc.mongo.metrix
 
+import com.google.inject.{ImplementedBy, Inject, Singleton}
 import org.mongodb.scala.ReadPreference
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.Indexes.ascending
 import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptions}
+import org.mongodb.scala.model.Indexes.ascending
 import uk.gov.hmrc.mongo.MongoComponent
-import uk.gov.hmrc.mongo.metrix.{MetricRepository, PersistedMetric}
 import uk.gov.hmrc.mongo.play.json.PlayMongoCollection
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class MongoMetricRepository(collectionName: String = "metrics", mongo: MongoComponent)(implicit ec: ExecutionContext)
+@ImplementedBy(classOf[MongoMetricRepository])
+trait MetricRepository {
+  def persist(calculatedMetric: PersistedMetric): Future[Unit]
+  def findAll(): Future[List[PersistedMetric]]
+}
+
+@Singleton
+class MongoMetricRepository @Inject()(mongoComponent: MongoComponent)(implicit ec: ExecutionContext)
     extends PlayMongoCollection[PersistedMetric](
-      collectionName = collectionName,
-      mongoComponent = mongo,
+      collectionName = "metrics",
+      mongoComponent = mongoComponent,
       domainFormat   = PersistedMetric.format,
       indexes = Seq(
         IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
@@ -47,6 +54,6 @@ class MongoMetricRepository(collectionName: String = "metrics", mongo: MongoComp
         calculatedMetric,
         FindOneAndReplaceOptions().upsert(true)
       )
-      .toFuture()
+      .toFutureOption()
       .map(_ => ())
 }
