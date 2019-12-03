@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.lock
+package uk.gov.hmrc.mongo.cache.collection
 
 import java.time.LocalDateTime
 
@@ -22,20 +22,27 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json.{Format, __}
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
-case class Lock(id: String, owner: String, timeCreated: LocalDateTime, expiryTime: LocalDateTime)
+final case class CacheItem[A](
+  id: String,
+  data: A,
+  createdAt: LocalDateTime,
+  modifiedAt: LocalDateTime
+)
 
-object Lock {
+object CacheItem {
 
-  implicit val format: Format[Lock] = {
+  val id         = "_id"
+  val data       = "data"
+  val createdAt  = "createdAt"
+  val modifiedAt = "modifiedAt"
+  val atomicId   = "atomicId"
+
+  def format[A: Format]: Format[CacheItem[A]] = {
     implicit val dtf: Format[LocalDateTime] = MongoJavatimeFormats.localDateTimeFormats
-    ((__ \ "_id").format[String]
-      ~ (__ \ "owner").format[String]
-      ~ (__ \ "timeCreated").format[LocalDateTime]
-      ~ (__ \ "expiryTime").format[LocalDateTime])(Lock.apply, unlift(Lock.unapply))
+    ((__ \ id).format[String]
+      ~ (__ \ data).format[A]
+      ~ (__ \ createdAt).format[LocalDateTime]
+      ~ (__ \ modifiedAt).format[LocalDateTime])(CacheItem.apply, unlift(CacheItem.unapply))
   }
 
-  val id          = "_id"
-  val owner       = "owner"
-  val timeCreated = "timeCreated"
-  val expiryTime  = "expiryTime"
 }

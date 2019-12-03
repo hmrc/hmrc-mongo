@@ -31,9 +31,9 @@ class MongoMetricRepository(collectionName: String = "metrics", mongo: MongoComp
       collectionName = collectionName,
       mongoComponent = mongo,
       domainFormat   = PersistedMetric.format,
-      indexes        = Seq(
-                         IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
-                       )
+      indexes = Seq(
+        IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
+      )
     )
     with MetricRepository {
 

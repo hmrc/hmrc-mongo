@@ -14,20 +14,6 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.cache
 
-import com.mongodb.ConnectionString
-import org.mongodb.scala.{MongoClient, MongoDatabase}
-
-trait MongoComponent {
-  def client: MongoClient
-  def database: MongoDatabase
-}
-
-object MongoComponent {
-  def apply(mongoUri: String): MongoComponent =
-    new MongoComponent {
-      override val client: MongoClient     = MongoClient(mongoUri)
-      override val database: MongoDatabase = client.getDatabase(new ConnectionString(mongoUri).getDatabase)
-    }
-}
+case object NoSessionException extends Exception("Could not find sessionId in HeaderCarrier")

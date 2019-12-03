@@ -20,24 +20,27 @@ import java.time.{LocalDateTime, ZoneOffset}
 
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{Completed, Document}
-import org.scalatest.{Matchers, WordSpecLike}
-import play.api.libs.json.{Json, Writes}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
+import uk.gov.hmrc.mongo.CurrentTimestampSupport
+import uk.gov.hmrc.mongo.play.json.Codecs._
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, DurationInt}
 
-import ExecutionContext.Implicits.global
-
-class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoCollectionSupport {
+class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMongoCollectionSupport {
 
   "attemptLockWithRelease" should {
     "obtain lock, run the block supplied and release the lock" in {
 
-      val optionalLock = mongoLockService.attemptLockWithRelease {
-        find(lockId).map(_.head)
-      }.futureValue
+      val optionalLock = mongoLockService
+        .attemptLockWithRelease {
+          find(mongoEq(Lock.id, lockId)).map(_.head)
+        }
+        .futureValue
+        .map(_.fromBson[Lock])
 
       optionalLock.map { lock =>
         lock.id         shouldBe lockId
@@ -62,7 +65,7 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
 
     "not run the block supplied if the lock is owned by someone else and return None" in {
       val existingLock = Lock(lockId, "owner2", now, now.plusSeconds(100))
-      insert(existingLock).futureValue
+      insert(existingLock.toDocument()).futureValue
 
       mongoLockService
         .attemptLockWithRelease(fail("Should not execute!"))
@@ -70,12 +73,12 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
 
       count().futureValue shouldBe 1
 
-      findAll().futureValue.head shouldBe existingLock
+      findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
     }
 
     "not run the block supplied if the lock is already owned by the caller and return None" in {
       val existingLock = Lock(lockId, owner, now, now.plusSeconds(100))
-      insert(existingLock).futureValue
+      insert(existingLock.toDocument()).futureValue
 
       mongoLockService
         .attemptLockWithRelease(fail("Should not execute!"))
@@ -83,7 +86,7 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
 
       count().futureValue shouldBe 1
 
-      findAll().futureValue.head shouldBe existingLock
+      findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
     }
   }
 
@@ -150,31 +153,6 @@ class MongoLockServiceSpec extends WordSpecLike with Matchers with DefaultMongoC
   private val mongoLockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
   private val mongoLockService    = mongoLockRepository.toService(lockId, ttl)
 
-  private def findAll(): Future[Seq[Lock]] =
-    mongoCollection
-      .find()
-      .toFuture
-      .map(_.map(toLock))
-
-  private def count(): Future[Long] =
-    mongoCollection
-      .countDocuments()
-      .toFuture()
-
-  private def find(id: String): Future[Seq[Lock]] =
-    mongoCollection
-      .find(mongoEq(Lock.id, id))
-      .toFuture()
-      .map(_.map(toLock))
-
-  private def insert[T](obj: T)(implicit tjs: Writes[T]): Future[Completed] =
-    mongoCollection
-      .insertOne(Document(Json.toJson(obj).toString()))
-      .toFuture()
-
   override protected val collectionName: String   = mongoLockRepository.collectionName
   override protected val indexes: Seq[IndexModel] = Seq()
-
-  private def toLock(document: Document): Lock =
-    Json.parse(document.toJson()).as[Lock]
 }

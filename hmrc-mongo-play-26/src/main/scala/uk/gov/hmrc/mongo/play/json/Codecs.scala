@@ -21,20 +21,21 @@ import org.bson.codecs.{BsonTypeCodecMap, Codec, DecoderContext, EncoderContext}
 import org.bson.json.{JsonMode, JsonReader, JsonWriter, JsonWriterSettings}
 import org.bson.types.Decimal128
 import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
-import org.mongodb.scala.bson.collection.immutable.Document
+import org.slf4j.{Logger, LoggerFactory}
 import play.api.libs.json._
-import scala.collection.JavaConverters._
-import org.slf4j.LoggerFactory
+import org.mongodb.scala.{Document => ScalaDocument}
 
+import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 trait Codecs {
-  val logger = LoggerFactory.getLogger(classOf[Codecs].getName)
+  outer =>
+  val logger: Logger = LoggerFactory.getLogger(classOf[Codecs].getName)
 
   private val bsonDocumentCodec = DEFAULT_CODEC_REGISTRY.get(classOf[BsonDocument])
   private val bsonValueCodec    = DEFAULT_CODEC_REGISTRY.get(classOf[BsonValue])
-  private val bsonTypeCodecMap  =
-    new BsonTypeCodecMap(org.bson.codecs.BsonValueCodecProvider.getBsonTypeClassMap(), DEFAULT_CODEC_REGISTRY)
+  private val bsonTypeCodecMap =
+    new BsonTypeCodecMap(org.bson.codecs.BsonValueCodecProvider.getBsonTypeClassMap, DEFAULT_CODEC_REGISTRY)
 
   /** @param legacyNumbers `true` will preserve the Number modifications which occured with simple-reactivemongo when storing
     * extremely large and small numbers.
@@ -44,9 +45,9 @@ trait Codecs {
     * modified in unexpected ways.
     */
   def playFormatCodec[A](
-      format       : Format[A],
-      legacyNumbers: Boolean = false
-      )(implicit ct: ClassTag[A]): Codec[A] = new Codec[A] {
+    format: Format[A],
+    legacyNumbers: Boolean = false
+  )(implicit ct: ClassTag[A]): Codec[A] = new Codec[A] {
 
     override def getEncoderClass: Class[A] =
       ct.runtimeClass.asInstanceOf[Class[A]]
@@ -75,42 +76,31 @@ trait Codecs {
   def toBson[A: Writes](a: A, legacyNumbers: Boolean = false): BsonValue =
     jsonToBson(legacyNumbers)(Json.toJson(a))
 
+  def fromBson[A: Reads](bs: BsonValue): A = bsonToJson(bs).as[A]
+
   private def jsonToBson(legacyNumbers: Boolean)(js: JsValue): BsonValue =
     js match {
       case JsNull       => BsonNull.VALUE
       case JsBoolean(b) => BsonBoolean.valueOf(b)
-      case JsNumber(n)  => if (legacyNumbers) toBsonNumberLegacy(n)
-                           else toBsonNumber(n)
-      case JsString(s)  => new BsonString(s)
-      case JsArray(a)   => new BsonArray(a.map(jsonToBson(legacyNumbers)).asJava)
-      case o: JsObject  => if (o.keys.exists(k => k.startsWith("$") && !List("$numberDecimal", "$numberLong").contains(k)))
-                             // mongo types, identified with $ in `MongoDB Extended JSON format`  (e.g. BsonObjectId, BsonDateTime)
-                             // should use default conversion to Json. Then PlayJsonReaders will then convert as appropriate
-                             // The exception are numbers handled above (otherwise precision of $numberDecimal will be lost)
-                             fromJsonDefault(o)
-                           else
-                             new BsonDocument(
-                               o.fields.map {
-                                 case (k, v) =>
-                                   new BsonElement(k, jsonToBson(legacyNumbers)(v))
-                               }.asJava
-                             )
+      case JsNumber(n) =>
+        if (legacyNumbers) toBsonNumberLegacy(n)
+        else toBsonNumber(n)
+      case JsString(s) => new BsonString(s)
+      case JsArray(a)  => new BsonArray(a.map(jsonToBson(legacyNumbers)).asJava)
+      case o: JsObject =>
+        if (o.keys.exists(k => k.startsWith("$") && !List("$numberDecimal", "$numberLong").contains(k)))
+          // mongo types, identified with $ in `MongoDB Extended JSON format`  (e.g. BsonObjectId, BsonDateTime)
+          // should use default conversion to Json. Then PlayJsonReaders will then convert as appropriate
+          // The exception are numbers handled above (otherwise precision of $numberDecimal will be lost)
+          fromJsonDefault(o)
+        else
+          new BsonDocument(
+            o.fields.map {
+              case (k, v) =>
+                new BsonElement(k, jsonToBson(legacyNumbers)(v))
+            }.asJava
+          )
     }
-
-  // Following number conversion comes from https://github.com/ReactiveMongo/Play-ReactiveMongo/blob/4071a4fd580d7c6edeccac318d839456f69a847d/src/main/scala/play/modules/reactivemongo/Formatters.scala#L62-L64
-  // It will loose precision on BigDecimals which can't be represented as doubles, and incorrectly identify some large Doubles as Long.
-  // But is backward compatible with simple-reactivemongo
-  private def toBsonNumberLegacy(bd: BigDecimal): BsonValue =
-    if      (!bd.ulp.isWhole) new BsonDouble(bd.toDouble)
-    else if (bd.isValidInt)   new BsonInt32(bd.toInt)
-    else                      new BsonInt64(bd.toLong)
-
-  private def toBsonNumber(bd: BigDecimal): BsonValue =
-    if      (bd.isValidInt)      new BsonInt32(bd.intValue)
-    else if (bd.isValidLong)     new BsonInt64(bd.longValue)
-    else if (bd.isDecimalDouble) new BsonDouble(bd.doubleValue)
-    else                         // Not all bigDecimals are representable as Decimal128. Will throw [java.lang.NumberFormatException] with message: `Conversion to Decimal128 would require inexact rounding of -4.2176255923279509728936555398034786404E-54.`
-                                 new BsonDecimal128(new Decimal128(bd.bigDecimal))
 
   private def bsonToJson(bs: BsonValue): JsValue =
     bs match {
@@ -120,10 +110,10 @@ trait Codecs {
       case l: BsonInt64       => JsNumber(l.getValue)
       case d: BsonDouble      => JsNumber(d.getValue)
       case bd: BsonDecimal128 => // throws ArithmeticException if the Decimal128 value is NaN, Infinity, -Infinity, or -0, none of which can be represented as a BigDecimal
-                                 // Should be OK since these values will not have been written to db from BigDecimal.
-                                 JsNumber(bd.getValue.bigDecimalValue)
-      case s: BsonString      => JsString(s.getValue)
-      case d: BsonDocument    =>
+        // Should be OK since these values will not have been written to db from BigDecimal.
+        JsNumber(bd.getValue.bigDecimalValue)
+      case s: BsonString => JsString(s.getValue)
+      case d: BsonDocument =>
         JsObject(
           d.asScala.map { case (k, v) => (k, bsonToJson(v)) }
         )
@@ -133,6 +123,21 @@ trait Codecs {
           case _: JsUndefined => logger.debug(s"Could not convert $other to Json"); JsNull
         }
     }
+
+  // Following number conversion comes from https://github.com/ReactiveMongo/Play-ReactiveMongo/blob/4071a4fd580d7c6edeccac318d839456f69a847d/src/main/scala/play/modules/reactivemongo/Formatters.scala#L62-L64
+  // It will loose precision on BigDecimals which can't be represented as doubles, and incorrectly identify some large Doubles as Long.
+  // But is backward compatible with simple-reactivemongo
+  private def toBsonNumberLegacy(bd: BigDecimal): BsonValue =
+    if (!bd.ulp.isWhole) new BsonDouble(bd.toDouble)
+    else if (bd.isValidInt) new BsonInt32(bd.toInt)
+    else new BsonInt64(bd.toLong)
+
+  private def toBsonNumber(bd: BigDecimal): BsonValue =
+    if (bd.isValidInt) new BsonInt32(bd.intValue)
+    else if (bd.isValidLong) new BsonInt64(bd.longValue)
+    else if (bd.isDecimalDouble) new BsonDouble(bd.doubleValue)
+    else // Not all bigDecimals are representable as Decimal128. Will throw [java.lang.NumberFormatException] with message: `Conversion to Decimal128 would require inexact rounding of -4.2176255923279509728936555398034786404E-54.`
+      new BsonDecimal128(new Decimal128(bd.bigDecimal))
 
   private def toJsonDefault(bs: BsonValue, mode: JsonMode): JsLookupResult = {
     // wrap value in a document inorder to reuse the document -> JsonString, then extract
@@ -147,6 +152,24 @@ trait Codecs {
     val o2  = JsObject(Seq(("tempKey", o)))
     val doc = bsonDocumentCodec.decode(new JsonReader(o2.toString), DecoderContext.builder.build)
     doc.get("tempKey")
+  }
+
+  implicit class JsonOps[A: Writes](a: A) {
+    def toBson(legacyNumbers: Boolean = false): BsonValue = outer.toBson(a, legacyNumbers)
+
+    def toDocument(legacyNumbers: Boolean = false): ScalaDocument = outer.toBson(a, legacyNumbers).asDocument()
+  }
+
+  implicit class BsonOps(bs: BsonValue) {
+    def fromBson[T: Reads]: T = outer.fromBson(bs)
+  }
+
+  implicit class DocumentOps(document: ScalaDocument) {
+    def fromBson[T: Reads]: T = outer.fromBson(document.toBsonDocument)
+  }
+
+  implicit class DocumentsOps(documents: Seq[ScalaDocument]) {
+    def fromBson[T: Reads]: Seq[T] = documents.map(document => outer.fromBson(document.toBsonDocument))
   }
 }
 

@@ -32,28 +32,41 @@ class PlayMongoCollection[A: ClassTag](
   val collectionName: String,
   domainFormat: Format[A],
   optRegistry: Option[CodecRegistry] = None,
-  val indexes: Seq[IndexModel]
-)(implicit ec: ExecutionContext) extends MongoDatabaseCollection {
+  val indexes: Seq[IndexModel],
+  rebuildIndexes: Boolean = false
+)(implicit ec: ExecutionContext)
+    extends MongoDatabaseCollection {
 
   private val logger = Logger(getClass)
 
   val collection: MongoCollection[A] =
     CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, optRegistry)
 
-  Await.result(createIndexes(), 3.seconds)
+  Await.result(ensureIndexes(), 5.seconds)
 
-  def createIndexes(): Future[Seq[String]] =
-    if (indexes.nonEmpty) {
-      collection
-        .createIndexes(indexes)
-        .toFuture
-        .recover {
-          case throwable: Throwable =>
-            logger.error("Failed to create indexes", throwable)
-            Seq.empty
-        }
-    } else {
+  def ensureIndexes(): Future[Seq[String]] = {
+    if (indexes.isEmpty) {
       logger.info("Skipping Mongo index creation as no indexes supplied")
-      Future.successful(Seq.empty)
     }
+    val futureZippedIndexes =
+      indexes.map(index => (index, collection.createIndex(index.getKeys, index.getOptions).toFuture()))
+
+    val futureIndexes = if (rebuildIndexes) {
+      futureZippedIndexes.map {
+        case (index, futureIndex) =>
+          futureIndex.recoverWith {
+            case e: MongoCommandException if e.getErrorCode == 85 => //Conflicting index
+              logger.warn("Conflicting Mongo index found. This index will be updated")
+              for {
+                _      <- collection.dropIndex(index.getOptions.getName).toFuture()
+                result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
+              } yield result
+          }
+      }
+    } else {
+      futureZippedIndexes.map(_._2)
+    }
+
+    Future.sequence(futureIndexes)
+  }
 }
