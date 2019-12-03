@@ -19,16 +19,11 @@ package uk.gov.hmrc.mongo.metrix
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.LoneElement
 import org.scalatest.concurrent.ScalaFutures
-import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, MongoSupport}
+import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class MongoRepositorySpec
-    extends UnitSpec
-    with MongoSupport
-    with ScalaFutures
-    with LoneElement
-    with DefaultMongoCollectionSupport {
+class MongoMetricRepositorySpec extends UnitSpec with ScalaFutures with LoneElement with DefaultMongoCollectionSupport {
 
   lazy val metricsRepo = new MongoMetricRepository(mongoComponent)
 
