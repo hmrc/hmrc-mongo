@@ -23,26 +23,26 @@ import scala.concurrent.{ExecutionContext, Future}
 
 trait MongoLockService {
 
-  val mongoLockRepository: MongoLockRepository
+  val lockRepository: LockRepository
   val lockId: String
   val ttl: Duration
 
   private val ownerId = UUID.randomUUID().toString
 
   def attemptLockWithRelease[T](body: => Future[T])(implicit ec: ExecutionContext): Future[Option[T]] =
-    mongoLockRepository.attemptLockWithRelease(lockId, ownerId, ttl, body)
+    lockRepository.attemptLockWithRelease(lockId, ownerId, ttl, body)
 
   def attemptLockWithRefreshExpiry[T](body: => Future[T])(implicit ec: ExecutionContext): Future[Option[T]] =
-    mongoLockRepository.attemptLockWithRefreshExpiry(lockId, ownerId, ttl, body)
+    lockRepository.attemptLockWithRefreshExpiry(lockId, ownerId, ttl, body)
 }
 
 object MongoLockService {
 
-  def apply(repository: MongoLockRepository, lock: String, duration: Duration): MongoLockService =
+  def apply(repository: LockRepository, lock: String, duration: Duration): MongoLockService =
     new MongoLockService {
-      override val mongoLockRepository: MongoLockRepository = repository
-      override val lockId: String                           = lock
-      override val ttl: Duration                            = duration
+      override val lockRepository: LockRepository = repository
+      override val lockId: String                 = lock
+      override val ttl: Duration                  = duration
     }
 
 }
