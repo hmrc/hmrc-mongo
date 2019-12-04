@@ -6,6 +6,7 @@ val scala2_11 = "2.11.12"
 val scala2_12 = "2.12.10"
 
 // Disable multiple project tests running at the same time: https://stackoverflow.com/questions/11899723/how-to-turn-off-parallel-execution-of-tests-for-multi-project-builds
+// TODO: Make tests work in parallel to avoid this
 parallelExecution in Global := false
 
 lazy val commonSettings = Seq(
