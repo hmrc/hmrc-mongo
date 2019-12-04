@@ -14,6 +14,13 @@ lazy val commonSettings = Seq(
   majorVersion := 0
 )
 
+lazy val commonResolvers = Seq(
+  resolvers := Seq(
+    Resolver.bintrayRepo("hmrc", "releases"),
+    Resolver.typesafeRepo("releases")
+  )
+)
+
 lazy val library = Project(name, file("."))
   .enablePlugins(SbtAutoBuildPlugin, SbtGitVersioning, SbtArtifactory)
   .settings(
@@ -27,7 +34,7 @@ lazy val library = Project(name, file("."))
     hmrcMongoPlay26_2_11, hmrcMongoPlay26_2_12,
     hmrcMongoPlay27_2_11, hmrcMongoPlay27_2_12,
     metrixPlay26_2_11   , metrixPlay26_2_12,
-    metrixPlay27_2_12   ,
+                          metrixPlay27_2_12,
     hmrcMongoTest_2_11  , hmrcMongoTest_2_12
   )
 
@@ -35,12 +42,9 @@ lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
+    commonResolvers,
     libraryDependencies ++= AppDependencies.hmrcMongoPlay26,
-    makePublicallyAvailableOnBintray := true,
-    resolvers := Seq(
-      Resolver.bintrayRepo("hmrc", "releases"),
-      Resolver.typesafeRepo("releases")
-    )
+    makePublicallyAvailableOnBintray := true
   ).cross
 
 lazy val hmrcMongoCommon_2_11 = hmrcMongoCommon(scala2_11)
@@ -50,12 +54,9 @@ lazy val hmrcMongoPlay26 = Project("hmrc-mongo-play-26", file("hmrc-mongo-play-2
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
+    commonResolvers,
     libraryDependencies ++= AppDependencies.hmrcMongoPlay26,
-    makePublicallyAvailableOnBintray := true,
-    resolvers := Seq(
-      Resolver.bintrayRepo("hmrc", "releases"),
-      Resolver.typesafeRepo("releases")
-    )
+    makePublicallyAvailableOnBintray := true
   ).cross
 
 lazy val hmrcMongoPlay26_2_11 = hmrcMongoPlay26(scala2_11).dependsOn(hmrcMongoCommon_2_11, hmrcMongoTest_2_11)
@@ -65,13 +66,10 @@ lazy val hmrcMongoPlay27 = Project("hmrc-mongo-play-27", file("hmrc-mongo-play-2
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
+    commonResolvers,
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-play-26/src/main/scala",
     libraryDependencies ++= AppDependencies.hmrcMongoPlay27,
-    makePublicallyAvailableOnBintray := true,
-    resolvers := Seq(
-      Resolver.bintrayRepo("hmrc", "releases"),
-      Resolver.typesafeRepo("releases")
-    )
+    makePublicallyAvailableOnBintray := true
   )
   .cross
 
@@ -82,12 +80,9 @@ lazy val hmrcMongoTest = Project("hmrc-mongo-test", file("hmrc-mongo-test"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
+    commonResolvers,
     libraryDependencies ++= AppDependencies.hmrcMongoTest,
-    makePublicallyAvailableOnBintray := true,
-    resolvers := Seq(
-      Resolver.bintrayRepo("hmrc", "releases"),
-      Resolver.typesafeRepo("releases")
-    )
+    makePublicallyAvailableOnBintray := true
   ).cross
 
 lazy val hmrcMongoTest_2_11 = hmrcMongoTest(scala2_11).dependsOn(hmrcMongoCommon_2_11)
@@ -97,12 +92,9 @@ lazy val metrixPlay26 = Project("hmrc-mongo-metrix-play-26", file("hmrc-mongo-me
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
+    commonResolvers,
     libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay26,
-    makePublicallyAvailableOnBintray := true,
-    resolvers := Seq(
-      Resolver.bintrayRepo("hmrc", "releases"),
-      Resolver.typesafeRepo("releases")
-    )
+    makePublicallyAvailableOnBintray := true
   ).cross
 
 lazy val metrixPlay26_2_11 = metrixPlay26(scala2_11).dependsOn(hmrcMongoPlay26_2_11, hmrcMongoTest_2_11)
@@ -112,12 +104,9 @@ lazy val metrixPlay27 = Project("hmrc-mongo-metrix-play-27", file("hmrc-mongo-me
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
+    commonResolvers,
     libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay27,
-    makePublicallyAvailableOnBintray := true,
-    resolvers := Seq(
-      Resolver.bintrayRepo("hmrc", "releases"),
-      Resolver.typesafeRepo("releases")
-    )
+    makePublicallyAvailableOnBintray := true
   ).cross
 
 lazy val metrixPlay27_2_12 = metrixPlay27(scala2_12).dependsOn(hmrcMongoPlay27_2_12, hmrcMongoTest_2_12)
