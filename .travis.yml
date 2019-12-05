@@ -1,0 +1,11 @@
+sudo: false
+language: scala
+scala:
+- 2.11.7
+jdk:
+- openjdk8
+cache:
+  directories:
+    - '$HOME/.ivy2/cache'
+notifications:
+  email: false
