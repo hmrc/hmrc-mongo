@@ -33,8 +33,8 @@ lazy val library = Project(name, file("."))
     hmrcMongoCommon_2_11, hmrcMongoCommon_2_12,
     hmrcMongoPlay26_2_11, hmrcMongoPlay26_2_12,
     hmrcMongoPlay27_2_11, hmrcMongoPlay27_2_12,
-    metrixPlay26_2_11   , metrixPlay26_2_12,
-                          metrixPlay27_2_12,
+    metrixPlay26_2_11   , metrixPlay26_2_12
+    /*    N/A        */ , metrixPlay27_2_12, // metrics-play for 2.7 only exists for 2.12+
     hmrcMongoTest_2_11  , hmrcMongoTest_2_12
   )
 
