@@ -15,7 +15,8 @@
  */
 
 package uk.gov.hmrc.mongo.cache
-import java.time.{LocalDateTime, ZoneOffset}
+
+import java.time.Instant
 
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.concurrent.ScalaFutures
@@ -60,7 +61,7 @@ class SessionCacheRepositorySpec
     }
 
     "successfully update a cache entry if one does not already exist" in {
-      val creationTimestamp = LocalDateTime.now(ZoneOffset.UTC)
+      val creationTimestamp = Instant.now()
 
       insert(CacheItem(cacheId, person, creationTimestamp, creationTimestamp).toDocument()).futureValue
 
@@ -100,13 +101,13 @@ class SessionCacheRepositorySpec
     forwarded     = Some(ForwardedFor("forwarded"))
   )
 
-  private val now       = LocalDateTime.now(ZoneOffset.UTC)
+  private val now       = Instant.now()
   private val cacheId   = "session"
   private val person    = Person("Sarah", 30, "Female")
   private val cacheItem = CacheItem(cacheId, person, now, now)
 
   private val timestampSupport = new TimestampSupport {
-    override def timestamp(): LocalDateTime = now
+    override def timestamp(): Instant = now
   }
 
   private val cacheRepository = new SessionCacheRepository[Person](

@@ -16,16 +16,16 @@
 
 package uk.gov.hmrc.mongo
 
-import java.time.{LocalDateTime, ZoneOffset}
+import java.time.Instant
 
 import com.google.inject.{ImplementedBy, Singleton}
 
 @ImplementedBy(classOf[CurrentTimestampSupport])
 trait TimestampSupport {
-  def timestamp(): LocalDateTime
+  def timestamp(): Instant
 }
 
 @Singleton
 class CurrentTimestampSupport extends TimestampSupport {
-  override def timestamp(): LocalDateTime = LocalDateTime.now(ZoneOffset.UTC)
+  override def timestamp(): Instant = Instant.now()
 }

@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.cache.collection
 
-import java.time.LocalDateTime
+import java.time.Instant
 
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{Format, __}
@@ -25,8 +25,8 @@ import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 final case class CacheItem[A](
   id: String,
   data: A,
-  createdAt: LocalDateTime,
-  modifiedAt: LocalDateTime
+  createdAt: Instant,
+  modifiedAt: Instant
 )
 
 object CacheItem {
@@ -38,11 +38,11 @@ object CacheItem {
   val atomicId   = "atomicId"
 
   def format[A: Format]: Format[CacheItem[A]] = {
-    implicit val dtf: Format[LocalDateTime] = MongoJavatimeFormats.localDateTimeFormats
-    ((__ \ id).format[String]
-      ~ (__ \ data).format[A]
-      ~ (__ \ createdAt).format[LocalDateTime]
-      ~ (__ \ modifiedAt).format[LocalDateTime])(CacheItem.apply, unlift(CacheItem.unapply))
+    implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormats
+    ( (__ \ id        ).format[String]
+    ~ (__ \ data      ).format[A]
+    ~ (__ \ createdAt ).format[Instant]
+    ~ (__ \ modifiedAt).format[Instant]
+    )(CacheItem.apply, unlift(CacheItem.unapply))
   }
-
 }

@@ -15,6 +15,7 @@
  */
 
 package uk.gov.hmrc.mongo.cache
+
 import com.google.inject.Inject
 import play.api.libs.json.Format
 import uk.gov.hmrc.mongo.cache.collection.PlayMongoCacheCollection
