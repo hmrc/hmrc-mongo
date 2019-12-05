@@ -27,7 +27,7 @@ lazy val library = Project(name, file("."))
     commonSettings,
     publish := {},
     publishAndDistribute := {},
-    scalaVersion := scala2_11
+    scalaVersion := scala2_12
   )
   .aggregate(
     hmrcMongoCommon_2_11, hmrcMongoCommon_2_12,
