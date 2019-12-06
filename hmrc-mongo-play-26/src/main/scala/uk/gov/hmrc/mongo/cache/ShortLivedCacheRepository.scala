@@ -21,7 +21,7 @@ import play.api.libs.json.Format
 import uk.gov.hmrc.mongo.cache.collection.PlayMongoCacheCollection
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
@@ -29,18 +29,22 @@ class ShortLivedCacheRepository[A: ClassTag] @Inject()(
   mongoComponent: MongoComponent,
   collectionName: String = "short-lived-cache",
   format: Format[A],
-  ttl: Duration = 5.minutes,
+  ttl: Duration = 5.minutes, // TODO any reason to provide default value?
   timestampSupport: TimestampSupport)(implicit ec: ExecutionContext)
     extends PlayMongoCacheCollection(
       mongoComponent   = mongoComponent,
       collectionName   = collectionName,
-      domainFormat     = format,
       ttl              = ttl,
       timestampSupport = timestampSupport
     ) {
 
-  def cache(key: String, body: A): Future[Unit] = upsert(key, body)
+  implicit val f = format
 
-  def fetch(key: String): Future[Option[A]] = find(key).map(_.map(_.data))
+  val dataKey = "dataKey"
 
+  def cache(key: String, body: A): Future[Unit] =
+    put(key, dataKey, body)
+
+  def fetch(key: String): Future[Option[A]] =
+    get(key, dataKey)
 }

@@ -39,27 +39,27 @@ class PlayMongoCacheCollectionSpec
     with ScalaFutures
     with Eventually {
 
-  "upsert" should {
+  "put" should {
 
     "successfully create a cacheItem if one does not already exist" in {
-      cacheRepository.upsert(cacheId, person).futureValue shouldBe ()
-      count().futureValue                                 shouldBe 1
+      cacheRepository.put(cacheId, dataKey, person).futureValue shouldBe ()
+      count().futureValue                                       shouldBe 1
       findAll()
-        .map(_.fromBson[CacheItem[Person]])
+        .map(_.fromBson[CacheItem])
         .futureValue
-        .head shouldBe CacheItem(cacheId, person, now, now)
+        .head shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
     }
 
     "successfully update a cacheItem if one does not already exist" in {
       val creationTimestamp = Instant.now()
 
-      insert(CacheItem(cacheId, person, creationTimestamp, creationTimestamp).toDocument()).futureValue
+      insert(CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, creationTimestamp).toDocument()).futureValue
 
-      cacheRepository.upsert(cacheId, person).futureValue shouldBe ()
-      count().futureValue                                 shouldBe 1
-      findAll().map(_.fromBson[CacheItem[Person]]).futureValue.head shouldBe CacheItem(
+      cacheRepository.put(cacheId, dataKey, person).futureValue shouldBe ()
+      count().futureValue                                   shouldBe 1
+      findAll().map(_.fromBson[CacheItem]).futureValue.head shouldBe CacheItem(
         cacheId,
-        person,
+        JsObject(Seq(dataKey -> Json.toJson(person))),
         creationTimestamp,
         now)
     }
@@ -67,65 +67,60 @@ class PlayMongoCacheCollectionSpec
     "successfully keep items in the cache that are touched" in {
 
       // we want to use real times here
-      val cacheRepository = new PlayMongoCacheCollection[Person](
+      val cacheRepository = new PlayMongoCacheCollection(
         mongoComponent   = mongoComponent,
         collectionName   = "play-mongo-cache",
-        domainFormat     = Person.format,
         ttl              = 20.seconds,
         timestampSupport = new CurrentTimestampSupport()
       )
 
       insert(cacheItem.toDocument()).futureValue
-      cacheRepository.find(cacheId).futureValue.map(_.data) shouldBe Some(person)
+      cacheRepository.get[Person](cacheId, dataKey).futureValue shouldBe Some(person)
       Thread.sleep(500)
-      cacheRepository.upsert(cacheId, person)
+      cacheRepository.put(cacheId, dataKey, person)
       Thread.sleep(600)
-      cacheRepository.find(cacheId).futureValue.map(_.data) shouldBe Some(person)
+      cacheRepository.get[Person](cacheId, dataKey).futureValue shouldBe Some(person)
     }
-
   }
 
-  "find" should {
+  "get" should {
     "successfully return CacheItem if cacheItem exists within ttl" in {
       insert(cacheItem.toDocument()).futureValue
-      cacheRepository.find(cacheId).futureValue shouldBe Some(cacheItem)
+      cacheRepository.get[Person](cacheId, dataKey).futureValue shouldBe Some(person)
     }
 
     "successfully return None if cacheItem does not exist" in {
-      cacheRepository.find(cacheId).futureValue shouldBe None
+      cacheRepository.get[Person](cacheId, dataKey).futureValue shouldBe None
     }
 
     "successfully return None if outside ttl" in {
       insert(cacheItem.copy(id = "something-else").toDocument()).futureValue
       //Items can live beyond the TTL https://docs.mongodb.com/manual/core/index-ttl/#timing-of-the-delete-operation
       eventually(timeout(Span(60, Seconds)), interval(Span(500, Millis))) {
-        cacheRepository.find("something-else").futureValue shouldBe None
+        cacheRepository.get[Person]("something-else", dataKey).futureValue shouldBe None
       }
     }
   }
 
-  "remove" should {
+  "delete" should {
     "successfully delete cacheItem that exists" in {
       insert(cacheItem.toDocument()).futureValue
       count().futureValue shouldBe 1
 
-      cacheRepository.remove(cacheId)
+      cacheRepository.delete(cacheId)
       count().futureValue shouldBe 0
-
     }
 
     "not delete cacheItem if no cacheItem is found" in {
       insert(cacheItem.copy(id = "another-id").toDocument()).futureValue
       count().futureValue shouldBe 1
 
-      cacheRepository.remove(cacheId)
+      cacheRepository.delete(cacheId)
       count().futureValue shouldBe 1
     }
-
   }
 
   "ensureIndex" should {
-
     "rebuild indexes when they are modified" in {
       createCacheAndReturnIndexExpiry(1000.millis) shouldBe Some(1L)
       createCacheAndReturnIndexExpiry(5000.millis) shouldBe Some(5L)
@@ -137,22 +132,23 @@ class PlayMongoCacheCollectionSpec
     }
   }
 
-  implicit val format: Format[CacheItem[Person]] = PlayMongoCacheCollection.format(Person.format)
+  implicit val format: Format[Person] = Person.format
+  implicit val format2: Format[CacheItem] = PlayMongoCacheCollection.format
 
   private val now       = Instant.now()
   private val cacheId   = "cacheId"
+  private val dataKey   = "dataKey"
   private val person    = Person("Sarah", 30, "Female")
-  private val cacheItem = CacheItem(cacheId, person, now, now)
+  private val cacheItem = CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
   private val ttl       = 1000.millis
 
   private val timestampSupport = new TimestampSupport {
     override def timestamp(): Instant = now
   }
 
-  private val cacheRepository = new PlayMongoCacheCollection[Person](
+  private val cacheRepository = new PlayMongoCacheCollection(
     mongoComponent   = mongoComponent,
     collectionName   = "play-mongo-cache",
-    domainFormat     = Person.format,
     ttl              = ttl,
     timestampSupport = timestampSupport
   )
@@ -161,10 +157,9 @@ class PlayMongoCacheCollectionSpec
   override protected val indexes: Seq[IndexModel] = cacheRepository.indexes
 
   private def createCacheAndReturnIndexExpiry(ttl: Duration): Option[Long] =
-    new PlayMongoCacheCollection[Person](
+    new PlayMongoCacheCollection(
       mongoComponent   = mongoComponent,
       collectionName   = "play-mongo-cache-index-test",
-      domainFormat     = Person.format,
       ttl              = ttl,
       timestampSupport = timestampSupport
     ).collection

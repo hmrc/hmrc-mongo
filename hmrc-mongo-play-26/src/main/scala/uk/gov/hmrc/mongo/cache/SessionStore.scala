@@ -35,7 +35,6 @@ class SessionStore @Inject()(
   extends PlayMongoCacheCollection(
         mongoComponent   = mongoComponent
       , collectionName   = collectionName
-      , domainFormat     = implicitly[Format[JsValue]]
       , ttl              = ttl
       , timestampSupport = timestampSupport
       ) {
@@ -46,10 +45,8 @@ class SessionStore @Inject()(
       , dataKey   : String
       ): Future[Option[T]] =
       session.get(sessionKey) match {
-          case None            => Future(None)
-          case Some(sessionId) => find(sessionId).map { optCache =>
-                                    optCache.flatMap(cache => (cache.data \ dataKey).asOpt[T])
-                                  }
+        case None            => Future(None)
+        case Some(sessionId) => get(sessionId, dataKey)
       }
 
   def put[T : Writes](
@@ -60,33 +57,13 @@ class SessionStore @Inject()(
       ): Future[String] = {
     val sessionId = session.get(sessionKey).getOrElse(java.util.UUID.randomUUID.toString)
     val timestamp = timestampSupport.timestamp()
-    collection
-      .findOneAndUpdate(
-          filter = Filters.equal("_id", sessionId)
-        , update = Updates.combine(
-                       Updates.set("data." + dataKey            , Codecs.toBson(data))
-                     , Updates.set("modifiedDetails.lastUpdated", timestamp)
-                     , Updates.setOnInsert("_id"                      , sessionId)
-                     , Updates.setOnInsert("modifiedDetails.createdAt", timestamp)
-                     )
-        , options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
-      )
-      .toFuture()
+    put(sessionId, dataKey, data)
       .map(_ => sessionId)
     }
 
   def delete(session: Session, sessionKey: String, dataKey: String): Future[Unit] =
     session.get(sessionKey) match {
       case None            => Future(())
-      case Some(sessionId) => collection
-                                .findOneAndUpdate(
-                                    filter = Filters.equal("_id", sessionId)
-                                  , update = Updates.combine(
-                                                 Updates.unset("data." + dataKey)
-                                               , Updates.set("modifiedDetails.lastUpdated", timestampSupport.timestamp())
-                                               )
-                                )
-                                .toFuture
-                                .map(_ => ())
+      case Some(sessionId) => delete(sessionId, dataKey)
     }
 }

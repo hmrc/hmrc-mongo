@@ -22,7 +22,7 @@ import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.mongo.cache.collection.PlayMongoCacheCollection
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
@@ -30,37 +30,39 @@ class SessionCacheRepository[A: ClassTag] @Inject()(
   mongoComponent: MongoComponent,
   collectionName: String = "session-cache",
   format: Format[A],
-  ttl: Duration = 5.minutes,
+  ttl: Duration = 5.minutes, // TODO any reason to provide default value?
   timestampSupport: TimestampSupport)(implicit ec: ExecutionContext)
     extends PlayMongoCacheCollection(
       mongoComponent   = mongoComponent,
       collectionName   = collectionName,
-      domainFormat     = format,
       ttl              = ttl,
       timestampSupport = timestampSupport
     ) {
 
-  private val noSession = Future.failed[String](NoSessionException)
+  val dataKey = "dataKey"
 
   private def cacheId(implicit hc: HeaderCarrier): Future[String] =
-    hc.sessionId.fold(noSession)(sid => Future.successful(sid.value))
+    hc.sessionId.fold(
+      Future.failed[String](NoSessionException))(
+        sid => Future.successful(sid.value))
 
   def cache(body: A)(implicit hc: HeaderCarrier): Future[Unit] =
     for {
       key    <- cacheId
-      result <- upsert(key, body)
+      result <- put(key, dataKey, body)(format)
     } yield result
 
   def fetch()(implicit hc: HeaderCarrier): Future[Option[A]] =
     for {
-      id        <- cacheId
-      cacheItem <- find(id)
-      result = cacheItem.map(_.data)
+      id     <- cacheId
+      result <- get(id, dataKey)(format)
     } yield result
 
   def remove()(implicit hc: HeaderCarrier): Future[Unit] =
     for {
       id     <- cacheId
-      result <- remove(id)
+      result <- delete(id)
     } yield result
 }
+
+case object NoSessionException extends Exception("Could not find sessionId in HeaderCarrier")

@@ -53,26 +53,28 @@ class ShortLivedCacheRepositorySpec
     "successfully create a cache entry if one does not already exist" in {
       cacheRepository.cache(cacheId, person).futureValue     shouldBe ()
       count().futureValue                                    shouldBe 1
-      findAll().futureValue.head.fromBson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, now, now)
+      findAll().futureValue.head.fromBson[CacheItem] shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
     }
 
     "successfully update a cache entry if one does not already exist" in {
       val creationTimestamp = Instant.now()
 
-      insert(CacheItem(cacheId, person, creationTimestamp, creationTimestamp).toDocument()).futureValue
+      insert(CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, creationTimestamp).toDocument()).futureValue
 
       cacheRepository.cache(cacheId, person).futureValue     shouldBe ()
       count().futureValue                                    shouldBe 1
-      findAll().futureValue.head.fromBson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, creationTimestamp, now)
+      findAll().futureValue.head.fromBson[CacheItem] shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, now)
     }
   }
 
-  implicit val format: Format[CacheItem[Person]] = PlayMongoCacheCollection.format(Person.format)
+  implicit val format2: Format[Person] = Person.format
+  implicit val format: Format[CacheItem] = PlayMongoCacheCollection.format
 
   private val now       = Instant.now()
   private val cacheId   = "cacheId"
+  private val dataKey   = "dataKey"
   private val person    = Person("Sarah", 30, "Female")
-  private val cacheItem = CacheItem(cacheId, person, now, now)
+  private def cacheItem = CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
 
   private val timestampSupport = new TimestampSupport {
     override def timestamp(): Instant = now

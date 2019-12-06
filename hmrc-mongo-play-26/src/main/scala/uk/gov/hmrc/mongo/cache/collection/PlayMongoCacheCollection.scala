@@ -21,12 +21,10 @@ import java.util.concurrent.TimeUnit
 
 import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala.WriteConcern
-import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.Updates.{combine, set, setOnInsert}
-import org.mongodb.scala.model._
+import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, Indexes, IndexModel, IndexOptions, ReturnDocument, Updates}
 import play.api.Logger
 import play.api.libs.functional.syntax._
-import play.api.libs.json.{Format, __}
+import play.api.libs.json.{Format, __, JsObject, Reads, Writes}
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoCollection}
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
@@ -35,10 +33,9 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
-class PlayMongoCacheCollection[A: ClassTag](
+class PlayMongoCacheCollection(
   mongoComponent: MongoComponent,
   collectionName: String,
-  domainFormat: Format[A],
   optRegistry: Option[CodecRegistry] = None,
   rebuildIndexes: Boolean            = true,
   ttl: Duration,
@@ -47,7 +44,7 @@ class PlayMongoCacheCollection[A: ClassTag](
     extends PlayMongoCollection(
       mongoComponent = mongoComponent,
       collectionName = collectionName,
-      domainFormat   = PlayMongoCacheCollection.format(domainFormat),
+      domainFormat   = PlayMongoCacheCollection.format,
       optRegistry    = None,
       indexes = Seq(
         IndexModel(
@@ -63,44 +60,64 @@ class PlayMongoCacheCollection[A: ClassTag](
 
   private val logger = Logger(getClass)
 
-  def find(id: String): Future[Option[CacheItem[A]]] =
-    collection
-      .find(equal("_id", id))
+  def get[A: Reads](id: String, dataKey: String): Future[Option[A]] =
+    this.collection
+      .find(Filters.equal("_id", id))
       .first()
       .toFutureOption()
+      .map(_.flatMap(cache => (cache.data \ dataKey).asOpt[A]))
 
-  def remove(id: String): Future[Unit] =
-    collection
+  def put[A : Writes](
+        id     : String
+      , dataKey: String
+      , data   : A
+      ): Future[Unit] = {
+    val timestamp = timestampSupport.timestamp()
+    this.collection
+      .findOneAndUpdate(
+          filter = Filters.equal("_id", id)
+        , update = Updates.combine(
+                       Updates.set("data." + dataKey            , Codecs.toBson(data))
+                     , Updates.set("modifiedDetails.lastUpdated", timestamp)
+                     , Updates.setOnInsert("_id"                      , id)
+                     , Updates.setOnInsert("modifiedDetails.createdAt", timestamp)
+                     )
+        , options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
+      )
+      .toFuture()
+      .map(_ => ())
+    }
+
+  def delete(
+        id     : String
+      , dataKey: String
+      ): Future[Unit] =
+    this.collection
+      .findOneAndUpdate(
+          filter = Filters.equal("_id", id)
+        , update = Updates.combine(
+                       Updates.unset("data." + dataKey)
+                     , Updates.set("modifiedDetails.lastUpdated", timestampSupport.timestamp())
+                     )
+      )
+      .toFuture
+      .map(_ => ())
+
+  def delete(id: String): Future[Unit] =
+    this.collection
       .withWriteConcern(WriteConcern.ACKNOWLEDGED)
       .deleteOne(
-        filter = equal("_id", id)
+        filter = Filters.equal("_id", id)
       )
       .toFuture()
       .map(_ => ())
-
-  def upsert(id: String, toCache: A): Future[Unit] = {
-    val timestamp = timestampSupport.timestamp()
-    collection
-      .findOneAndUpdate(
-        filter = equal("_id", id),
-        update = combine(
-          set("data", Codecs.toBson(toCache)(domainFormat)),
-          set("modifiedDetails.lastUpdated", timestamp),
-          setOnInsert("_id", id),
-          setOnInsert("modifiedDetails.createdAt", timestamp)
-        ),
-        options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
-      )
-      .toFuture()
-      .map(_ => ())
-  }
 }
 
 object PlayMongoCacheCollection {
-  def format[A: Format]: Format[CacheItem[A]] = {
+  val format: Format[CacheItem] = {
     implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormats
     ( (__ \ "_id"                            ).format[String]
-    ~ (__ \ "data"                           ).format[A]
+    ~ (__ \ "data"                           ).format[JsObject]
     ~ (__ \ "modifiedDetails" \ "createdAt"  ).format[Instant]
     ~ (__ \ "modifiedDetails" \ "lastUpdated").format[Instant]
     )(CacheItem.apply, unlift(CacheItem.unapply))

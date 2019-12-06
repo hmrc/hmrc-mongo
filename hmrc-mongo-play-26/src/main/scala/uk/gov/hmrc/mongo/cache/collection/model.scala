@@ -17,10 +17,11 @@
 package uk.gov.hmrc.mongo.cache.collection
 
 import java.time.Instant
+import play.api.libs.json.JsObject
 
-final case class CacheItem[A](
+final case class CacheItem(
   id: String,
-  data: A,
+  data: JsObject,
   createdAt: Instant,
   modifiedAt: Instant
 )

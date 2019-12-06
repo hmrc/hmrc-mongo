@@ -38,9 +38,8 @@ class SessionCacheRepositorySpec
     with DefaultMongoCollectionSupport {
 
   "fetch" should {
-
     "successfully return value of desired type if cache item exists" in {
-      insert(cacheItem.toDocument()).futureValue
+      insert(JsonOps[CacheItem](cacheItem).toDocument()).futureValue
       cacheRepository.fetch().futureValue shouldBe Some(person)
     }
 
@@ -50,21 +49,20 @@ class SessionCacheRepositorySpec
   }
 
   "cache" should {
-
     "successfully create a cache entry if one does not already exist" in {
-      cacheRepository.cache(person).futureValue              shouldBe ()
-      count().futureValue                                    shouldBe 1
-      findAll().futureValue.head.fromBson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, now, now)
+      cacheRepository.cache(person).futureValue      shouldBe ()
+      count().futureValue                            shouldBe 1
+      findAll().futureValue.head.fromBson[CacheItem] shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
     }
 
     "successfully update a cache entry if one does not already exist" in {
       val creationTimestamp = Instant.now()
 
-      insert(CacheItem(cacheId, person, creationTimestamp, creationTimestamp).toDocument()).futureValue
+      insert(CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, creationTimestamp).toDocument()).futureValue
 
-      cacheRepository.cache(person).futureValue              shouldBe ()
-      count().futureValue                                    shouldBe 1
-      findAll().futureValue.head.fromBson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, creationTimestamp, now)
+      cacheRepository.cache(person).futureValue      shouldBe ()
+      count().futureValue                            shouldBe 1
+      findAll().futureValue.head.fromBson[CacheItem] shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, now)
     }
   }
 
@@ -86,7 +84,8 @@ class SessionCacheRepositorySpec
     }
   }
 
-  implicit lazy val format: Format[CacheItem[Person]] = PlayMongoCacheCollection.format(Person.format)
+  implicit lazy val forma2t: Format[Person] = Person.format
+  implicit lazy val format: Format[CacheItem] = PlayMongoCacheCollection.format
 
   implicit val hc: HeaderCarrier = HeaderCarrier(
     authorization = Some(Authorization("auth")),
@@ -98,8 +97,9 @@ class SessionCacheRepositorySpec
 
   private val now       = Instant.now()
   private val cacheId   = "session"
+  private val dataKey   = "dataKey"
   private val person    = Person("Sarah", 30, "Female")
-  private val cacheItem = CacheItem(cacheId, person, now, now)
+  private val cacheItem = CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
 
   private val timestampSupport = new TimestampSupport {
     override def timestamp(): Instant = now
