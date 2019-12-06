@@ -17,9 +17,10 @@
 package uk.gov.hmrc.mongo.cache
 
 import com.google.inject.Inject
+import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.Format
 import uk.gov.hmrc.mongo.cache.collection.PlayMongoCacheCollection
-import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
+import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, TimestampSupport}
 
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,24 +28,32 @@ import scala.reflect.ClassTag
 
 class ShortLivedCacheRepository[A: ClassTag] @Inject()(
   mongoComponent: MongoComponent,
-  collectionName: String = "short-lived-cache",
+  val collectionName: String = "short-lived-cache",
   format: Format[A],
   ttl: Duration = 5.minutes, // TODO any reason to provide default value?
-  timestampSupport: TimestampSupport)(implicit ec: ExecutionContext)
-    extends PlayMongoCacheCollection(
+  timestampSupport: TimestampSupport)(
+    implicit ec: ExecutionContext) extends MongoDatabaseCollection {
+
+  private val cache = new PlayMongoCacheCollection(
       mongoComponent   = mongoComponent,
       collectionName   = collectionName,
       ttl              = ttl,
       timestampSupport = timestampSupport
-    ) {
+    )
 
-  implicit val f = format
+  override def indexes: Seq[IndexModel] =
+    cache.indexes
+
+  private implicit val f = format
 
   val dataKey = "dataKey"
 
-  def cache(key: String, body: A): Future[Unit] =
-    put(key, dataKey, body)
+  def put(key: String, body: A): Future[Unit] =
+    cache.put(key, dataKey, body)
 
-  def fetch(key: String): Future[Option[A]] =
-    get(key, dataKey)
+  def get(key: String): Future[Option[A]] =
+    cache.get(key, dataKey)
+
+  def delete(key: String): Future[Unit] =
+    cache.delete(key)
 }

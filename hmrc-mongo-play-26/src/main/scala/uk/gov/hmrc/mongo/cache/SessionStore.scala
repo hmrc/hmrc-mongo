@@ -17,11 +17,9 @@
 package uk.gov.hmrc.mongo.cache
 
 import com.google.inject.Inject
-import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, ReturnDocument, Updates}
-import play.api.libs.json.{Format, JsValue, Reads, Writes}
+import play.api.libs.json.{Reads, Writes}
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
 import uk.gov.hmrc.mongo.cache.collection.PlayMongoCacheCollection
-import uk.gov.hmrc.mongo.play.json.Codecs
 import play.api.mvc.Session
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -44,10 +42,8 @@ class SessionStore @Inject()(
       , sessionKey: String
       , dataKey   : String
       ): Future[Option[T]] =
-      session.get(sessionKey) match {
-        case None            => Future(None)
-        case Some(sessionId) => get(sessionId, dataKey)
-      }
+    session.get(sessionKey)
+      .fold[Future[Option[T]]](Future(None))(get(_, dataKey))
 
   def put[T : Writes](
         session   : Session
@@ -56,14 +52,15 @@ class SessionStore @Inject()(
       , data      : T
       ): Future[String] = {
     val sessionId = session.get(sessionKey).getOrElse(java.util.UUID.randomUUID.toString)
-    val timestamp = timestampSupport.timestamp()
     put(sessionId, dataKey, data)
       .map(_ => sessionId)
     }
 
-  def delete(session: Session, sessionKey: String, dataKey: String): Future[Unit] =
-    session.get(sessionKey) match {
-      case None            => Future(())
-      case Some(sessionId) => delete(sessionId, dataKey)
-    }
+  def delete(
+        session   : Session
+      , sessionKey: String
+      , dataKey   : String
+      ): Future[Unit] =
+    session.get(sessionKey)
+      .fold(Future(()))(delete(_, dataKey))
 }

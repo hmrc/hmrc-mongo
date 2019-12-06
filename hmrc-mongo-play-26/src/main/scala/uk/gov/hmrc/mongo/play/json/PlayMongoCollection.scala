@@ -71,7 +71,7 @@ object PlayMongoCollection {
     def unapply(e: MongoCommandException): Option[MongoCommandException] =
       e.getErrorCode match {
         case IndexOptionsConflict
-           /*| IndexKeySpecsConflict*/ => Some(e)
+           | IndexKeySpecsConflict => Some(e)
         case _                     => None
       }
   }

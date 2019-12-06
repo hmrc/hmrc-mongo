@@ -31,7 +31,6 @@ import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.reflect.ClassTag
 
 class PlayMongoCacheCollection(
   mongoComponent: MongoComponent,

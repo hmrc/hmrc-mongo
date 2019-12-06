@@ -36,22 +36,22 @@ class ShortLivedCacheRepositorySpec
     with DefaultMongoCollectionSupport
     with ScalaFutures {
 
-  "fetch" should {
+  "get" should {
 
     "successfully return value of desired type if cache item exists" in {
       insert(cacheItem.toDocument()).futureValue
-      cacheRepository.fetch(cacheId).futureValue shouldBe Some(person)
+      cacheRepository.get(cacheId).futureValue shouldBe Some(person)
     }
 
     "successfully return None if cache item does not exist" in {
-      cacheRepository.fetch(cacheId).futureValue shouldBe None
+      cacheRepository.get(cacheId).futureValue shouldBe None
     }
   }
 
-  "cache" should {
+  "put" should {
 
     "successfully create a cache entry if one does not already exist" in {
-      cacheRepository.cache(cacheId, person).futureValue     shouldBe ()
+      cacheRepository.put(cacheId, person).futureValue       shouldBe ()
       count().futureValue                                    shouldBe 1
       findAll().futureValue.head.fromBson[CacheItem] shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
     }
@@ -61,7 +61,7 @@ class ShortLivedCacheRepositorySpec
 
       insert(CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, creationTimestamp).toDocument()).futureValue
 
-      cacheRepository.cache(cacheId, person).futureValue     shouldBe ()
+      cacheRepository.put(cacheId, person).futureValue       shouldBe ()
       count().futureValue                                    shouldBe 1
       findAll().futureValue.head.fromBson[CacheItem] shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, now)
     }

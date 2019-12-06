@@ -17,10 +17,10 @@
 package uk.gov.hmrc.mongo.cache
 
 import com.google.inject.Inject
+import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.Format
 import uk.gov.hmrc.http.HeaderCarrier
-import uk.gov.hmrc.mongo.cache.collection.PlayMongoCacheCollection
-import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
+import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, TimestampSupport}
 
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,41 +28,35 @@ import scala.reflect.ClassTag
 
 class SessionCacheRepository[A: ClassTag] @Inject()(
   mongoComponent: MongoComponent,
-  collectionName: String = "session-cache",
+  val collectionName: String = "session-cache",
   format: Format[A],
   ttl: Duration = 5.minutes, // TODO any reason to provide default value?
-  timestampSupport: TimestampSupport)(implicit ec: ExecutionContext)
-    extends PlayMongoCacheCollection(
+  timestampSupport: TimestampSupport)(
+    implicit ec: ExecutionContext) extends MongoDatabaseCollection {
+
+  private val cache = new ShortLivedCacheRepository(
       mongoComponent   = mongoComponent,
       collectionName   = collectionName,
+      format           = format,
       ttl              = ttl,
       timestampSupport = timestampSupport
-    ) {
+    )
 
-  val dataKey = "dataKey"
+  override def indexes: Seq[IndexModel] =
+    cache.indexes
 
-  private def cacheId(implicit hc: HeaderCarrier): Future[String] =
-    hc.sessionId.fold(
-      Future.failed[String](NoSessionException))(
-        sid => Future.successful(sid.value))
+  private def cacheId(implicit hc: HeaderCarrier): String =
+    hc.sessionId
+      .fold(throw NoSessionException)(_.value)
 
-  def cache(body: A)(implicit hc: HeaderCarrier): Future[Unit] =
-    for {
-      key    <- cacheId
-      result <- put(key, dataKey, body)(format)
-    } yield result
+  def put(body: A)(implicit hc: HeaderCarrier): Future[Unit] =
+    cache.put(cacheId, body)
 
-  def fetch()(implicit hc: HeaderCarrier): Future[Option[A]] =
-    for {
-      id     <- cacheId
-      result <- get(id, dataKey)(format)
-    } yield result
+  def get()(implicit hc: HeaderCarrier): Future[Option[A]] =
+    cache.get(cacheId)
 
-  def remove()(implicit hc: HeaderCarrier): Future[Unit] =
-    for {
-      id     <- cacheId
-      result <- delete(id)
-    } yield result
+  def delete()(implicit hc: HeaderCarrier): Future[Unit] =
+    cache.delete(cacheId)
 }
 
 case object NoSessionException extends Exception("Could not find sessionId in HeaderCarrier")

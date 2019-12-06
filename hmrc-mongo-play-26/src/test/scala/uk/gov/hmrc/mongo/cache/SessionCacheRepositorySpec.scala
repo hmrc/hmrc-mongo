@@ -37,20 +37,20 @@ class SessionCacheRepositorySpec
     with Matchers
     with DefaultMongoCollectionSupport {
 
-  "fetch" should {
+  "get" should {
     "successfully return value of desired type if cache item exists" in {
       insert(JsonOps[CacheItem](cacheItem).toDocument()).futureValue
-      cacheRepository.fetch().futureValue shouldBe Some(person)
+      cacheRepository.get().futureValue shouldBe Some(person)
     }
 
     "successfully return None if cache item does not exist" in {
-      cacheRepository.fetch().futureValue shouldBe None
+      cacheRepository.get().futureValue shouldBe None
     }
   }
 
-  "cache" should {
+  "put" should {
     "successfully create a cache entry if one does not already exist" in {
-      cacheRepository.cache(person).futureValue      shouldBe ()
+      cacheRepository.put(person).futureValue        shouldBe ()
       count().futureValue                            shouldBe 1
       findAll().futureValue.head.fromBson[CacheItem] shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
     }
@@ -60,18 +60,18 @@ class SessionCacheRepositorySpec
 
       insert(CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, creationTimestamp).toDocument()).futureValue
 
-      cacheRepository.cache(person).futureValue      shouldBe ()
+      cacheRepository.put(person).futureValue        shouldBe ()
       count().futureValue                            shouldBe 1
       findAll().futureValue.head.fromBson[CacheItem] shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, now)
     }
   }
 
-  "remove" should {
+  "delete" should {
     "successfully remove cache entry that exists" in {
       insert(cacheItem.toDocument()).futureValue
       count().futureValue shouldBe 1
 
-      cacheRepository.remove().futureValue
+      cacheRepository.delete().futureValue
       count().futureValue shouldBe 0
     }
 
@@ -79,12 +79,12 @@ class SessionCacheRepositorySpec
       insert(cacheItem.copy(id = "another-id").toDocument()).futureValue
       count().futureValue shouldBe 1
 
-      cacheRepository.remove()
+      cacheRepository.delete()
       count().futureValue shouldBe 1
     }
   }
 
-  implicit lazy val forma2t: Format[Person] = Person.format
+  implicit lazy val format2: Format[Person] = Person.format
   implicit lazy val format: Format[CacheItem] = PlayMongoCacheCollection.format
 
   implicit val hc: HeaderCarrier = HeaderCarrier(
