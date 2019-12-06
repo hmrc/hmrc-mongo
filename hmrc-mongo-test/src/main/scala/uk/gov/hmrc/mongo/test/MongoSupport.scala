@@ -55,9 +55,9 @@ trait MongoSupport extends ScalaFutures {
 }
 
 trait MongoCollectionSupport extends MongoSupport {
-  protected val collectionName: String
+  protected def collectionName: String
 
-  protected val indexes: Seq[IndexModel]
+  protected def indexes: Seq[IndexModel]
 
   protected lazy val mongoCollection: MongoCollection[Document] =
     mongoDatabase.getCollection(collectionName)
@@ -108,12 +108,4 @@ trait MongoCollectionSupport extends MongoSupport {
     super.prepareDatabase()
     createIndexes()
   }
-}
-
-object MongoCollectionSupport {
-  def apply(name: String, allIndexes: Seq[IndexModel]): MongoCollectionSupport =
-    new MongoCollectionSupport {
-      override protected val collectionName: String   = name
-      override protected val indexes: Seq[IndexModel] = allIndexes
-    }
 }

@@ -137,7 +137,7 @@ class PlayMongoCacheCollectionSpec
     }
   }
 
-  implicit val format: Format[CacheItem[Person]] = CacheItem.format(Person.format)
+  implicit val format: Format[CacheItem[Person]] = PlayMongoCacheCollection.format(Person.format)
 
   private val now       = Instant.now()
   private val cacheId   = "cacheId"

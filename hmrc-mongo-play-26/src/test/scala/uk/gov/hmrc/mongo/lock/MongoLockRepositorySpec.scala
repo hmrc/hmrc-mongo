@@ -236,14 +236,13 @@ class MongoLockRepositorySpec extends AnyWordSpecLike with Matchers with Default
     override def timestamp(): Instant = now
   }
 
-  private val mongoLockRepository = new MongoLockRepository(mongoComponent, timestampSupport)
+  private lazy val mongoLockRepository = new MongoLockRepository(mongoComponent, timestampSupport)
 
-  override protected val collectionName: String   = mongoLockRepository.collectionName
-  override protected val indexes: Seq[IndexModel] = mongoLockRepository.indexes
+  override protected lazy val collectionName: String   = mongoLockRepository.collectionName
+  override protected lazy val indexes: Seq[IndexModel] = mongoLockRepository.indexes
 
   private val lockId = "lockId"
   private val owner  = "owner"
   private val ttl    = 1000.millis
   private val now    = Instant.now()
-
 }

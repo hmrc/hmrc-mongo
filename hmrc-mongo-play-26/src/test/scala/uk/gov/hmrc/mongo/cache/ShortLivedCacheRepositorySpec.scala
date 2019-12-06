@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.TimestampSupport
-import uk.gov.hmrc.mongo.cache.collection.CacheItem
+import uk.gov.hmrc.mongo.cache.collection.{CacheItem, PlayMongoCacheCollection}
 import uk.gov.hmrc.mongo.play.json.Codecs._
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
@@ -67,7 +67,7 @@ class ShortLivedCacheRepositorySpec
     }
   }
 
-  implicit val format: Format[CacheItem[Person]] = CacheItem.format(Person.format)
+  implicit val format: Format[CacheItem[Person]] = PlayMongoCacheCollection.format(Person.format)
 
   private val now       = Instant.now()
   private val cacheId   = "cacheId"
@@ -78,12 +78,11 @@ class ShortLivedCacheRepositorySpec
     override def timestamp(): Instant = now
   }
 
-  private val cacheRepository = new ShortLivedCacheRepository[Person](
+  private lazy val cacheRepository = new ShortLivedCacheRepository[Person](
     mongoComponent   = mongoComponent,
     timestampSupport = timestampSupport,
     format           = Person.format)
 
-  override protected val collectionName: String   = cacheRepository.collectionName
-  override protected val indexes: Seq[IndexModel] = cacheRepository.indexes
-
+  override protected lazy val collectionName: String   = cacheRepository.collectionName
+  override protected lazy val indexes: Seq[IndexModel] = cacheRepository.indexes
 }

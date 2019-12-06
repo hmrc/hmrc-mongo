@@ -16,6 +16,7 @@
 
 package uk.gov.hmrc.mongo.cache.collection
 
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 import org.bson.codecs.configuration.CodecRegistry
@@ -24,9 +25,11 @@ import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Updates.{combine, set, setOnInsert}
 import org.mongodb.scala.model._
 import play.api.Logger
-import play.api.libs.json.Format
-import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoCollection}
+import play.api.libs.functional.syntax._
+import play.api.libs.json.{Format, __}
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
+import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoCollection}
+import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -44,11 +47,11 @@ class PlayMongoCacheCollection[A: ClassTag](
     extends PlayMongoCollection(
       mongoComponent = mongoComponent,
       collectionName = collectionName,
-      domainFormat   = CacheItem.format(domainFormat),
+      domainFormat   = PlayMongoCacheCollection.format(domainFormat),
       optRegistry    = None,
       indexes = Seq(
         IndexModel(
-          Indexes.ascending("modifiedAt"),
+          Indexes.ascending("modifiedDetails.lastUpdated"),
           IndexOptions()
             .background(false)
             .name("lastUpdatedIndex")
@@ -62,7 +65,7 @@ class PlayMongoCacheCollection[A: ClassTag](
 
   def find(id: String): Future[Option[CacheItem[A]]] =
     collection
-      .find(equal(CacheItem.id, id))
+      .find(equal("_id", id))
       .first()
       .toFutureOption()
 
@@ -70,7 +73,7 @@ class PlayMongoCacheCollection[A: ClassTag](
     collection
       .withWriteConcern(WriteConcern.ACKNOWLEDGED)
       .deleteOne(
-        filter = equal(CacheItem.id, id)
+        filter = equal("_id", id)
       )
       .toFuture()
       .map(_ => ())
@@ -79,16 +82,27 @@ class PlayMongoCacheCollection[A: ClassTag](
     val timestamp = timestampSupport.timestamp()
     collection
       .findOneAndUpdate(
-        filter = equal(CacheItem.id, id),
+        filter = equal("_id", id),
         update = combine(
-          set(CacheItem.data, Codecs.toBson(toCache)(domainFormat)),
-          set(CacheItem.modifiedAt, timestamp),
-          setOnInsert(CacheItem.id, id),
-          setOnInsert(CacheItem.createdAt, timestamp)
+          set("data", Codecs.toBson(toCache)(domainFormat)),
+          set("modifiedDetails.lastUpdated", timestamp),
+          setOnInsert("_id", id),
+          setOnInsert("modifiedDetails.createdAt", timestamp)
         ),
         options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
       )
       .toFuture()
       .map(_ => ())
+  }
+}
+
+object PlayMongoCacheCollection {
+  def format[A: Format]: Format[CacheItem[A]] = {
+    implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormats
+    ( (__ \ "_id"                            ).format[String]
+    ~ (__ \ "data"                           ).format[A]
+    ~ (__ \ "modifiedDetails" \ "createdAt"  ).format[Instant]
+    ~ (__ \ "modifiedDetails" \ "lastUpdated").format[Instant]
+    )(CacheItem.apply, unlift(CacheItem.unapply))
   }
 }

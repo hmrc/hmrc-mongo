@@ -45,28 +45,34 @@ class PlayMongoCollection[A: ClassTag](
   Await.result(ensureIndexes(), 5.seconds)
 
   def ensureIndexes(): Future[Seq[String]] = {
-    if (indexes.isEmpty) {
+    if (indexes.isEmpty)
       logger.info("Skipping Mongo index creation as no indexes supplied")
-    }
-    val futureZippedIndexes =
-      indexes.map(index => (index, collection.createIndex(index.getKeys, index.getOptions).toFuture()))
 
-    val futureIndexes = if (rebuildIndexes) {
-      futureZippedIndexes.map {
-        case (index, futureIndex) =>
-          futureIndex.recoverWith {
-            case e: MongoCommandException if e.getErrorCode == 85 => //Conflicting index
-              logger.warn("Conflicting Mongo index found. This index will be updated")
-              for {
-                _      <- collection.dropIndex(index.getOptions.getName).toFuture()
-                result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
-              } yield result
-          }
+    Future.traverse(indexes){ index =>
+      collection
+        .createIndex(index.getKeys, index.getOptions)
+        .toFuture()
+        .recoverWith {
+          case PlayMongoCollection.IndexConflict(e) if rebuildIndexes =>
+            logger.warn("Conflicting Mongo index found. This index will be updated")
+            for {
+              _      <- collection.dropIndex(index.getOptions.getName).toFuture()
+              result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
+            } yield result
+        }
+    }
+  }
+}
+
+object PlayMongoCollection {
+  object IndexConflict {
+    val IndexOptionsConflict  = 85 // e.g. change of ttl option
+    val IndexKeySpecsConflict = 86 // e.g. change of field name
+    def unapply(e: MongoCommandException): Option[MongoCommandException] =
+      e.getErrorCode match {
+        case IndexOptionsConflict
+           /*| IndexKeySpecsConflict*/ => Some(e)
+        case _                     => None
       }
-    } else {
-      futureZippedIndexes.map(_._2)
-    }
-
-    Future.sequence(futureIndexes)
   }
 }

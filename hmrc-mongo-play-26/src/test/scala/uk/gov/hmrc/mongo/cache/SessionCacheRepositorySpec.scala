@@ -26,7 +26,7 @@ import play.api.libs.json._
 import uk.gov.hmrc.http.logging.{Authorization, ForwardedFor, RequestId, SessionId}
 import uk.gov.hmrc.http.{HeaderCarrier, Token}
 import uk.gov.hmrc.mongo.TimestampSupport
-import uk.gov.hmrc.mongo.cache.collection.CacheItem
+import uk.gov.hmrc.mongo.cache.collection.{CacheItem, PlayMongoCacheCollection}
 import uk.gov.hmrc.mongo.play.json.Codecs._
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
@@ -35,13 +35,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class SessionCacheRepositorySpec
     extends AnyWordSpecLike
     with Matchers
-    with DefaultMongoCollectionSupport
-    with ScalaFutures {
+    with DefaultMongoCollectionSupport {
 
   "fetch" should {
 
     "successfully return value of desired type if cache item exists" in {
-
       insert(cacheItem.toDocument()).futureValue
       cacheRepository.fetch().futureValue shouldBe Some(person)
     }
@@ -57,7 +55,6 @@ class SessionCacheRepositorySpec
       cacheRepository.cache(person).futureValue              shouldBe ()
       count().futureValue                                    shouldBe 1
       findAll().futureValue.head.fromBson[CacheItem[Person]] shouldBe CacheItem(cacheId, person, now, now)
-
     }
 
     "successfully update a cache entry if one does not already exist" in {
@@ -78,7 +75,6 @@ class SessionCacheRepositorySpec
 
       cacheRepository.remove().futureValue
       count().futureValue shouldBe 0
-
     }
 
     "not remove cacheItem if no cache entry is found" in {
@@ -88,10 +84,9 @@ class SessionCacheRepositorySpec
       cacheRepository.remove()
       count().futureValue shouldBe 1
     }
-
   }
 
-  implicit val format: Format[CacheItem[Person]] = CacheItem.format(Person.format)
+  implicit lazy val format: Format[CacheItem[Person]] = PlayMongoCacheCollection.format(Person.format)
 
   implicit val hc: HeaderCarrier = HeaderCarrier(
     authorization = Some(Authorization("auth")),
@@ -110,12 +105,11 @@ class SessionCacheRepositorySpec
     override def timestamp(): Instant = now
   }
 
-  private val cacheRepository = new SessionCacheRepository[Person](
+  private lazy val cacheRepository = new SessionCacheRepository[Person](
     mongoComponent   = mongoComponent,
     timestampSupport = timestampSupport,
     format           = Person.format)
 
-  override protected val collectionName: String   = cacheRepository.collectionName
-  override protected val indexes: Seq[IndexModel] = cacheRepository.indexes
-
+  override protected lazy val collectionName: String   = cacheRepository.collectionName
+  override protected lazy val indexes: Seq[IndexModel] = cacheRepository.indexes
 }

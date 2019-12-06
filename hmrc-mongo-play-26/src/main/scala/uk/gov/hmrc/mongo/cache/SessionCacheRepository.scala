@@ -63,5 +63,4 @@ class SessionCacheRepository[A: ClassTag] @Inject()(
       id     <- cacheId
       result <- remove(id)
     } yield result
-
 }
