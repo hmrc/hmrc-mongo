@@ -19,13 +19,15 @@ package uk.gov.hmrc.mongo.cache
 import com.google.inject.Inject
 import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.Format
-import uk.gov.hmrc.mongo.cache.collection.PlayMongoCacheCollection
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, TimestampSupport}
 
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
+/** A variation of [[MongoCacheRepository]] where there is a single
+  * entity that is stored in the cache.
+  */
 class ShortLivedCacheRepository[A: ClassTag] @Inject()(
   mongoComponent: MongoComponent,
   val collectionName: String = "short-lived-cache",
@@ -34,7 +36,7 @@ class ShortLivedCacheRepository[A: ClassTag] @Inject()(
   timestampSupport: TimestampSupport)(
     implicit ec: ExecutionContext) extends MongoDatabaseCollection {
 
-  private val cache = new PlayMongoCacheCollection(
+  private val cache = new MongoCacheRepository(
       mongoComponent   = mongoComponent,
       collectionName   = collectionName,
       ttl              = ttl,

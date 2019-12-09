@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.cache.collection
+package uk.gov.hmrc.mongo.cache
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -32,7 +32,7 @@ import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-class PlayMongoCacheCollection(
+class MongoCacheRepository(
   mongoComponent: MongoComponent,
   collectionName: String,
   optRegistry: Option[CodecRegistry] = None,
@@ -43,7 +43,7 @@ class PlayMongoCacheCollection(
     extends PlayMongoCollection(
       mongoComponent = mongoComponent,
       collectionName = collectionName,
-      domainFormat   = PlayMongoCacheCollection.format,
+      domainFormat   = MongoCacheRepository.format,
       optRegistry    = None,
       indexes = Seq(
         IndexModel(
@@ -112,7 +112,7 @@ class PlayMongoCacheCollection(
       .map(_ => ())
 }
 
-object PlayMongoCacheCollection {
+object MongoCacheRepository {
   val format: Format[CacheItem] = {
     implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormats
     ( (__ \ "_id"                            ).format[String]

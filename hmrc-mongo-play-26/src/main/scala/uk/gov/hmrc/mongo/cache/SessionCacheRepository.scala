@@ -26,6 +26,8 @@ import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
+/** A variation of [[ShortLivedCacheRepository]] where the key is the sessionId.
+*/
 class SessionCacheRepository[A: ClassTag] @Inject()(
   mongoComponent: MongoComponent,
   val collectionName: String = "session-cache",

@@ -24,7 +24,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.TimestampSupport
-import uk.gov.hmrc.mongo.cache.collection.{CacheItem, PlayMongoCacheCollection}
 import uk.gov.hmrc.mongo.play.json.Codecs._
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
@@ -68,7 +67,7 @@ class ShortLivedCacheRepositorySpec
   }
 
   implicit val format2: Format[Person] = Person.format
-  implicit val format: Format[CacheItem] = PlayMongoCacheCollection.format
+  implicit val format: Format[CacheItem] = MongoCacheRepository.format
 
   private val now       = Instant.now()
   private val cacheId   = "cacheId"

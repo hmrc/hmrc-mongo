@@ -25,7 +25,6 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.TimestampSupport
 import play.mvc.Http.RequestBuilder
-import uk.gov.hmrc.mongo.cache.collection.{CacheItem, PlayMongoCacheCollection}
 import uk.gov.hmrc.mongo.play.json.Codecs._
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
@@ -84,7 +83,7 @@ class SessionCacheRepositorySpec
   }
 
   implicit lazy val format2: Format[Person] = Person.format
-  implicit lazy val format: Format[CacheItem] = PlayMongoCacheCollection.format
+  implicit lazy val format: Format[CacheItem] = MongoCacheRepository.format
 
   implicit val req = new RequestBuilder().session("sessionId", "session").build.asScala
 

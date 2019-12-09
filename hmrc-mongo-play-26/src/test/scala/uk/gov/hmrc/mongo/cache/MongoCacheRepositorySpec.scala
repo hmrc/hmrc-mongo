@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.cache.collection
+package uk.gov.hmrc.mongo.cache
 
 import java.time.Instant
 
@@ -32,7 +32,7 @@ import uk.gov.hmrc.mongo.{CurrentTimestampSupport, TimestampSupport}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
-class PlayMongoCacheCollectionSpec
+class MongoCacheRepositorySpec
     extends AnyWordSpecLike
     with Matchers
     with DefaultMongoCollectionSupport
@@ -67,7 +67,7 @@ class PlayMongoCacheCollectionSpec
     "successfully keep items in the cache that are touched" in {
 
       // we want to use real times here
-      val cacheRepository = new PlayMongoCacheCollection(
+      val cacheRepository = new MongoCacheRepository(
         mongoComponent   = mongoComponent,
         collectionName   = "play-mongo-cache",
         ttl              = 20.seconds,
@@ -133,7 +133,7 @@ class PlayMongoCacheCollectionSpec
   }
 
   implicit val format: Format[Person] = Person.format
-  implicit val format2: Format[CacheItem] = PlayMongoCacheCollection.format
+  implicit val format2: Format[CacheItem] = MongoCacheRepository.format
 
   private val now       = Instant.now()
   private val cacheId   = "cacheId"
@@ -146,7 +146,7 @@ class PlayMongoCacheCollectionSpec
     override def timestamp(): Instant = now
   }
 
-  private val cacheRepository = new PlayMongoCacheCollection(
+  private val cacheRepository = new MongoCacheRepository(
     mongoComponent   = mongoComponent,
     collectionName   = "play-mongo-cache",
     ttl              = ttl,
@@ -157,7 +157,7 @@ class PlayMongoCacheCollectionSpec
   override protected val indexes: Seq[IndexModel] = cacheRepository.indexes
 
   private def createCacheAndReturnIndexExpiry(ttl: Duration): Option[Long] =
-    new PlayMongoCacheCollection(
+    new MongoCacheRepository(
       mongoComponent   = mongoComponent,
       collectionName   = "play-mongo-cache-index-test",
       ttl              = ttl,
