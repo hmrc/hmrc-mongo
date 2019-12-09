@@ -33,7 +33,7 @@ trait MetricRepository {
 }
 
 @Singleton
-class MongoMetricRepository @Inject()(mongoComponent: MongoComponent)(implicit ec: ExecutionContext)
+class MongoMetricRepository @Inject() (mongoComponent: MongoComponent)(implicit ec: ExecutionContext)
     extends PlayMongoCollection[PersistedMetric](
       collectionName = "metrics",
       mongoComponent = mongoComponent,

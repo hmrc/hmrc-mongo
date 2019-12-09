@@ -41,7 +41,7 @@ class MongoCacheRepositorySpec
   "put" should {
     "successfully create a cacheItem if one does not already exist" in {
       cacheRepository.put(CacheIdStrategy.const(cacheId))(dataKey, person).futureValue shouldBe cacheId
-      count().futureValue shouldBe 1
+      count().futureValue                                                              shouldBe 1
       findAll()
         .map(_.fromBson[CacheItem])
         .futureValue
@@ -54,8 +54,9 @@ class MongoCacheRepositorySpec
       insert(cacheItem.copy(createdAt = creationTimestamp, modifiedAt = creationTimestamp).toDocument()).futureValue
 
       cacheRepository.put(CacheIdStrategy.const(cacheId))(dataKey, person).futureValue shouldBe cacheId
-      count().futureValue shouldBe 1
-      findAll().map(_.fromBson[CacheItem]).futureValue.head shouldBe cacheItem.copy(createdAt = creationTimestamp, modifiedAt = now)
+      count().futureValue                                                              shouldBe 1
+      findAll().map(_.fromBson[CacheItem]).futureValue.head shouldBe cacheItem
+        .copy(createdAt = creationTimestamp, modifiedAt = now)
     }
 
     "successfully keep items in the cache that are touched" in {
@@ -88,7 +89,7 @@ class MongoCacheRepositorySpec
 
     "successfully return None if outside ttl" in {
       val cacheId2 = CacheId("something-else")
-      insert(cacheItem.copy(id = cacheId2.asString).toDocument()).futureValue
+      insert(cacheItem.copy(id = cacheId2.unwrap).toDocument()).futureValue
       //Items can live beyond the TTL https://docs.mongodb.com/manual/core/index-ttl/#timing-of-the-delete-operation
       eventually(timeout(Span(60, Seconds)), interval(Span(500, Millis))) {
         cacheRepository.get[Person](CacheIdStrategy.const(cacheId2))(dataKey).futureValue shouldBe None
@@ -126,14 +127,14 @@ class MongoCacheRepositorySpec
     }
   }
 
-  implicit val format: Format[Person] = Person.format
+  implicit val format: Format[Person]     = Person.format
   implicit val format2: Format[CacheItem] = MongoCacheRepository.format
 
   private val now       = Instant.now()
   private val cacheId   = CacheId("cacheId")
   private val dataKey   = DataKey[Person]("dataKey")
   private val person    = Person("Sarah", 30, "Female")
-  private val cacheItem = CacheItem(cacheId.asString, JsObject(Seq(dataKey.asString -> Json.toJson(person))), now, now)
+  private val cacheItem = CacheItem(cacheId.unwrap, JsObject(Seq(dataKey.unwrap -> Json.toJson(person))), now, now)
   private val ttl       = 1000.millis
 
   private val timestampSupport = new TimestampSupport {

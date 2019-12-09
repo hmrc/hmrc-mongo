@@ -285,22 +285,21 @@ object PlayMongoCollectionSpec {
              // Only BigDecimal within Decimal128 range is supported.
              .suchThat(bd => scala.util.Try(new org.bson.types.Decimal128(bd.bigDecimal)).isSuccess)
       epochMillis <- Gen.choose(0L, System.currentTimeMillis * 2) // Keep Dates within range (ArithmeticException for any Long.MAX_VALUE)
-    } yield
-      MyObject(
-        id                = new org.bson.types.ObjectId(new java.util.Date(epochMillis)),
-        string            = StringWrapper(s),
-        boolean           = BooleanWrapper(b),
-        int               = IntWrapper(i),
-        long              = LongWrapper(l),
-        double            = DoubleWrapper(d),
-        bigDecimal        = BigDecimalWrapper(bd),
-        sum               = Sum.Sum1,
-        jodaDateTime      = new jot.DateTime(epochMillis, jot.DateTimeZone.UTC), // Mongo db assumes UTC (timezone is not stored in db - when read back, it will represent the same instant, but with timezone UTC)
-        jodaLocalDate     = new jot.LocalDate(epochMillis),
-        jodaLocalDateTime = new jot.LocalDateTime(epochMillis),
-        javaInstant       = jat.Instant.ofEpochMilli(epochMillis),
-        javaLocalDate     = jat.LocalDate.ofEpochDay(epochMillis / (24 * 60 * 60 * 1000)),
-        javaLocalDateTime = jat.LocalDateTime.ofInstant(jat.Instant.ofEpochMilli(epochMillis), jat.ZoneId.of("Z")),
-        objectId          = new org.bson.types.ObjectId(new java.util.Date(epochMillis))
-      )
+    } yield MyObject(
+      id                = new org.bson.types.ObjectId(new java.util.Date(epochMillis)),
+      string            = StringWrapper(s),
+      boolean           = BooleanWrapper(b),
+      int               = IntWrapper(i),
+      long              = LongWrapper(l),
+      double            = DoubleWrapper(d),
+      bigDecimal        = BigDecimalWrapper(bd),
+      sum               = Sum.Sum1,
+      jodaDateTime      = new jot.DateTime(epochMillis, jot.DateTimeZone.UTC), // Mongo db assumes UTC (timezone is not stored in db - when read back, it will represent the same instant, but with timezone UTC)
+      jodaLocalDate     = new jot.LocalDate(epochMillis),
+      jodaLocalDateTime = new jot.LocalDateTime(epochMillis),
+      javaInstant       = jat.Instant.ofEpochMilli(epochMillis),
+      javaLocalDate     = jat.LocalDate.ofEpochDay(epochMillis / (24 * 60 * 60 * 1000)),
+      javaLocalDateTime = jat.LocalDateTime.ofInstant(jat.Instant.ofEpochMilli(epochMillis), jat.ZoneId.of("Z")),
+      objectId          = new org.bson.types.ObjectId(new java.util.Date(epochMillis))
+    )
 }

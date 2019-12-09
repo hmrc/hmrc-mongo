@@ -18,22 +18,28 @@ package uk.gov.hmrc.mongo.cache
 
 import play.api.mvc.Request
 
-case class CacheIdStrategy(strategy: () => CacheId) extends AnyVal
+case class CacheIdStrategy(unwrap: () => CacheId) extends AnyVal
 
 object CacheIdStrategy {
   def const(cacheId: CacheId): CacheIdStrategy =
     CacheIdStrategy(() => cacheId)
 
   def sessionUuid(sessionIdKey: String)(implicit request: Request[Any]): CacheIdStrategy =
-    CacheIdStrategy(() =>
-      request.session.get(sessionIdKey).map(CacheId.apply)
-        .getOrElse(CacheId(java.util.UUID.randomUUID.toString))
+    CacheIdStrategy(
+      () =>
+        request.session
+          .get(sessionIdKey)
+          .map(CacheId.apply)
+          .getOrElse(CacheId(java.util.UUID.randomUUID.toString))
     )
 
   def sessionId(implicit request: Request[Any]): CacheIdStrategy =
-    CacheIdStrategy(() =>
-      request.session.get("sessionId").map(CacheId.apply)
-        .getOrElse(throw NoSessionException)
+    CacheIdStrategy(
+      () =>
+        request.session
+          .get("sessionId")
+          .map(CacheId.apply)
+          .getOrElse(throw NoSessionException)
     )
 
   case object NoSessionException extends Exception("Could not find sessionId")

@@ -22,45 +22,51 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** CacheId is stored in session with sessionIdKey */
 trait SessionCache {
-  val cacheRepo   : MongoCacheRepository
+  val cacheRepo: MongoCacheRepository
   val sessionIdKey: String
 
-  def putSession[T : Writes](dataKey: DataKey[T], data: T)(implicit request: Request[Any], ec: ExecutionContext): Future[(String, String)] =
-    cacheRepo.put[T](CacheIdStrategy.sessionUuid(sessionIdKey))(dataKey, data)
-      .map(sessionIdKey -> _.asString)
+  def putSession[T: Writes](
+    dataKey: DataKey[T],
+    data: T
+  )(implicit request: Request[Any], ec: ExecutionContext): Future[(String, String)] =
+    cacheRepo
+      .put[T](CacheIdStrategy.sessionUuid(sessionIdKey))(dataKey, data)
+      .map(sessionIdKey -> _.unwrap)
 
-  def getFromSession[T : Reads](dataKey: DataKey[T])(implicit request: Request[Any]): Future[Option[T]] =
+  def getFromSession[T: Reads](dataKey: DataKey[T])(implicit request: Request[Any]): Future[Option[T]] =
     cacheRepo.get[T](CacheIdStrategy.sessionUuid(sessionIdKey))(dataKey)
 
   def deleteFromSession[T](dataKey: DataKey[T])(implicit request: Request[Any]): Future[Unit] =
     cacheRepo.delete(CacheIdStrategy.sessionUuid(sessionIdKey))(dataKey)
 }
 
- /** CacheId is provided */
+/** CacheId is provided */
 trait SimpleCache {
   val cacheRepo: MongoCacheRepository
 
-  def putCache[T : Writes](cacheId: CacheId, dataKey: DataKey[T], data: T)(implicit ec: ExecutionContext): Future[Unit] =
-    cacheRepo.put[T](CacheIdStrategy.const(cacheId))(dataKey, data)
+  def putCache[T: Writes](cacheId: CacheId, dataKey: DataKey[T], data: T)(implicit ec: ExecutionContext): Future[Unit] =
+    cacheRepo
+      .put[T](CacheIdStrategy.const(cacheId))(dataKey, data)
       .map(_ => ())
 
-  def getFromCache[T : Reads](cacheId: CacheId, dataKey: DataKey[T]): Future[Option[T]] =
+  def getFromCache[T: Reads](cacheId: CacheId, dataKey: DataKey[T]): Future[Option[T]] =
     cacheRepo.get[T](CacheIdStrategy.const(cacheId))(dataKey)
 
   def deleteFromCache[T](cacheId: CacheId, dataKey: DataKey[T]): Future[Unit] =
     cacheRepo.delete(CacheIdStrategy.const(cacheId))(dataKey)
 }
 
- /** CacheId is provided and a single entity is stored in the cache */
+/** CacheId is provided and a single entity is stored in the cache */
 trait SimpleEntityCache[A] {
-  val cacheRepo : MongoCacheRepository
-  val format    : Format[A]
+  val cacheRepo: MongoCacheRepository
+  val format: Format[A]
 
   private implicit val f = format
-  private val dataKey = DataKey[A]("dataKey")
+  private val dataKey    = DataKey[A]("dataKey")
 
   def putCache(cacheId: CacheId, data: A)(implicit ec: ExecutionContext): Future[Unit] =
-    cacheRepo.put[A](CacheIdStrategy.const(cacheId))(dataKey, data)
+    cacheRepo
+      .put[A](CacheIdStrategy.const(cacheId))(dataKey, data)
       .map(_ => ())
 
   def getFromCache(cacheId: CacheId): Future[Option[A]] =
@@ -72,14 +78,15 @@ trait SimpleEntityCache[A] {
 
 /** CacheId is tied to sessionId and a single entity is stored in the cache */
 trait SessionEntityCache[A] {
-  val cacheRepo : MongoCacheRepository
-  val format    : Format[A]
+  val cacheRepo: MongoCacheRepository
+  val format: Format[A]
 
   private implicit val f = format
-  private val dataKey = DataKey[A]("dataKey")
+  private val dataKey    = DataKey[A]("dataKey")
 
   def putSession(data: A)(implicit request: Request[Any], ec: ExecutionContext): Future[Unit] =
-    cacheRepo.put[A](CacheIdStrategy.sessionId)(dataKey, data)
+    cacheRepo
+      .put[A](CacheIdStrategy.sessionId)(dataKey, data)
       .map(_ => ())
 
   def getFromSession(implicit request: Request[Any]): Future[Option[A]] =

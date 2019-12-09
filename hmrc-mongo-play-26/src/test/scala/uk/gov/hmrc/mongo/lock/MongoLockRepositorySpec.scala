@@ -128,7 +128,8 @@ class MongoLockRepositorySpec extends AnyWordSpecLike with Matchers with Default
       mongoLockRepository.refreshExpiry(lockId, owner, ttl).futureValue shouldBe true
       count().futureValue                                               shouldBe 1
 
-      findAll().futureValue.head.fromBson[Lock] shouldBe Lock(lockId, owner, now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.SECONDS))
+      findAll().futureValue.head
+        .fromBson[Lock] shouldBe Lock(lockId, owner, now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.SECONDS))
 
     }
   }

@@ -300,7 +300,8 @@ class MetricOrchestratorSpec
 
   private def metricOrchestratorFor(
     sources: List[MetricSource],
-    metricRepository: MetricRepository = mongoMetricRepository) =
+    metricRepository: MetricRepository = mongoMetricRepository
+  ) =
     new MetricOrchestrator(
       metricSources    = sources,
       lockService      = mongoLockService,
@@ -319,7 +320,8 @@ class MetricOrchestratorSpec
 
   private def sourceReturningFirstAndThen(
     firstMetricsMap: Map[String, Int],
-    secondMetricsMap: Map[String, Int]): MetricSource =
+    secondMetricsMap: Map[String, Int]
+  ): MetricSource =
     new MetricSource {
       var iteration = 0
 

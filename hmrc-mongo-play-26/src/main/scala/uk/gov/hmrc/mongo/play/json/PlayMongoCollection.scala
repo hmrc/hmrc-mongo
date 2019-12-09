@@ -48,7 +48,7 @@ class PlayMongoCollection[A: ClassTag](
     if (indexes.isEmpty)
       logger.info("Skipping Mongo index creation as no indexes supplied")
 
-    Future.traverse(indexes){ index =>
+    Future.traverse(indexes) { index =>
       collection
         .createIndex(index.getKeys, index.getOptions)
         .toFuture()
@@ -70,9 +70,8 @@ object PlayMongoCollection {
     val IndexKeySpecsConflict = 86 // e.g. change of field name
     def unapply(e: MongoCommandException): Option[MongoCommandException] =
       e.getErrorCode match {
-        case IndexOptionsConflict
-           | IndexKeySpecsConflict => Some(e)
-        case _                     => None
+        case IndexOptionsConflict | IndexKeySpecsConflict => Some(e)
+        case _                                            => None
       }
   }
 }
