@@ -35,7 +35,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class MongoCacheRepository(
   mongoComponent: MongoComponent,
   collectionName: String,
-  optRegistry: Option[CodecRegistry] = None,
   rebuildIndexes: Boolean            = true,
   ttl: Duration,
   timestampSupport: TimestampSupport
@@ -59,41 +58,48 @@ class MongoCacheRepository(
 
   private val logger = Logger(getClass)
 
-  def get[A: Reads](id: CacheId, dataKey: DataKey[A]): Future[Option[A]] =
+  def get[A: Reads](
+         cacheIdStrategy: CacheIdStrategy
+      )( dataKey        : DataKey[A]
+       ): Future[Option[A]] = {
+    val cacheId = cacheIdStrategy.strategy()
     this.collection
-      .find(Filters.equal("_id", id.asString))
+      .find(Filters.equal("_id", cacheId.asString))
       .first()
       .toFutureOption()
       .map(_.flatMap(cache => (cache.data \ dataKey.asString).asOpt[A]))
+  }
 
   def put[A : Writes](
-        id     : CacheId
-      , dataKey: DataKey[A]
-      , data   : A
-      ): Future[Unit] = {
+         cacheIdStrategy: CacheIdStrategy
+      )( dataKey        : DataKey[A]
+       , data           : A
+       ): Future[CacheId] = {
+    val cacheId = cacheIdStrategy.strategy()
     val timestamp = timestampSupport.timestamp()
     this.collection
       .findOneAndUpdate(
-          filter = Filters.equal("_id", id.asString)
+          filter = Filters.equal("_id", cacheId.asString)
         , update = Updates.combine(
                        Updates.set("data." + dataKey.asString, Codecs.toBson(data))
                      , Updates.set("modifiedDetails.lastUpdated", timestamp)
-                     , Updates.setOnInsert("_id", id.asString)
+                     , Updates.setOnInsert("_id", cacheId.asString)
                      , Updates.setOnInsert("modifiedDetails.createdAt", timestamp)
                      )
         , options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
         )
       .toFuture()
-      .map(_ => ())
+      .map(_ => cacheId)
     }
 
   def delete[A](
-        id     : CacheId
-      , dataKey: DataKey[A]
-      ): Future[Unit] =
+        cacheIdStrategy: CacheIdStrategy
+      )(dataKey        : DataKey[A]
+      ): Future[Unit] = {
+    val cacheId = cacheIdStrategy.strategy()
     this.collection
       .findOneAndUpdate(
-          filter = Filters.equal("_id", id.asString)
+          filter = Filters.equal("_id", cacheId.asString)
         , update = Updates.combine(
                        Updates.unset("data." + dataKey.asString)
                      , Updates.set("modifiedDetails.lastUpdated", timestampSupport.timestamp())
@@ -101,15 +107,18 @@ class MongoCacheRepository(
         )
       .toFuture
       .map(_ => ())
+      }
 
-  def delete(id: CacheId): Future[Unit] =
+  def deleteEntity(cacheIdStrategy: CacheIdStrategy): Future[Unit] = {
+    val cacheId = cacheIdStrategy.strategy()
     this.collection
       .withWriteConcern(WriteConcern.ACKNOWLEDGED)
       .deleteOne(
-        filter = Filters.equal("_id", id.asString)
+        filter = Filters.equal("_id", cacheId.asString)
       )
       .toFuture()
       .map(_ => ())
+  }
 }
 
 object MongoCacheRepository {

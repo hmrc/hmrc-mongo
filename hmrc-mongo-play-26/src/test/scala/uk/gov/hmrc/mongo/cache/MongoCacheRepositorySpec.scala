@@ -40,8 +40,8 @@ class MongoCacheRepositorySpec
 
   "put" should {
     "successfully create a cacheItem if one does not already exist" in {
-      cacheRepository.put(cacheId, dataKey, person).futureValue shouldBe ()
-      count().futureValue                                       shouldBe 1
+      cacheRepository.put(CacheIdStrategy.const(cacheId))(dataKey, person).futureValue shouldBe cacheId
+      count().futureValue shouldBe 1
       findAll()
         .map(_.fromBson[CacheItem])
         .futureValue
@@ -53,8 +53,8 @@ class MongoCacheRepositorySpec
 
       insert(cacheItem.copy(createdAt = creationTimestamp, modifiedAt = creationTimestamp).toDocument()).futureValue
 
-      cacheRepository.put(cacheId, dataKey, person).futureValue shouldBe ()
-      count().futureValue                                   shouldBe 1
+      cacheRepository.put(CacheIdStrategy.const(cacheId))(dataKey, person).futureValue shouldBe cacheId
+      count().futureValue shouldBe 1
       findAll().map(_.fromBson[CacheItem]).futureValue.head shouldBe cacheItem.copy(createdAt = creationTimestamp, modifiedAt = now)
     }
 
@@ -68,22 +68,22 @@ class MongoCacheRepositorySpec
       )
 
       insert(cacheItem.toDocument()).futureValue
-      cacheRepository.get[Person](cacheId, dataKey).futureValue shouldBe Some(person)
+      cacheRepository.get[Person](CacheIdStrategy.const(cacheId))(dataKey).futureValue shouldBe Some(person)
       Thread.sleep(500)
-      cacheRepository.put(cacheId, dataKey, person)
+      cacheRepository.put(CacheIdStrategy.const(cacheId))(dataKey, person)
       Thread.sleep(600)
-      cacheRepository.get[Person](cacheId, dataKey).futureValue shouldBe Some(person)
+      cacheRepository.get[Person](CacheIdStrategy.const(cacheId))(dataKey).futureValue shouldBe Some(person)
     }
   }
 
   "get" should {
     "successfully return CacheItem if cacheItem exists within ttl" in {
       insert(cacheItem.toDocument()).futureValue
-      cacheRepository.get[Person](cacheId, dataKey).futureValue shouldBe Some(person)
+      cacheRepository.get[Person](CacheIdStrategy.const(cacheId))(dataKey).futureValue shouldBe Some(person)
     }
 
     "successfully return None if cacheItem does not exist" in {
-      cacheRepository.get[Person](cacheId, dataKey).futureValue shouldBe None
+      cacheRepository.get[Person](CacheIdStrategy.const(cacheId))(dataKey).futureValue shouldBe None
     }
 
     "successfully return None if outside ttl" in {
@@ -91,7 +91,7 @@ class MongoCacheRepositorySpec
       insert(cacheItem.copy(id = cacheId2.asString).toDocument()).futureValue
       //Items can live beyond the TTL https://docs.mongodb.com/manual/core/index-ttl/#timing-of-the-delete-operation
       eventually(timeout(Span(60, Seconds)), interval(Span(500, Millis))) {
-        cacheRepository.get[Person](cacheId2, dataKey).futureValue shouldBe None
+        cacheRepository.get[Person](CacheIdStrategy.const(cacheId2))(dataKey).futureValue shouldBe None
       }
     }
   }
@@ -101,7 +101,7 @@ class MongoCacheRepositorySpec
       insert(cacheItem.toDocument()).futureValue
       count().futureValue shouldBe 1
 
-      cacheRepository.delete(cacheId)
+      cacheRepository.deleteEntity(CacheIdStrategy.const(cacheId))
       count().futureValue shouldBe 0
     }
 
@@ -109,7 +109,7 @@ class MongoCacheRepositorySpec
       insert(cacheItem.copy(id = "another-id").toDocument()).futureValue
       count().futureValue shouldBe 1
 
-      cacheRepository.delete(cacheId)
+      cacheRepository.deleteEntity(CacheIdStrategy.const(cacheId))
       count().futureValue shouldBe 1
     }
   }
@@ -153,7 +153,7 @@ class MongoCacheRepositorySpec
   private def createCacheAndReturnIndexExpiry(ttl: Duration): Option[Long] =
     new MongoCacheRepository(
       mongoComponent   = mongoComponent,
-      collectionName   = "play-mongo-cache-index-test",
+      collectionName   = "mongo-cache-repo-test",
       ttl              = ttl,
       timestampSupport = timestampSupport
     ).collection
