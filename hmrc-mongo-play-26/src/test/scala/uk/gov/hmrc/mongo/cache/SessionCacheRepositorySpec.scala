@@ -23,9 +23,8 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.json._
-import uk.gov.hmrc.http.logging.{Authorization, ForwardedFor, RequestId, SessionId}
-import uk.gov.hmrc.http.{HeaderCarrier, Token}
 import uk.gov.hmrc.mongo.TimestampSupport
+import play.mvc.Http.RequestBuilder
 import uk.gov.hmrc.mongo.cache.collection.{CacheItem, PlayMongoCacheCollection}
 import uk.gov.hmrc.mongo.play.json.Codecs._
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
@@ -40,7 +39,7 @@ class SessionCacheRepositorySpec
   "get" should {
     "successfully return value of desired type if cache item exists" in {
       insert(JsonOps[CacheItem](cacheItem).toDocument()).futureValue
-      cacheRepository.get().futureValue shouldBe Some(person)
+      cacheRepository.get()(req).futureValue shouldBe Some(person)
     }
 
     "successfully return None if cache item does not exist" in {
@@ -87,13 +86,7 @@ class SessionCacheRepositorySpec
   implicit lazy val format2: Format[Person] = Person.format
   implicit lazy val format: Format[CacheItem] = PlayMongoCacheCollection.format
 
-  implicit val hc: HeaderCarrier = HeaderCarrier(
-    authorization = Some(Authorization("auth")),
-    sessionId     = Some(SessionId("session")),
-    requestId     = Some(RequestId("request")),
-    token         = Some(Token("token")),
-    forwarded     = Some(ForwardedFor("forwarded"))
-  )
+  implicit val req = new RequestBuilder().session("sessionId", "session").build.asScala
 
   private val now       = Instant.now()
   private val cacheId   = "session"

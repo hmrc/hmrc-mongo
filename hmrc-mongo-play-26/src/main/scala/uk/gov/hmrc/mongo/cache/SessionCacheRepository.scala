@@ -19,7 +19,7 @@ package uk.gov.hmrc.mongo.cache
 import com.google.inject.Inject
 import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.Format
-import uk.gov.hmrc.http.HeaderCarrier
+import play.api.mvc.Request
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, TimestampSupport}
 
 import scala.concurrent.duration.{Duration, DurationInt}
@@ -45,18 +45,17 @@ class SessionCacheRepository[A: ClassTag] @Inject()(
   override def indexes: Seq[IndexModel] =
     cache.indexes
 
-  private def cacheId(implicit hc: HeaderCarrier): String =
-    hc.sessionId
-      .fold(throw NoSessionException)(_.value)
+  private def cacheId(implicit request: Request[Any]): String =
+    request.session.get("sessionId").getOrElse(throw NoSessionException)
 
-  def put(body: A)(implicit hc: HeaderCarrier): Future[Unit] =
+  def put(body: A)(implicit request: Request[Any]): Future[Unit] =
     cache.put(cacheId, body)
 
-  def get()(implicit hc: HeaderCarrier): Future[Option[A]] =
+  def get()(implicit request: Request[Any]): Future[Option[A]] =
     cache.get(cacheId)
 
-  def delete()(implicit hc: HeaderCarrier): Future[Unit] =
+  def delete()(implicit request: Request[Any]): Future[Unit] =
     cache.delete(cacheId)
 }
 
-case object NoSessionException extends Exception("Could not find sessionId in HeaderCarrier")
+case object NoSessionException extends Exception("Could not find sessionId")
