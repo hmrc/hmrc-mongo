@@ -28,7 +28,7 @@ import scala.reflect.ClassTag
 /** A variation of [[MongoCacheRepository]] where there is a single
   * entity that is stored in the cache.
   */
-class ShortLivedCacheRepository[A: ClassTag] @Inject()(
+class EntityCacheRepository[A: ClassTag] @Inject()(
   mongoComponent: MongoComponent,
   val collectionName: String = "short-lived-cache",
   format: Format[A],
@@ -36,7 +36,7 @@ class ShortLivedCacheRepository[A: ClassTag] @Inject()(
   timestampSupport: TimestampSupport)(
     implicit ec: ExecutionContext) extends MongoDatabaseCollection {
 
-  private val cache = new MongoCacheRepository(
+  private val cacheRepo = new MongoCacheRepository(
       mongoComponent   = mongoComponent,
       collectionName   = collectionName,
       ttl              = ttl,
@@ -44,18 +44,18 @@ class ShortLivedCacheRepository[A: ClassTag] @Inject()(
     )
 
   override def indexes: Seq[IndexModel] =
-    cache.indexes
+    cacheRepo.indexes
 
   private implicit val f = format
 
-  val dataKey = "dataKey"
+  val dataKey = DataKey[A]("dataKey")
 
-  def put(key: String, body: A): Future[Unit] =
-    cache.put(key, dataKey, body)
+  def put(key: CacheId, body: A): Future[Unit] =
+    cacheRepo.put(key, dataKey, body)
 
-  def get(key: String): Future[Option[A]] =
-    cache.get(key, dataKey)
+  def get(key: CacheId): Future[Option[A]] =
+    cacheRepo.get(key, dataKey)
 
-  def delete(key: String): Future[Unit] =
-    cache.delete(key)
+  def delete(key: CacheId): Future[Unit] =
+    cacheRepo.delete(key)
 }

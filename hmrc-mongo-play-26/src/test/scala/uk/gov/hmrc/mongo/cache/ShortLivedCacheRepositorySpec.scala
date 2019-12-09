@@ -29,14 +29,13 @@ import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class ShortLivedCacheRepositorySpec
+class EntityCacheRepositorySpec
     extends AnyWordSpecLike
     with Matchers
     with DefaultMongoCollectionSupport
     with ScalaFutures {
 
   "get" should {
-
     "successfully return value of desired type if cache item exists" in {
       insert(cacheItem.toDocument()).futureValue
       cacheRepository.get(cacheId).futureValue shouldBe Some(person)
@@ -48,21 +47,20 @@ class ShortLivedCacheRepositorySpec
   }
 
   "put" should {
-
     "successfully create a cache entry if one does not already exist" in {
       cacheRepository.put(cacheId, person).futureValue       shouldBe ()
       count().futureValue                                    shouldBe 1
-      findAll().futureValue.head.fromBson[CacheItem] shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
+      findAll().futureValue.head.fromBson[CacheItem] shouldBe cacheItem
     }
 
     "successfully update a cache entry if one does not already exist" in {
       val creationTimestamp = Instant.now()
 
-      insert(CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, creationTimestamp).toDocument()).futureValue
+      insert(cacheItem.copy(createdAt = creationTimestamp, modifiedAt = creationTimestamp).toDocument()).futureValue
 
       cacheRepository.put(cacheId, person).futureValue       shouldBe ()
       count().futureValue                                    shouldBe 1
-      findAll().futureValue.head.fromBson[CacheItem] shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, now)
+      findAll().futureValue.head.fromBson[CacheItem] shouldBe cacheItem.copy(createdAt = creationTimestamp, modifiedAt = now)
     }
   }
 
@@ -70,16 +68,16 @@ class ShortLivedCacheRepositorySpec
   implicit val format: Format[CacheItem] = MongoCacheRepository.format
 
   private val now       = Instant.now()
-  private val cacheId   = "cacheId"
-  private val dataKey   = "dataKey"
+  private val cacheId   = CacheId("cacheId")
+  private val dataKey   = DataKey[Person]("dataKey")
   private val person    = Person("Sarah", 30, "Female")
-  private def cacheItem = CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
+  private def cacheItem = CacheItem(cacheId.asString, JsObject(Seq(dataKey.asString -> Json.toJson(person))), now, now)
 
   private val timestampSupport = new TimestampSupport {
     override def timestamp(): Instant = now
   }
 
-  private lazy val cacheRepository = new ShortLivedCacheRepository[Person](
+  private lazy val cacheRepository = new EntityCacheRepository[Person](
     mongoComponent   = mongoComponent,
     timestampSupport = timestampSupport,
     format           = Person.format)

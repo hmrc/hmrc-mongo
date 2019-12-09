@@ -24,7 +24,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.json._
-import uk.gov.hmrc.mongo.cache.Person
 import uk.gov.hmrc.mongo.play.json.Codecs._
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 import uk.gov.hmrc.mongo.{CurrentTimestampSupport, TimestampSupport}
@@ -40,32 +39,26 @@ class MongoCacheRepositorySpec
     with Eventually {
 
   "put" should {
-
     "successfully create a cacheItem if one does not already exist" in {
       cacheRepository.put(cacheId, dataKey, person).futureValue shouldBe ()
       count().futureValue                                       shouldBe 1
       findAll()
         .map(_.fromBson[CacheItem])
         .futureValue
-        .head shouldBe CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
+        .head shouldBe cacheItem
     }
 
     "successfully update a cacheItem if one does not already exist" in {
       val creationTimestamp = Instant.now()
 
-      insert(CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), creationTimestamp, creationTimestamp).toDocument()).futureValue
+      insert(cacheItem.copy(createdAt = creationTimestamp, modifiedAt = creationTimestamp).toDocument()).futureValue
 
       cacheRepository.put(cacheId, dataKey, person).futureValue shouldBe ()
       count().futureValue                                   shouldBe 1
-      findAll().map(_.fromBson[CacheItem]).futureValue.head shouldBe CacheItem(
-        cacheId,
-        JsObject(Seq(dataKey -> Json.toJson(person))),
-        creationTimestamp,
-        now)
+      findAll().map(_.fromBson[CacheItem]).futureValue.head shouldBe cacheItem.copy(createdAt = creationTimestamp, modifiedAt = now)
     }
 
     "successfully keep items in the cache that are touched" in {
-
       // we want to use real times here
       val cacheRepository = new MongoCacheRepository(
         mongoComponent   = mongoComponent,
@@ -94,10 +87,11 @@ class MongoCacheRepositorySpec
     }
 
     "successfully return None if outside ttl" in {
-      insert(cacheItem.copy(id = "something-else").toDocument()).futureValue
+      val cacheId2 = CacheId("something-else")
+      insert(cacheItem.copy(id = cacheId2.asString).toDocument()).futureValue
       //Items can live beyond the TTL https://docs.mongodb.com/manual/core/index-ttl/#timing-of-the-delete-operation
       eventually(timeout(Span(60, Seconds)), interval(Span(500, Millis))) {
-        cacheRepository.get[Person]("something-else", dataKey).futureValue shouldBe None
+        cacheRepository.get[Person](cacheId2, dataKey).futureValue shouldBe None
       }
     }
   }
@@ -136,10 +130,10 @@ class MongoCacheRepositorySpec
   implicit val format2: Format[CacheItem] = MongoCacheRepository.format
 
   private val now       = Instant.now()
-  private val cacheId   = "cacheId"
-  private val dataKey   = "dataKey"
+  private val cacheId   = CacheId("cacheId")
+  private val dataKey   = DataKey[Person]("dataKey")
   private val person    = Person("Sarah", 30, "Female")
-  private val cacheItem = CacheItem(cacheId, JsObject(Seq(dataKey -> Json.toJson(person))), now, now)
+  private val cacheItem = CacheItem(cacheId.asString, JsObject(Seq(dataKey.asString -> Json.toJson(person))), now, now)
   private val ttl       = 1000.millis
 
   private val timestampSupport = new TimestampSupport {

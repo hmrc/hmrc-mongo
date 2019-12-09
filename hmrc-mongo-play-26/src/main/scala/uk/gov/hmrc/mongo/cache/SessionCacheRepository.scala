@@ -18,46 +18,44 @@ package uk.gov.hmrc.mongo.cache
 
 import com.google.inject.Inject
 import org.mongodb.scala.model.IndexModel
-import play.api.libs.json.Format
+import play.api.libs.json.{Reads, Writes}
 import play.api.mvc.Request
+import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, TimestampSupport}
 
-import scala.concurrent.duration.{Duration, DurationInt}
-import scala.concurrent.{ExecutionContext, Future}
-import scala.reflect.ClassTag
-
-/** A variation of [[ShortLivedCacheRepository]] where the key is the sessionId.
+/** A variation of [[MongoCacheRepository]] where the key is generated and stored in the session.
 */
-class SessionCacheRepository[A: ClassTag] @Inject()(
+class SessionCacheRepository @Inject()(
   mongoComponent: MongoComponent,
-  val collectionName: String = "session-cache",
-  format: Format[A],
-  ttl: Duration = 5.minutes, // TODO any reason to provide default value?
-  timestampSupport: TimestampSupport)(
-    implicit ec: ExecutionContext) extends MongoDatabaseCollection {
+  val collectionName: String,
+  ttl: Duration,
+  timestampSupport: TimestampSupport,
+  val sessionIdKey: String)(
+  implicit ec: ExecutionContext) extends MongoDatabaseCollection {
 
-  private val cache = new ShortLivedCacheRepository(
-      mongoComponent   = mongoComponent,
-      collectionName   = collectionName,
-      format           = format,
-      ttl              = ttl,
-      timestampSupport = timestampSupport
-    )
+  val cacheRepo = new MongoCacheRepository(
+        mongoComponent   = mongoComponent
+      , collectionName   = collectionName
+      , ttl              = ttl
+      , timestampSupport = timestampSupport
+      )
 
   override def indexes: Seq[IndexModel] =
-    cache.indexes
+    cacheRepo.indexes
 
-  private def cacheId(implicit request: Request[Any]): String =
-    request.session.get("sessionId").getOrElse(throw NoSessionException)
+  private def cacheId(implicit request: Request[Any]): Option[CacheId] =
+    request.session.get(sessionIdKey).map(CacheId.apply)
 
-  def put(body: A)(implicit request: Request[Any]): Future[Unit] =
-    cache.put(cacheId, body)
+  def put[T : Writes](key: DataKey[T], data: T)(implicit request: Request[Any], ec: ExecutionContext): Future[(String, String)] = {
+    val sessionId = cacheId.getOrElse(CacheId(java.util.UUID.randomUUID.toString))
+    cacheRepo.put[T](sessionId, key, data)
+      .map(_ => (sessionIdKey, sessionId.asString))
+  }
 
-  def get()(implicit request: Request[Any]): Future[Option[A]] =
-    cache.get(cacheId)
+  def get[T : Reads](key: DataKey[T])(implicit request: Request[Any]): Future[Option[T]] =
+    cacheId.fold[Future[Option[T]]](Future.successful(None))(cacheRepo.get(_, key))
 
-  def delete()(implicit request: Request[Any]): Future[Unit] =
-    cache.delete(cacheId)
+  def delete[T](key: DataKey[T])(implicit request: Request[Any]): Future[Unit] =
+    cacheId.fold(Future.successful(()))(cacheRepo.delete(_, key))
 }
-
-case object NoSessionException extends Exception("Could not find sessionId")

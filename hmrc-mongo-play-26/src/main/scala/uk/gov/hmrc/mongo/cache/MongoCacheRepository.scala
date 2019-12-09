@@ -59,54 +59,54 @@ class MongoCacheRepository(
 
   private val logger = Logger(getClass)
 
-  def get[A: Reads](id: String, dataKey: String): Future[Option[A]] =
+  def get[A: Reads](id: CacheId, dataKey: DataKey[A]): Future[Option[A]] =
     this.collection
-      .find(Filters.equal("_id", id))
+      .find(Filters.equal("_id", id.asString))
       .first()
       .toFutureOption()
-      .map(_.flatMap(cache => (cache.data \ dataKey).asOpt[A]))
+      .map(_.flatMap(cache => (cache.data \ dataKey.asString).asOpt[A]))
 
   def put[A : Writes](
-        id     : String
-      , dataKey: String
+        id     : CacheId
+      , dataKey: DataKey[A]
       , data   : A
       ): Future[Unit] = {
     val timestamp = timestampSupport.timestamp()
     this.collection
       .findOneAndUpdate(
-          filter = Filters.equal("_id", id)
+          filter = Filters.equal("_id", id.asString)
         , update = Updates.combine(
-                       Updates.set("data." + dataKey            , Codecs.toBson(data))
+                       Updates.set("data." + dataKey.asString, Codecs.toBson(data))
                      , Updates.set("modifiedDetails.lastUpdated", timestamp)
-                     , Updates.setOnInsert("_id"                      , id)
+                     , Updates.setOnInsert("_id", id.asString)
                      , Updates.setOnInsert("modifiedDetails.createdAt", timestamp)
                      )
         , options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
-      )
+        )
       .toFuture()
       .map(_ => ())
     }
 
-  def delete(
-        id     : String
-      , dataKey: String
+  def delete[A](
+        id     : CacheId
+      , dataKey: DataKey[A]
       ): Future[Unit] =
     this.collection
       .findOneAndUpdate(
-          filter = Filters.equal("_id", id)
+          filter = Filters.equal("_id", id.asString)
         , update = Updates.combine(
-                       Updates.unset("data." + dataKey)
+                       Updates.unset("data." + dataKey.asString)
                      , Updates.set("modifiedDetails.lastUpdated", timestampSupport.timestamp())
                      )
-      )
+        )
       .toFuture
       .map(_ => ())
 
-  def delete(id: String): Future[Unit] =
+  def delete(id: CacheId): Future[Unit] =
     this.collection
       .withWriteConcern(WriteConcern.ACKNOWLEDGED)
       .deleteOne(
-        filter = Filters.equal("_id", id)
+        filter = Filters.equal("_id", id.asString)
       )
       .toFuture()
       .map(_ => ())

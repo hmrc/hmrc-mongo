@@ -30,7 +30,7 @@ import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class SessionCacheRepositorySpec
+class SessionScopedEntityCacheRepositorySpec
     extends AnyWordSpecLike
     with Matchers
     with DefaultMongoCollectionSupport {
@@ -97,7 +97,7 @@ class SessionCacheRepositorySpec
     override def timestamp(): Instant = now
   }
 
-  private lazy val cacheRepository = new SessionCacheRepository[Person](
+  private lazy val cacheRepository = new SessionScopedEntityCacheRepository[Person](
     mongoComponent   = mongoComponent,
     timestampSupport = timestampSupport,
     format           = Person.format)
