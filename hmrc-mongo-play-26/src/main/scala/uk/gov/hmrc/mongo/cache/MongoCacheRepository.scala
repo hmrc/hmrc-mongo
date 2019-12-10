@@ -18,7 +18,7 @@ package uk.gov.hmrc.mongo.cache
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-import javax.inject.{Inject, Singleton}
+import javax.inject.Inject
 
 import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala.WriteConcern
@@ -74,7 +74,7 @@ class MongoCacheRepository[CacheId] @Inject() (
   def put[A: Writes](
     cacheId: CacheId
   )(dataKey: DataKey[A], data: A): Future[String] = {
-    val id = cacheIdType.run(cacheId)
+    val id        = cacheIdType.run(cacheId)
     val timestamp = timestampSupport.timestamp()
     this.collection
       .findOneAndUpdate(
@@ -126,34 +126,5 @@ object MongoCacheRepository {
       ~ (__ \ "data").format[JsObject]
       ~ (__ \ "modifiedDetails" \ "createdAt").format[Instant]
       ~ (__ \ "modifiedDetails" \ "lastUpdated").format[Instant])(CacheItem.apply, unlift(CacheItem.unapply))
-  }
-}
-
-
-trait CacheIdType[CacheId] {
-  def run: CacheId => String
-}
-
-object CacheIdType {
-  import play.api.mvc.Request
-
-  object SimpleCacheId extends CacheIdType[String] {
-    override def run: String => String = identity
-  }
-
-  object SessionCacheId extends CacheIdType[Request[Any]] {
-    override def run: Request[Any] => String =
-      _.session
-        .get("sessionId")
-        .getOrElse(throw NoSessionException)
-
-    case object NoSessionException extends Exception("Could not find sessionId")
-  }
-
-  case class SessionUuid(sessionIdKey: String) extends CacheIdType[Request[Any]] {
-    override def run: Request[Any] => String =
-      _.session
-        .get(sessionIdKey)
-        .getOrElse(java.util.UUID.randomUUID.toString)
   }
 }
