@@ -22,7 +22,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** CacheId is stored in session with sessionIdKey */
 trait SessionCache {
-  val cacheRepo: MongoCacheRepository
+  val cacheRepo: MongoCacheRepository[Request[Any]]
   val sessionIdKey: String
 
   def putSession[T: Writes](
@@ -30,55 +30,55 @@ trait SessionCache {
     data: T
   )(implicit request: Request[Any], ec: ExecutionContext): Future[(String, String)] =
     cacheRepo
-      .put[T](CacheIdStrategy.sessionUuid(sessionIdKey))(dataKey, data)
-      .map(sessionIdKey -> _.unwrap)
+      .put[T](request)(dataKey, data)
+      .map(sessionIdKey -> _)
 
   def getFromSession[T: Reads](dataKey: DataKey[T])(implicit request: Request[Any]): Future[Option[T]] =
-    cacheRepo.get[T](CacheIdStrategy.sessionUuid(sessionIdKey))(dataKey)
+    cacheRepo.get[T](request)(dataKey)
 
   def deleteFromSession[T](dataKey: DataKey[T])(implicit request: Request[Any]): Future[Unit] =
-    cacheRepo.delete(CacheIdStrategy.sessionUuid(sessionIdKey))(dataKey)
+    cacheRepo.delete(request)(dataKey)
 }
 
 /** CacheId is provided */
 trait SimpleCache {
-  val cacheRepo: MongoCacheRepository
+  val cacheRepo: MongoCacheRepository[String]
 
-  def putCache[T: Writes](cacheId: CacheId, dataKey: DataKey[T], data: T)(implicit ec: ExecutionContext): Future[Unit] =
+  def putCache[T: Writes](cacheId: String, dataKey: DataKey[T], data: T)(implicit ec: ExecutionContext): Future[Unit] =
     cacheRepo
-      .put[T](CacheIdStrategy.const(cacheId))(dataKey, data)
+      .put[T](cacheId)(dataKey, data)
       .map(_ => ())
 
-  def getFromCache[T: Reads](cacheId: CacheId, dataKey: DataKey[T]): Future[Option[T]] =
-    cacheRepo.get[T](CacheIdStrategy.const(cacheId))(dataKey)
+  def getFromCache[T: Reads](cacheId: String, dataKey: DataKey[T]): Future[Option[T]] =
+    cacheRepo.get[T](cacheId)(dataKey)
 
-  def deleteFromCache[T](cacheId: CacheId, dataKey: DataKey[T]): Future[Unit] =
-    cacheRepo.delete(CacheIdStrategy.const(cacheId))(dataKey)
+  def deleteFromCache[T](cacheId: String, dataKey: DataKey[T]): Future[Unit] =
+    cacheRepo.delete(cacheId)(dataKey)
 }
 
 /** CacheId is provided and a single entity is stored in the cache */
 trait SimpleEntityCache[A] {
-  val cacheRepo: MongoCacheRepository
+  val cacheRepo: MongoCacheRepository[String]
   val format: Format[A]
 
   private implicit val f = format
   private val dataKey    = DataKey[A]("dataKey")
 
-  def putCache(cacheId: CacheId, data: A)(implicit ec: ExecutionContext): Future[Unit] =
+  def putCache(cacheId: String, data: A)(implicit ec: ExecutionContext): Future[Unit] =
     cacheRepo
-      .put[A](CacheIdStrategy.const(cacheId))(dataKey, data)
+      .put[A](cacheId)(dataKey, data)
       .map(_ => ())
 
-  def getFromCache(cacheId: CacheId): Future[Option[A]] =
-    cacheRepo.get[A](CacheIdStrategy.const(cacheId))(dataKey)
+  def getFromCache(cacheId: String): Future[Option[A]] =
+    cacheRepo.get[A](cacheId)(dataKey)
 
-  def deleteFromCache(cacheId: CacheId): Future[Unit] =
-    cacheRepo.delete(CacheIdStrategy.const(cacheId))(dataKey)
+  def deleteFromCache(cacheId: String): Future[Unit] =
+    cacheRepo.delete(cacheId)(dataKey)
 }
 
 /** CacheId is tied to sessionId and a single entity is stored in the cache */
 trait SessionEntityCache[A] {
-  val cacheRepo: MongoCacheRepository
+  val cacheRepo: MongoCacheRepository[Request[Any]]
   val format: Format[A]
 
   private implicit val f = format
@@ -86,12 +86,12 @@ trait SessionEntityCache[A] {
 
   def putSession(data: A)(implicit request: Request[Any], ec: ExecutionContext): Future[Unit] =
     cacheRepo
-      .put[A](CacheIdStrategy.sessionId)(dataKey, data)
+      .put[A](request)(dataKey, data)
       .map(_ => ())
 
   def getFromSession(implicit request: Request[Any]): Future[Option[A]] =
-    cacheRepo.get[A](CacheIdStrategy.sessionId)(dataKey)
+    cacheRepo.get[A](request)(dataKey)
 
   def deleteFromSession(implicit request: Request[Any]): Future[Unit] =
-    cacheRepo.delete(CacheIdStrategy.sessionId)(dataKey)
+    cacheRepo.delete(request)(dataKey)
 }

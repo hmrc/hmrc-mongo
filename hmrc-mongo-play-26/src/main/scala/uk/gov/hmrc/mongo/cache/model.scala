@@ -26,6 +26,4 @@ private[cache] final case class CacheItem(
   modifiedAt: Instant
 )
 
-case class CacheId(unwrap: String) extends AnyVal
-
 case class DataKey[A](unwrap: String) extends AnyVal

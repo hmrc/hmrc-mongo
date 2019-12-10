@@ -18,6 +18,7 @@ package uk.gov.hmrc.mongo.cache
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
+import javax.inject.{Inject, Singleton}
 
 import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala.WriteConcern
@@ -32,12 +33,13 @@ import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-class MongoCacheRepository(
+class MongoCacheRepository[CacheId] @Inject() (
   mongoComponent: MongoComponent,
   collectionName: String,
   rebuildIndexes: Boolean = true,
   ttl: Duration,
-  timestampSupport: TimestampSupport
+  timestampSupport: TimestampSupport,
+  cacheIdType: CacheIdType[CacheId]
 )(implicit ec: ExecutionContext)
     extends PlayMongoCollection(
       mongoComponent = mongoComponent,
@@ -59,43 +61,43 @@ class MongoCacheRepository(
   private val logger = Logger(getClass)
 
   def get[A: Reads](
-    cacheIdStrategy: CacheIdStrategy
+    cacheId: CacheId
   )(dataKey: DataKey[A]): Future[Option[A]] = {
-    val cacheId = cacheIdStrategy.unwrap()
+    val id = cacheIdType.run(cacheId)
     this.collection
-      .find(Filters.equal("_id", cacheId.unwrap))
+      .find(Filters.equal("_id", id))
       .first()
       .toFutureOption()
       .map(_.flatMap(cache => (cache.data \ dataKey.unwrap).asOpt[A]))
   }
 
   def put[A: Writes](
-    cacheIdStrategy: CacheIdStrategy
-  )(dataKey: DataKey[A], data: A): Future[CacheId] = {
-    val cacheId   = cacheIdStrategy.unwrap()
+    cacheId: CacheId
+  )(dataKey: DataKey[A], data: A): Future[String] = {
+    val id = cacheIdType.run(cacheId)
     val timestamp = timestampSupport.timestamp()
     this.collection
       .findOneAndUpdate(
-        filter = Filters.equal("_id", cacheId.unwrap),
+        filter = Filters.equal("_id", id),
         update = Updates.combine(
           Updates.set("data." + dataKey.unwrap, Codecs.toBson(data)),
           Updates.set("modifiedDetails.lastUpdated", timestamp),
-          Updates.setOnInsert("_id", cacheId.unwrap),
+          Updates.setOnInsert("_id", id),
           Updates.setOnInsert("modifiedDetails.createdAt", timestamp)
         ),
         options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
       )
       .toFuture()
-      .map(_ => cacheId)
+      .map(_ => id)
   }
 
   def delete[A](
-    cacheIdStrategy: CacheIdStrategy
+    cacheId: CacheId
   )(dataKey: DataKey[A]): Future[Unit] = {
-    val cacheId = cacheIdStrategy.unwrap()
+    val id = cacheIdType.run(cacheId)
     this.collection
       .findOneAndUpdate(
-        filter = Filters.equal("_id", cacheId.unwrap),
+        filter = Filters.equal("_id", id),
         update = Updates.combine(
           Updates.unset("data." + dataKey.unwrap),
           Updates.set("modifiedDetails.lastUpdated", timestampSupport.timestamp())
@@ -105,12 +107,12 @@ class MongoCacheRepository(
       .map(_ => ())
   }
 
-  def deleteEntity(cacheIdStrategy: CacheIdStrategy): Future[Unit] = {
-    val cacheId = cacheIdStrategy.unwrap()
+  def deleteEntity(cacheId: CacheId): Future[Unit] = {
+    val id = cacheIdType.run(cacheId)
     this.collection
       .withWriteConcern(WriteConcern.ACKNOWLEDGED)
       .deleteOne(
-        filter = Filters.equal("_id", cacheId.unwrap)
+        filter = Filters.equal("_id", id)
       )
       .toFuture()
       .map(_ => ())
@@ -124,5 +126,34 @@ object MongoCacheRepository {
       ~ (__ \ "data").format[JsObject]
       ~ (__ \ "modifiedDetails" \ "createdAt").format[Instant]
       ~ (__ \ "modifiedDetails" \ "lastUpdated").format[Instant])(CacheItem.apply, unlift(CacheItem.unapply))
+  }
+}
+
+
+trait CacheIdType[CacheId] {
+  def run: CacheId => String
+}
+
+object CacheIdType {
+  import play.api.mvc.Request
+
+  object SimpleCacheId extends CacheIdType[String] {
+    override def run: String => String = identity
+  }
+
+  object SessionCacheId extends CacheIdType[Request[Any]] {
+    override def run: Request[Any] => String =
+      _.session
+        .get("sessionId")
+        .getOrElse(throw NoSessionException)
+
+    case object NoSessionException extends Exception("Could not find sessionId")
+  }
+
+  case class SessionUuid(sessionIdKey: String) extends CacheIdType[Request[Any]] {
+    override def run: Request[Any] => String =
+      _.session
+        .get(sessionIdKey)
+        .getOrElse(java.util.UUID.randomUUID.toString)
   }
 }
