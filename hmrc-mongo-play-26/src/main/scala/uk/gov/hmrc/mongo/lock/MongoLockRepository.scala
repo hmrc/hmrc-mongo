@@ -74,13 +74,14 @@ trait LockRepository {
 }
 
 @Singleton
-class MongoLockRepository @Inject()(mongoComponent: MongoComponent, timestampSupport: TimestampSupport)(
+class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSupport: TimestampSupport)(
   implicit ec: ExecutionContext
 ) extends PlayMongoCollection[Lock](
       mongoComponent,
       collectionName = "locks",
       domainFormat   = Lock.format,
-      indexes        = Seq.empty)
+      indexes        = Seq.empty
+    )
     with LockRepository {
 
   private val logger       = Logger(getClass)

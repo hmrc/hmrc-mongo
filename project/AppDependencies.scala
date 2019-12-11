@@ -21,13 +21,11 @@ object AppDependencies {
   lazy val hmrcMongoPlay26: Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"       % play26Version,
     "com.typesafe.play" %% "play-guice" % play26Version,
-    "uk.gov.hmrc"       %% "http-verbs" % "10.2.0-play-26"
   ) ++ mongoCommon ++ test
 
   lazy val hmrcMongoPlay27: Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"       % play27Version,
     "com.typesafe.play" %% "play-guice" % play27Version,
-    "uk.gov.hmrc"       %% "http-verbs" % "10.2.0-play-27"
   ) ++ mongoCommon ++ test
 
   lazy val hmrcMongoCachePlay26: Seq[ModuleID] = Seq() ++ mongoCommon ++ test

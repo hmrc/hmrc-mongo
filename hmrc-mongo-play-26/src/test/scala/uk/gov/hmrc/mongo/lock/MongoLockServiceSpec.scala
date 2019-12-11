@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.lock
 
-import java.time.{LocalDateTime, ZoneOffset}
+import java.time.Instant
 
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import org.mongodb.scala.model.IndexModel
@@ -148,7 +148,7 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
   private val lockId        = "lockId"
   private val owner         = "owner"
   private val ttl: Duration = 1000.millis
-  private val now           = LocalDateTime.now(ZoneOffset.UTC)
+  private val now           = Instant.now()
 
   private val mongoLockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
   private val mongoLockService    = mongoLockRepository.toService(lockId, ttl)

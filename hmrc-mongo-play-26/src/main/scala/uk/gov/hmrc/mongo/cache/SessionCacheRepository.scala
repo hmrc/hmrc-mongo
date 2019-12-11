@@ -15,52 +15,51 @@
  */
 
 package uk.gov.hmrc.mongo.cache
-import com.google.inject.Inject
-import play.api.libs.json.Format
-import uk.gov.hmrc.http.HeaderCarrier
-import uk.gov.hmrc.mongo.cache.collection.PlayMongoCacheCollection
-import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
 
-import scala.concurrent.duration._
+import javax.inject.Inject
+import org.mongodb.scala.model.IndexModel
+import play.api.libs.json.{Format, Reads, Writes}
+import play.api.mvc.Request
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.reflect.ClassTag
+import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, TimestampSupport}
 
-class SessionCacheRepository[A: ClassTag] @Inject()(
+/** CacheId is stored in session with sessionIdKey */
+class SessionCacheRepository @Inject() (
   mongoComponent: MongoComponent,
-  collectionName: String = "session-cache",
-  format: Format[A],
-  ttl: Duration = 5.minutes,
-  timestampSupport: TimestampSupport)(implicit ec: ExecutionContext)
-    extends PlayMongoCacheCollection(
-      mongoComponent   = mongoComponent,
-      collectionName   = collectionName,
-      domainFormat     = format,
-      ttl              = ttl,
-      timestampSupport = timestampSupport
-    ) {
+  override val collectionName: String,
+  rebuildIndexes: Boolean = true,
+  ttl: Duration,
+  timestampSupport: TimestampSupport,
+  sessionIdKey: String
+)(implicit ec: ExecutionContext)
+    extends MongoDatabaseCollection {
+  val cacheRepo = new MongoCacheRepository[Request[Any]](
+    mongoComponent   = mongoComponent,
+    collectionName   = collectionName,
+    rebuildIndexes   = rebuildIndexes,
+    ttl              = ttl,
+    timestampSupport = timestampSupport,
+    cacheIdType      = CacheIdType.SessionUuid(sessionIdKey)
+  )
 
-  private val noSession = Future.failed[String](NoSessionException)
+  override val indexes: Seq[IndexModel] =
+    cacheRepo.indexes
 
-  private def cacheId(implicit hc: HeaderCarrier): Future[String] =
-    hc.sessionId.fold(noSession)(sid => Future.successful(sid.value))
+  /** @return (sessionIdKey, sessionId) - since the sessionId would have been generated if not available in session,
+    * it is returned for storage in session.
+    */
+  def putSession[T: Writes](
+    dataKey: DataKey[T],
+    data: T
+  )(implicit request: Request[Any], ec: ExecutionContext): Future[(String, String)] =
+    cacheRepo
+      .put[T](request)(dataKey, data)
+      .map(sessionIdKey -> _)
 
-  def cache(body: A)(implicit hc: HeaderCarrier): Future[Unit] =
-    for {
-      key    <- cacheId
-      result <- upsert(key, body)
-    } yield result
+  def getFromSession[T: Reads](dataKey: DataKey[T])(implicit request: Request[Any]): Future[Option[T]] =
+    cacheRepo.get[T](request)(dataKey)
 
-  def fetch()(implicit hc: HeaderCarrier): Future[Option[A]] =
-    for {
-      id        <- cacheId
-      cacheItem <- find(id)
-      result = cacheItem.map(_.data)
-    } yield result
-
-  def remove()(implicit hc: HeaderCarrier): Future[Unit] =
-    for {
-      id     <- cacheId
-      result <- remove(id)
-    } yield result
-
+  def deleteFromSession[T](dataKey: DataKey[T])(implicit request: Request[Any]): Future[Unit] =
+    cacheRepo.delete(request)(dataKey)
 }

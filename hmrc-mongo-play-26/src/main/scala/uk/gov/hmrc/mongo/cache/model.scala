@@ -16,4 +16,14 @@
 
 package uk.gov.hmrc.mongo.cache
 
-case object NoSessionException extends Exception("Could not find sessionId in HeaderCarrier")
+import java.time.Instant
+import play.api.libs.json.JsObject
+
+private[cache] final case class CacheItem(
+  id: String,
+  data: JsObject,
+  createdAt: Instant,
+  modifiedAt: Instant
+)
+
+case class DataKey[A](unwrap: String) extends AnyVal
