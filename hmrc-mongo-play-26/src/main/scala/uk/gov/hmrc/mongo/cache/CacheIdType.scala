@@ -17,7 +17,6 @@
 package uk.gov.hmrc.mongo.cache
 
 import play.api.mvc.Request
-import scala.concurrent.{ExecutionContext, Future}
 
 trait CacheIdType[CacheId] {
   def run: CacheId => String

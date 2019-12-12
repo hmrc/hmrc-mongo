@@ -20,7 +20,6 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
-import org.bson.codecs.configuration.CodecRegistry
 import org.mongodb.scala.WriteConcern
 import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, IndexModel, IndexOptions, Indexes, ReturnDocument, Updates}
 import play.api.Logger

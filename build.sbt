@@ -27,7 +27,8 @@ lazy val library = Project(name, file("."))
     commonSettings,
     publish := {},
     publishAndDistribute := {},
-    scalaVersion := scala2_12
+    scalaVersion := scala2_12,
+    crossScalaVersions := Seq.empty // by default, this is Seq(scalaVersion), which doesn't play well with sbt-cross and will cause sbt `+` commands to build multiple times
   )
   .aggregate(
     hmrcMongoCommon_2_11, hmrcMongoCommon_2_12,

@@ -16,8 +16,7 @@
 
 package uk.gov.hmrc.mongo.cache
 
-import play.api.libs.json.{Format, Reads, Writes}
-import play.api.mvc.Request
+import play.api.libs.json.Format
 import scala.concurrent.{ExecutionContext, Future}
 
 /** A single entity is stored in the cache.
@@ -30,7 +29,7 @@ trait EntityCache[CacheId, A] {
   private implicit val f = format
   private val dataKey    = DataKey[A]("dataKey")
 
-  def putCache(cacheId: CacheId)(data: A)(implicit request: Request[Any], ec: ExecutionContext): Future[Unit] =
+  def putCache(cacheId: CacheId)(data: A)(implicit ec: ExecutionContext): Future[Unit] =
     cacheRepo
       .put[A](cacheId)(dataKey, data)
       .map(_ => ())
