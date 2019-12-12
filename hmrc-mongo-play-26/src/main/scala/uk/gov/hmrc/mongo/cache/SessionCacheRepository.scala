@@ -18,7 +18,7 @@ package uk.gov.hmrc.mongo.cache
 
 import javax.inject.Inject
 import org.mongodb.scala.model.IndexModel
-import play.api.libs.json.{Format, Reads, Writes}
+import play.api.libs.json.{Reads, Writes}
 import play.api.mvc.Request
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}

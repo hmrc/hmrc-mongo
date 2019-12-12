@@ -72,7 +72,7 @@ class MetricOrchestrator(
   }
 
   private def updateMetricRepository(
-    resetToZeroFor: Option[PersistedMetric => Boolean] = None
+    resetToZeroFor: Option[PersistedMetric => Boolean]
   )(implicit ec: ExecutionContext): Future[Map[String, Int]] =
     for {
       mapFromReset <- resetToZeroFor match {
