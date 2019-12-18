@@ -23,9 +23,11 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.Inside._
 import org.scalatest.LoneElement
+import play.api.Configuration
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
 import uk.gov.hmrc.mongo.lock.{MongoLockRepository, MongoLockService}
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
+import uk.gov.hmrc.mongo.throttle.ThrottleConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -278,7 +280,7 @@ class MetricOrchestratorSpec
   }
 
   private val metricRegistry        = new MetricRegistry()
-  private val mongoMetricRepository = new MongoMetricRepository(mongoComponent = mongoComponent)
+  private val mongoMetricRepository = new MongoMetricRepository(mongoComponent, throttleConfig)
 
   override protected val collectionName: String   = mongoMetricRepository.collectionName
   override protected val indexes: Seq[IndexModel] = mongoMetricRepository.indexes
@@ -290,7 +292,9 @@ class MetricOrchestratorSpec
     })
   }
 
-  private class SlowlyWritingMetricRepository extends MongoMetricRepository(mongoComponent = mongoComponent) {
+  private class SlowlyWritingMetricRepository extends MongoMetricRepository(
+      mongoComponent = mongoComponent,
+      throttleConfig = throttleConfig) {
     override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
       Future(Thread.sleep(200)).flatMap(_ => super.persist(calculatedMetric))
   }
