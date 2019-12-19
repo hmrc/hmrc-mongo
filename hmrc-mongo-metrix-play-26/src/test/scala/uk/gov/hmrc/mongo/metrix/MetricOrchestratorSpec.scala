@@ -23,11 +23,9 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.Inside._
 import org.scalatest.LoneElement
-import play.api.Configuration
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
 import uk.gov.hmrc.mongo.lock.{MongoLockRepository, MongoLockService}
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
-import uk.gov.hmrc.mongo.throttle.ThrottleConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
