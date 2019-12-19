@@ -22,6 +22,7 @@ import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptions}
 import org.mongodb.scala.model.Indexes.ascending
 import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.throttle.{ThrottleConfig, WithThrottling}
 import uk.gov.hmrc.mongo.play.json.PlayMongoCollection
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,7 +34,10 @@ trait MetricRepository {
 }
 
 @Singleton
-class MongoMetricRepository @Inject() (mongoComponent: MongoComponent)(implicit ec: ExecutionContext)
+class MongoMetricRepository @Inject() (
+    mongoComponent: MongoComponent,
+    val throttleConfig: ThrottleConfig
+  )(implicit ec: ExecutionContext)
     extends PlayMongoCollection[PersistedMetric](
       collectionName = "metrics",
       mongoComponent = mongoComponent,
@@ -42,10 +46,14 @@ class MongoMetricRepository @Inject() (mongoComponent: MongoComponent)(implicit 
         IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
       )
     )
-    with MetricRepository {
+    with MetricRepository
+    with WithThrottling {
 
   override def findAll(): Future[List[PersistedMetric]] =
-    collection.withReadPreference(ReadPreference.secondaryPreferred).find().toFuture().map(_.toList)
+    collection.withReadPreference(ReadPreference.secondaryPreferred)
+      .find()
+      .toThrottledFuture()
+      .map(_.toList)
 
   override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
     collection
@@ -54,6 +62,6 @@ class MongoMetricRepository @Inject() (mongoComponent: MongoComponent)(implicit 
         calculatedMetric,
         FindOneAndReplaceOptions().upsert(true)
       )
-      .toFutureOption()
+      .toThrottledFutureOption()
       .map(_ => ())
 }
