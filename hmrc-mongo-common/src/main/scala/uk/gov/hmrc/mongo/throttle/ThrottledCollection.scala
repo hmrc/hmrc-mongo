@@ -39,7 +39,7 @@ class ThrottleConfig @Inject()(configuration: Configuration) {
     * larger than this will cause `com.mongodb.MongoWaitQueueFullException: Too many operations are already waiting for a connection. Max number of operations (maxWaitQueueSize) of 500 has been exceeded.`
     */
   val throttleSize =
-    configuration.getOptional[Int]("mongodb.throttlesize").getOrElse(maxWaitQueueSize)
+    configuration.getOptional[Int]("mongodb.throttle.size").getOrElse(maxWaitQueueSize)
 
   Logger.debug(s"Throttling mongo queries using throttleSize=$throttleSize")
 
@@ -48,7 +48,7 @@ class ThrottleConfig @Inject()(configuration: Configuration) {
       java.util.concurrent.Executors.newFixedThreadPool(throttleSize))
 
   val timeout =
-    configuration.getOptional[Duration]("mongodb.queryTimeout").getOrElse(20.seconds)
+    configuration.getOptional[Duration]("mongodb.throttle.timeout").getOrElse(20.seconds)
 }
 
 trait WithThrottling{
