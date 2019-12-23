@@ -16,6 +16,8 @@
 
 package uk.gov.hmrc.mongo.metrix
 
-import org.scalatest.{Matchers, OptionValues, WordSpecLike}
+import org.scalatest.OptionValues
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
-trait UnitSpec extends WordSpecLike with Matchers with OptionValues
+trait UnitSpec extends AnyWordSpecLike with Matchers with OptionValues
