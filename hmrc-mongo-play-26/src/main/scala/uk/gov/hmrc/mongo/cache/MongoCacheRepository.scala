@@ -22,7 +22,6 @@ import javax.inject.Inject
 
 import org.mongodb.scala.WriteConcern
 import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, IndexModel, IndexOptions, Indexes, ReturnDocument, Updates}
-import play.api.Logger
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{Format, JsObject, Reads, Writes, __}
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
@@ -56,8 +55,6 @@ class MongoCacheRepository[CacheId] @Inject() (
       ),
       rebuildIndexes = rebuildIndexes
     ) {
-
-  private val logger = Logger(getClass)
 
   def get[A: Reads](
     cacheId: CacheId
