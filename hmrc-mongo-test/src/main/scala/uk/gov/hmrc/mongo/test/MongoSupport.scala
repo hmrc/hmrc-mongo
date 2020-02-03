@@ -17,10 +17,12 @@
 package uk.gov.hmrc.mongo.test
 
 import org.mongodb.scala.bson.conversions.Bson
-import org.mongodb.scala.model.IndexModel
+import org.mongodb.scala.bson.BsonDocument
+import org.mongodb.scala.model.{CreateCollectionOptions, IndexModel, ValidationAction, ValidationLevel, ValidationOptions}
 import org.mongodb.scala.{Completed, Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Configuration
+import play.api.Logger
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.throttle.ThrottleConfig
 
@@ -42,8 +44,11 @@ trait MongoSupport extends ScalaFutures {
       .toFuture
       .futureValue
 
-  protected def prepareDatabase(): Unit =
+  protected def prepareDatabase(): Unit = {
+    Logger.warn(s"in MongoSupport.prepareDatabase")
     dropDatabase()
+    Logger.warn(s" database dropped")
+  }
 
   protected def updateIndexPreference(onlyAllowIndexedQuery: Boolean): Future[Boolean] = {
     val notablescan = if (onlyAllowIndexedQuery) 1 else 0
@@ -61,6 +66,8 @@ trait MongoCollectionSupport extends MongoSupport {
   protected def collectionName: String
 
   protected def indexes: Seq[IndexModel]
+
+  protected val jsonSchema: Option[BsonDocument] = None
 
   protected lazy val mongoCollection: MongoCollection[Document] =
     mongoDatabase.getCollection(collectionName)
@@ -85,11 +92,32 @@ trait MongoCollectionSupport extends MongoSupport {
       .insertOne(document)
       .toFuture()
 
-  protected def createCollection(): Unit =
+  protected def createCollection(): Unit = {
+    Logger.warn(s"in MongoSupport.calling createCollection")
+    val createCollectionOptions =
+      jsonSchema.foldLeft(CreateCollectionOptions()){ (options, jsonSchema) =>
+        options.validationOptions(
+            ValidationOptions()
+              .validator(new BsonDocument(f"$$jsonSchema", jsonSchema))
+              .validationLevel(ValidationLevel.STRICT)
+              .validationAction(ValidationAction.ERROR)
+          )
+      }
+
+    // TODO currently collectionName is implemented with `repo.name`, which will recreate the collection
+    // here, grab the name, then drop the collection, so that `createCollection` (with options) will work
+    val name = collectionName
+
+    Logger.warn(s"Creating collection $name with $createCollectionOptions")
+    dropCollection()
+
     mongoDatabase
-      .createCollection(collectionName)
+      .createCollection(name, createCollectionOptions)
       .toFuture
       .futureValue
+
+    Logger.warn(s"Collection created")
+  }
 
   protected def dropCollection(): Unit =
     mongoCollection
@@ -103,12 +131,14 @@ trait MongoCollectionSupport extends MongoSupport {
         .createIndexes(indexes)
         .toFuture
         .futureValue
-    } else {
+    } else
       Seq.empty
-    }
 
   override protected def prepareDatabase(): Unit = {
+    Logger.warn(s"in MongoSupport.prepareDatabase")
     super.prepareDatabase()
+    Logger.warn(s"in MongoSupport.calling createCollection")
+    createCollection()
     createIndexes()
   }
 }
