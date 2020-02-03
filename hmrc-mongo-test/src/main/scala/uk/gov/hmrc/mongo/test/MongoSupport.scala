@@ -23,7 +23,7 @@ import org.mongodb.scala.{Completed, Document, MongoClient, MongoCollection, Mon
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Configuration
 import play.api.Logger
-import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.throttle.ThrottleConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -105,25 +105,12 @@ trait MongoCollectionSupport extends MongoSupport {
       .futureValue
 
   protected def createIndexes(): Seq[String] =
-    Future.traverse(indexes) { index =>
-      mongoCollection
-        .createIndex(index.getKeys, index.getOptions)
-        .toFuture
-    }.futureValue
+    MongoUtils.ensureIndexes(mongoCollection, indexes, rebuildIndexes = false)
+      .futureValue
 
   protected def createSchemas(): Unit =
     jsonSchema.fold(()){ schema =>
-      mongoComponent.database
-        .runCommand(
-          Document(
-            "collMod"          -> collectionName,
-            "validator"        -> Document(f"$$jsonSchema" -> schema),
-            "validationLevel"  -> "strict",
-            "validationAction" -> "error"
-          )
-        )
-        .toFuture
-        .map(_ => ())
+      MongoUtils.ensureSchema(mongoComponent, collectionName, schema)
         .futureValue
     }
 

@@ -17,12 +17,11 @@
 package uk.gov.hmrc.mongo.throttle
 
 import com.google.inject.{Inject, Singleton}
-import org.mongodb.scala.{MongoClient, Observable, Observer, SingleObservable, Subscription}
+import org.mongodb.scala.{MongoClient, Observable, SingleObservable}
 import play.api.{Configuration, Logger}
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.{Duration, DurationInt}
-import scala.util.{Failure, Success}
 
 
 /** Single instance to ensure same throttle is applied across all mongo queries */

@@ -18,10 +18,8 @@ package uk.gov.hmrc.mongo.metrix
 
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.LoneElement
-import play.api.Configuration
 import org.scalatest.concurrent.ScalaFutures
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
-import uk.gov.hmrc.mongo.throttle.ThrottleConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
 

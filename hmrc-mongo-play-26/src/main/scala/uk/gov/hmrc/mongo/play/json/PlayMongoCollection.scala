@@ -21,7 +21,7 @@ import org.mongodb.scala._
 import org.mongodb.scala.model.IndexModel
 import play.api.Logger
 import play.api.libs.json.Format
-import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection}
+import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -41,7 +41,7 @@ class PlayMongoCollection[A: ClassTag](
   private val logger = Logger(getClass)
 
   val collection: MongoCollection[A] =
-    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat)
+    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, optRegistry)
 
   Await.result(ensureIndexes, 5.seconds)
 
@@ -50,47 +50,11 @@ class PlayMongoCollection[A: ClassTag](
   def ensureIndexes: Future[Seq[String]] = {
     if (indexes.isEmpty)
       logger.info("Skipping Mongo index creation as no indexes supplied")
-
-    Future.traverse(indexes) { index =>
-      collection
-        .createIndex(index.getKeys, index.getOptions)
-        .toFuture
-        .recoverWith {
-          case PlayMongoCollection.IndexConflict(e) if rebuildIndexes =>
-            logger.warn("Conflicting Mongo index found. This index will be updated")
-            for {
-              _      <- collection.dropIndex(index.getOptions.getName).toFuture
-              result <- collection.createIndex(index.getKeys, index.getOptions).toFuture
-            } yield result
-        }
-    }
+    MongoUtils.ensureIndexes(collection, indexes, rebuildIndexes)
   }
 
   def ensureSchema: Future[Unit] =
-    optSchema.fold(Future.successful(())){ schema =>
-      logger.info("Applying schema")
-      mongoComponent.database
-        .runCommand(
-          Document(
-            "collMod"          -> collectionName,
-            "validator"        -> Document(f"$$jsonSchema" -> schema),
-            "validationLevel"  -> "strict",
-            "validationAction" -> "error"
-          )
-        )
-        .toFuture
-        .map(_ => ())
-    }
-}
-
-object PlayMongoCollection {
-  object IndexConflict {
-    val IndexOptionsConflict  = 85 // e.g. change of ttl option
-    val IndexKeySpecsConflict = 86 // e.g. change of field name
-    def unapply(e: MongoCommandException): Option[MongoCommandException] =
-      e.getErrorCode match {
-        case IndexOptionsConflict | IndexKeySpecsConflict => Some(e)
-        case _                                            => None
-      }
-  }
+    optSchema.fold(Future.successful(()))(schema =>
+      MongoUtils.ensureSchema(mongoComponent, collectionName, schema)
+    )
 }
