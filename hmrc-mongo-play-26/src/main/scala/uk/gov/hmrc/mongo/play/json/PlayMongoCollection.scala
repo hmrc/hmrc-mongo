@@ -33,6 +33,7 @@ class PlayMongoCollection[A: ClassTag](
   domainFormat: Format[A],
   optRegistry: Option[CodecRegistry] = None,
   val indexes: Seq[IndexModel],
+  val optSchema: Option[Document] = None,
   rebuildIndexes: Boolean = false
 )(implicit ec: ExecutionContext)
     extends MongoDatabaseCollection {
@@ -40,28 +41,46 @@ class PlayMongoCollection[A: ClassTag](
   private val logger = Logger(getClass)
 
   val collection: MongoCollection[A] =
-    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, optRegistry)
+    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat)
 
-  Await.result(ensureIndexes(), 5.seconds)
+  Await.result(ensureIndexes, 5.seconds)
 
-  def ensureIndexes(): Future[Seq[String]] = {
+  Await.result(ensureSchema, 5.seconds)
+
+  def ensureIndexes: Future[Seq[String]] = {
     if (indexes.isEmpty)
       logger.info("Skipping Mongo index creation as no indexes supplied")
 
     Future.traverse(indexes) { index =>
       collection
         .createIndex(index.getKeys, index.getOptions)
-        .toFuture()
+        .toFuture
         .recoverWith {
           case PlayMongoCollection.IndexConflict(e) if rebuildIndexes =>
             logger.warn("Conflicting Mongo index found. This index will be updated")
             for {
-              _      <- collection.dropIndex(index.getOptions.getName).toFuture()
-              result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
+              _      <- collection.dropIndex(index.getOptions.getName).toFuture
+              result <- collection.createIndex(index.getKeys, index.getOptions).toFuture
             } yield result
         }
     }
   }
+
+  def ensureSchema: Future[Unit] =
+    optSchema.fold(Future.successful(())){ schema =>
+      logger.info("Applying schema")
+      mongoComponent.database
+        .runCommand(
+          Document(
+            "collMod"          -> collectionName,
+            "validator"        -> Document(f"$$jsonSchema" -> schema),
+            "validationLevel"  -> "strict",
+            "validationAction" -> "error"
+          )
+        )
+        .toFuture
+        .map(_ => ())
+    }
 }
 
 object PlayMongoCollection {

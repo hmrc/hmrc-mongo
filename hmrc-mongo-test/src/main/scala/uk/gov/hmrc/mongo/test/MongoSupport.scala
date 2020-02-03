@@ -18,7 +18,7 @@ package uk.gov.hmrc.mongo.test
 
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.{CreateCollectionOptions, IndexModel, ValidationAction, ValidationLevel, ValidationOptions}
+import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.{Completed, Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Configuration
@@ -67,7 +67,7 @@ trait MongoCollectionSupport extends MongoSupport {
 
   protected def indexes: Seq[IndexModel]
 
-  protected val jsonSchema: Option[BsonDocument] = None
+  protected def jsonSchema: Option[BsonDocument] = None
 
   protected lazy val mongoCollection: MongoCollection[Document] =
     mongoDatabase.getCollection(collectionName)
@@ -92,32 +92,11 @@ trait MongoCollectionSupport extends MongoSupport {
       .insertOne(document)
       .toFuture()
 
-  protected def createCollection(): Unit = {
-    Logger.warn(s"in MongoSupport.calling createCollection")
-    val createCollectionOptions =
-      jsonSchema.foldLeft(CreateCollectionOptions()){ (options, jsonSchema) =>
-        options.validationOptions(
-            ValidationOptions()
-              .validator(new BsonDocument(f"$$jsonSchema", jsonSchema))
-              .validationLevel(ValidationLevel.STRICT)
-              .validationAction(ValidationAction.ERROR)
-          )
-      }
-
-    // TODO currently collectionName is implemented with `repo.name`, which will recreate the collection
-    // here, grab the name, then drop the collection, so that `createCollection` (with options) will work
-    val name = collectionName
-
-    Logger.warn(s"Creating collection $name with $createCollectionOptions")
-    dropCollection()
-
+  protected def createCollection(): Unit =
     mongoDatabase
-      .createCollection(name, createCollectionOptions)
+      .createCollection(collectionName)
       .toFuture
       .futureValue
-
-    Logger.warn(s"Collection created")
-  }
 
   protected def dropCollection(): Unit =
     mongoCollection
@@ -126,19 +105,31 @@ trait MongoCollectionSupport extends MongoSupport {
       .futureValue
 
   protected def createIndexes(): Seq[String] =
-    if (indexes.nonEmpty) {
+    Future.traverse(indexes) { index =>
       mongoCollection
-        .createIndexes(indexes)
+        .createIndex(index.getKeys, index.getOptions)
         .toFuture
+    }.futureValue
+
+  protected def createSchemas(): Unit =
+    jsonSchema.fold(()){ schema =>
+      mongoComponent.database
+        .runCommand(
+          Document(
+            "collMod"          -> collectionName,
+            "validator"        -> Document(f"$$jsonSchema" -> schema),
+            "validationLevel"  -> "strict",
+            "validationAction" -> "error"
+          )
+        )
+        .toFuture
+        .map(_ => ())
         .futureValue
-    } else
-      Seq.empty
+    }
 
   override protected def prepareDatabase(): Unit = {
-    Logger.warn(s"in MongoSupport.prepareDatabase")
     super.prepareDatabase()
-    Logger.warn(s"in MongoSupport.calling createCollection")
-    createCollection()
     createIndexes()
+    createSchemas()
   }
 }
