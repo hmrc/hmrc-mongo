@@ -44,11 +44,8 @@ trait MongoSupport extends ScalaFutures {
       .toFuture
       .futureValue
 
-  protected def prepareDatabase(): Unit = {
-    Logger.warn(s"in MongoSupport.prepareDatabase")
+  protected def prepareDatabase(): Unit =
     dropDatabase()
-    Logger.warn(s" database dropped")
-  }
 
   protected def updateIndexPreference(onlyAllowIndexedQuery: Boolean): Future[Boolean] = {
     val notablescan = if (onlyAllowIndexedQuery) 1 else 0

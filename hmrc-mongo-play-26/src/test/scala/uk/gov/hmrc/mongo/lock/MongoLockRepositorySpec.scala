@@ -24,6 +24,7 @@ import com.mongodb.client.model.Filters.{eq => mongoEq}
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
+import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
 import uk.gov.hmrc.mongo.TimestampSupport
 import uk.gov.hmrc.mongo.play.json.Codecs._
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
@@ -216,15 +217,14 @@ class MongoLockRepositorySpec extends AnyWordSpecLike with Matchers with Default
   }
 
   "Mongo should" should {
-    val duplicateKey = "11000"
     "throw an exception if a lock object is inserted that is not unique" in {
       val lock1 = Lock("lockName", "owner1", now.plus(1, ChronoUnit.DAYS), now.plus(2, ChronoUnit.DAYS))
       val lock2 = Lock("lockName", "owner2", now.plus(3, ChronoUnit.DAYS), now.plus(4, ChronoUnit.DAYS))
       insert(lock1.toDocument()).futureValue
 
       whenReady(insert(lock2.toDocument()).failed) { exception =>
-        exception            shouldBe a[MongoWriteException]
-        exception.getMessage should include(duplicateKey)
+        exception shouldBe a[MongoWriteException]
+        exception.asInstanceOf[MongoWriteException].getError.getCode shouldBe DuplicateKey.DuplicateKey
       }
 
       count().futureValue shouldBe 1
