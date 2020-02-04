@@ -16,8 +16,9 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import org.mongodb.scala.{Document, MongoCollection}
+import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.IndexModel
+import org.mongodb.scala.bson.BsonDocument
 import play.api.Logger
 import play.api.libs.json.Format
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
@@ -31,7 +32,7 @@ class PlayMongoCollection[A: ClassTag](
   val collectionName: String,
   domainFormat: Format[A],
   val indexes: Seq[IndexModel],
-  val optSchema: Option[Document] = None,
+  val optSchema: Option[BsonDocument] = None,
   rebuildIndexes: Boolean = false
 )(implicit ec: ExecutionContext)
     extends MongoDatabaseCollection {
@@ -52,7 +53,9 @@ class PlayMongoCollection[A: ClassTag](
   }
 
   def ensureSchema: Future[Unit] =
-    optSchema.fold(Future.successful(()))(schema =>
-      MongoUtils.ensureSchema(mongoComponent, collection, schema)
-    )
+    // if schema is not defined, leave any existing ones
+    if (optSchema.isDefined)
+      MongoUtils.ensureSchema(mongoComponent, collection, optSchema)
+    else
+      Future.successful(())
 }

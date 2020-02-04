@@ -18,6 +18,7 @@ package uk.gov.hmrc.mongo.cache
 
 import java.time.Instant
 
+import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
@@ -150,8 +151,9 @@ class MongoCacheRepositorySpec
     cacheIdType      = CacheIdType.SimpleCacheId
   )
 
-  override protected val collectionName: String   = cacheRepository.collectionName
-  override protected val indexes: Seq[IndexModel] = cacheRepository.indexes
+  override protected lazy val collectionName: String          = cacheRepository.collectionName
+  override protected lazy val indexes: Seq[IndexModel]        = cacheRepository.indexes
+  override protected lazy val optSchema: Option[BsonDocument] = cacheRepository.optSchema
 
   private def createCacheAndReturnIndexExpiry(ttl: Duration): Option[Long] =
     new MongoCacheRepository[String](

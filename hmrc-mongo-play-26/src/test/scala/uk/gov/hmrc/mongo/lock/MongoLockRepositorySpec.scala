@@ -20,6 +20,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 import com.mongodb.MongoWriteException
+import org.mongodb.scala.bson.BsonDocument
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.matchers.should.Matchers
@@ -224,7 +225,7 @@ class MongoLockRepositorySpec extends AnyWordSpecLike with Matchers with Default
 
       whenReady(insert(lock2.toDocument()).failed) { exception =>
         exception shouldBe a[MongoWriteException]
-        exception.asInstanceOf[MongoWriteException].getError.getCode shouldBe DuplicateKey.DuplicateKey
+        exception.asInstanceOf[MongoWriteException].getError.getCode shouldBe DuplicateKey.Code
       }
 
       count().futureValue shouldBe 1
@@ -239,8 +240,9 @@ class MongoLockRepositorySpec extends AnyWordSpecLike with Matchers with Default
 
   private lazy val mongoLockRepository = new MongoLockRepository(mongoComponent, timestampSupport)
 
-  override protected lazy val collectionName: String   = mongoLockRepository.collectionName
-  override protected lazy val indexes: Seq[IndexModel] = mongoLockRepository.indexes
+  override protected lazy val collectionName: String          = mongoLockRepository.collectionName
+  override protected lazy val indexes: Seq[IndexModel]        = mongoLockRepository.indexes
+  override protected lazy val optSchema: Option[BsonDocument] = mongoLockRepository.optSchema
 
   private val lockId = "lockId"
   private val owner  = "owner"

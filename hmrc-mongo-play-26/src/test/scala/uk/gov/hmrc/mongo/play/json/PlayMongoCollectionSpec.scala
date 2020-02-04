@@ -18,9 +18,10 @@ package uk.gov.hmrc.mongo.play.json
 
 import java.{time => jat}
 
+import com.mongodb.MongoWriteException
 import org.bson.types.ObjectId
 import org.joda.{time => jot}
-import org.mongodb.scala.bson.BsonDocument
+import org.mongodb.scala.bson.{BsonDocument, BsonString}
 import org.mongodb.scala.Completed
 import org.mongodb.scala.model.{Filters, Updates}
 import org.scalacheck.{Arbitrary, Gen}
@@ -35,8 +36,9 @@ import play.api.libs.functional.syntax._
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.play.json.formats.{MongoFormats, MongoJavatimeFormats, MongoJodaFormats}
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
+import ExecutionContext.Implicits.global
 
 class PlayMongoCollectionSpec
     extends AnyWordSpecLike
@@ -66,7 +68,8 @@ class PlayMongoCollectionSpec
   import Implicits._
   import MongoFormats.Implicits._
   import MongoJodaFormats.Implicits._
-  // Note without the following import, it will compile, but use plays Javatime formats, and fail in runtime
+  // Note without the following import, it will compile, but use plays Javatime formats.
+  // Applying `myObjectSchema` will check that dates are being stored as dates
   import MongoJavatimeFormats.Implicits._
 
   "PlayMongoCollection.collection" should {
@@ -124,7 +127,7 @@ class PlayMongoCollectionSpec
 
           def checkUpdate[A: Writes](key: String, value: A): Assertion =
             playMongoCollection.collection
-              .updateOne(filter = new com.mongodb.BasicDBObject(), update = Updates.set(key, toBson(value)))
+              .updateOne(filter = BsonDocument(), update = Updates.set(key, toBson(value)))
               .toFuture
               .futureValue
               .wasAcknowledged shouldBe true
@@ -150,18 +153,56 @@ class PlayMongoCollectionSpec
         }
       }
     }
-  }
 
-  def prepareDatabase(): Unit = {
-    val exists = MongoUtils.existsCollection(mongoComponent, playMongoCollection.collection).futureValue
-    if (exists) {
-      playMongoCollection.collection.drop().toFuture.futureValue
+    "validate against jsonSchema" in {
+      forAll(myObjectGen) { originalObj =>
+        forAll(myObjectGen suchThat (_ != originalObj)) { targetObj =>
+          prepareDatabase()
+
+          val result = playMongoCollection.collection.insertOne(originalObj).toFuture
+          result.futureValue shouldBe Completed()
+
+          def checkUpdateFails[A](key: String, value: A)(implicit ev: Writes[A]): Assertion =
+            whenReady {
+              playMongoCollection.collection
+                .updateOne(filter = BsonDocument(), update = Updates.set(key, toBson(value)))
+                .toFuture
+                .failed
+            } { e =>
+              e            shouldBe a[MongoWriteException]
+              e.getMessage should include("Document failed validation")
+           }
+
+          // updates should fail with the wrong Writers
+          checkUpdateFails("javaInstant", targetObj.javaInstant)(Writes.DefaultInstantWrites)
+          checkUpdateFails("javaLocalDate", targetObj.javaLocalDate)(Writes.DefaultLocalDateWrites)
+          checkUpdateFails("javaLocalDateTime", targetObj.javaLocalDateTime)(Writes.DefaultLocalDateTimeWrites)
+        }
+      }
     }
   }
 
+  def prepareDatabase(): Unit =
+    (for {
+      exists <- MongoUtils.existsCollection(mongoComponent, playMongoCollection.collection)
+      _      <- if (exists) playMongoCollection.collection.deleteMany(BsonDocument()).toFuture
+                else Future.successful(())
+     } yield ()
+    ).futureValue
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    mongoComponent.database.drop().toFuture.futureValue
+    // ensure jsonSchema is defined as expected
+    (for {
+       collections <- mongoComponent.database.listCollections.toFuture
+       collection  =  collections.find(_.get("name") == Some(BsonString(playMongoCollection.collection.namespace.getCollectionName)))
+       _           =  collection.isDefined shouldBe true
+       options     =  collection.flatMap(_.get[BsonDocument]("options"))
+       _           =  options.exists(_.containsKey("validator")) shouldBe true
+       validator   =  options.get.getDocument("validator")
+       _           =  Option(validator.get(f"$$jsonSchema")) shouldBe playMongoCollection.optSchema
+     } yield ()
+    ).futureValue
   }
 }
 
@@ -270,28 +311,30 @@ object PlayMongoCollectionSpec {
     ~ (__ \ "objectId").format[ObjectId])(MyObject.apply, unlift(MyObject.unapply))
   }
 
-  val myObjectSchema = BsonDocument(
-    """
-    { bsonType: "object"
-    , properties:
-      { _id              : { bsonType: "objectId" }
-      , string           : { bsonType: "string"   }
-      , boolean          : { bsonType: "bool"     }
-      , int              : { bsonType: "int"      }
-      , long_disabled             : { bsonType: "long"     }
-      , double_disabled           : { bsonType: "double"   }
-      , bigDecimal_disabled       : { bsonType: "double"   }
-      , sum              : { bsonType: "string"   }
-      , jodaDateTime     : { bsonType: "date"     }
-      , jodaLocalDate    : { bsonType: "date"     }
-      , jodaLocalDateTime: { bsonType: "date"     }
-      , javaInstant      : { bsonType: "date"     }
-      , javaLocalDate    : { bsonType: "date"     }
-      , javaLocalDateTime: { bsonType: "date"     }
+  val myObjectSchema =
+    // Note, we can't assert specific bsonTypes for numbers (long, double, decimal), since we go via Json, and loose specific number types.
+    BsonDocument(
+      """
+      { bsonType: "object"
+      , properties:
+        { _id              : { bsonType: "objectId" }
+        , string           : { bsonType: "string"   }
+        , boolean          : { bsonType: "bool"     }
+        , int              : { bsonType: "int"      }
+        , long             : { bsonType: "number"   }
+        , double           : { bsonType: "number"   }
+        , bigDecimal       : { bsonType: "number"   }
+        , sum              : { enum: [ "Sum1", "Sum2" ] }
+        , jodaDateTime     : { bsonType: "date"     }
+        , jodaLocalDate    : { bsonType: "date"     }
+        , jodaLocalDateTime: { bsonType: "date"     }
+        , javaInstant      : { bsonType: "date"     }
+        , javaLocalDate    : { bsonType: "date"     }
+        , javaLocalDateTime: { bsonType: "date"     }
+        }
       }
-    }
-    """
-  )
+      """
+    )
 
   def myObjectGen =
     for {

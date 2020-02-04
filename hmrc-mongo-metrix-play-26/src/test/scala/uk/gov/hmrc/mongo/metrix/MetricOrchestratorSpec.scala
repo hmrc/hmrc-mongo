@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.{Metric, MetricFilter, MetricRegistry}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.Inside._
 import org.scalatest.LoneElement
@@ -280,8 +281,9 @@ class MetricOrchestratorSpec
   private val metricRegistry        = new MetricRegistry()
   private val mongoMetricRepository = new MongoMetricRepository(mongoComponent, throttleConfig)
 
-  override protected val collectionName: String   = mongoMetricRepository.collectionName
-  override protected val indexes: Seq[IndexModel] = mongoMetricRepository.indexes
+  override protected val collectionName: String          = mongoMetricRepository.collectionName
+  override protected val indexes: Seq[IndexModel]        = mongoMetricRepository.indexes
+  override protected val optSchema: Option[BsonDocument] = mongoMetricRepository.optSchema
 
   override def beforeEach(): Unit = {
     super.beforeEach()

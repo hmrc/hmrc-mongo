@@ -63,7 +63,7 @@ trait MongoCollectionSupport extends MongoSupport {
 
   protected def indexes: Seq[IndexModel]
 
-  protected def jsonSchema: Option[BsonDocument] = None
+  protected def optSchema: Option[BsonDocument]
 
   protected lazy val mongoCollection: MongoCollection[Document] =
     mongoDatabase.getCollection(collectionName)
@@ -105,10 +105,8 @@ trait MongoCollectionSupport extends MongoSupport {
       .futureValue
 
   protected def ensureSchemas(): Unit =
-    jsonSchema.fold(()){ schema =>
-      MongoUtils.ensureSchema(mongoComponent, mongoCollection, schema)
-        .futureValue
-    }
+    MongoUtils.ensureSchema(mongoComponent, mongoCollection, optSchema)
+      .futureValue
 
   override protected def prepareDatabase(): Unit = {
     super.prepareDatabase()

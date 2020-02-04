@@ -17,8 +17,8 @@
 package uk.gov.hmrc.mongo
 
 import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, MongoWriteException}
+import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.{IndexModel, ValidationAction, ValidationLevel}
-import org.mongodb.scala.Document
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -57,30 +57,37 @@ trait MongoUtils {
       } yield collections.contains(collection.namespace.getCollectionName)
 
 
+  /** Create the schema if defined, or remove if not defined.
+    * Note, the collection will be created if it does not exist yet.
+    */
   def ensureSchema[A](
       mongoComponent: MongoComponent,
       collection: MongoCollection[A],
-      schema: Document
+      optSchema: Option[BsonDocument]
     )(implicit ec: ExecutionContext
-    ): Future[Unit] = {
-      logger.info(s"Applying schema to ${collection.namespace}")
+    ): Future[Unit] =
       for {
-        exists <- existsCollection(mongoComponent, collection)
-        _      <- if (!exists) {
-                    mongoComponent.database.createCollection(collection.namespace.getCollectionName).toFuture
-                  } else Future.successful(())
-        _      <- mongoComponent.database
-                    .runCommand(
-                      Document(
-                        "collMod"          -> collection.namespace.getCollectionName,
-                        "validator"        -> Document(f"$$jsonSchema" -> schema),
-                        "validationLevel"  -> ValidationLevel.STRICT.getValue,
-                        "validationAction" -> ValidationAction.ERROR.getValue
-                      )
-                    )
-                    .toFuture
+        _       <- Future.successful(logger.info(s"Ensuring ${collection.namespace} has ${optSchema.fold("no")(_ => "a")} jsonSchema"))
+        exists  <- existsCollection(mongoComponent, collection)
+        _       <- if (!exists) {
+                     mongoComponent.database.createCollection(collection.namespace.getCollectionName).toFuture
+                   } else Future.successful(())
+        collMod =  optSchema.fold(
+                     Document(
+                       "collMod"          -> collection.namespace.getCollectionName,
+                       "validator"        -> Document(),
+                       "validationLevel"  -> ValidationLevel.OFF.getValue
+                     )
+                   )(schema =>
+                       Document(
+                         "collMod"          -> collection.namespace.getCollectionName,
+                         "validator"        -> Document(f"$$jsonSchema" -> schema),
+                         "validationLevel"  -> ValidationLevel.STRICT.getValue,
+                         "validationAction" -> ValidationAction.ERROR.getValue
+                       )
+                   )
+        _       <- mongoComponent.database.runCommand(collMod).toFuture
        } yield ()
-    }
 
   object IndexConflict {
     val IndexOptionsConflict  = 85 // e.g. change of ttl option
@@ -93,11 +100,11 @@ trait MongoUtils {
   }
 
   object DuplicateKey {
-    val DuplicateKey  = 11000
+    val Code = 11000
     def unapply(e: MongoWriteException): Option[MongoWriteException] =
       e.getError.getCode match {
-        case DuplicateKey => Some(e)
-        case _            => None
+        case Code => Some(e)
+        case _    => None
       }
   }
 }
