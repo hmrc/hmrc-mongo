@@ -53,6 +53,6 @@ class PlayMongoCollection[A: ClassTag](
 
   def ensureSchema: Future[Unit] =
     optSchema.fold(Future.successful(()))(schema =>
-      MongoUtils.ensureSchema(mongoComponent, collectionName, schema)
+      MongoUtils.ensureSchema(mongoComponent, collection, schema)
     )
 }

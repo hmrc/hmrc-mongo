@@ -20,6 +20,7 @@ import java.{time => jat}
 
 import org.bson.types.ObjectId
 import org.joda.{time => jot}
+import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.Completed
 import org.mongodb.scala.model.{Filters, Updates}
 import org.scalacheck.{Arbitrary, Gen}
@@ -27,10 +28,11 @@ import org.scalatest.compatible.Assertion
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.BeforeAndAfterAll
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.play.json.formats.{MongoFormats, MongoJavatimeFormats, MongoJodaFormats}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -40,7 +42,8 @@ class PlayMongoCollectionSpec
     extends AnyWordSpecLike
     with Matchers
     with ScalaFutures
-    with ScalaCheckDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks
+    with BeforeAndAfterAll {
 
   import Codecs.toBson
   import PlayMongoCollectionSpec._
@@ -55,8 +58,9 @@ class PlayMongoCollectionSpec
   val playMongoCollection = new PlayMongoCollection[MyObject](
     mongoComponent = mongoComponent,
     collectionName = "myobject",
-    domainFormat   = MongoFormats.mongoEntity(myObjectFormat),
-    indexes        = Seq.empty
+    domainFormat   = myObjectFormat,
+    indexes        = Seq.empty,
+    optSchema      = Some(myObjectSchema)
   )
 
   import Implicits._
@@ -69,7 +73,7 @@ class PlayMongoCollectionSpec
 
     "read and write object with fields" in {
       forAll(myObjectGen) { myObj =>
-        dropDatabase()
+        prepareDatabase()
 
         val result = playMongoCollection.collection.insertOne(myObj).toFuture
         result.futureValue shouldBe Completed()
@@ -81,7 +85,7 @@ class PlayMongoCollectionSpec
 
     "filter by fields" in {
       forAll(myObjectGen) { myObj =>
-        dropDatabase()
+        prepareDatabase()
 
         val result = playMongoCollection.collection.insertOne(myObj).toFuture
         result.futureValue shouldBe Completed()
@@ -92,7 +96,7 @@ class PlayMongoCollectionSpec
             .toFuture
             .futureValue shouldBe List(myObj)
 
-        checkFind("_id", myObj.id) // Note, even with mongoEntity, we have to use internal key
+        checkFind("_id", myObj.id)
         checkFind("string", myObj.string)
         checkFind("boolean", myObj.boolean)
         checkFind("int", myObj.int)
@@ -113,7 +117,7 @@ class PlayMongoCollectionSpec
     "update fields" in {
       forAll(myObjectGen) { originalObj =>
         forAll(myObjectGen suchThat (_ != originalObj)) { targetObj =>
-          dropDatabase()
+          prepareDatabase()
 
           val result = playMongoCollection.collection.insertOne(originalObj).toFuture
           result.futureValue shouldBe Completed()
@@ -148,11 +152,17 @@ class PlayMongoCollectionSpec
     }
   }
 
-  def dropDatabase() =
-    mongoComponent.database
-      .drop()
-      .toFuture
-      .futureValue
+  def prepareDatabase(): Unit = {
+    val exists = MongoUtils.existsCollection(mongoComponent, playMongoCollection.collection).futureValue
+    if (exists) {
+      playMongoCollection.collection.drop().toFuture.futureValue
+    }
+  }
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+    mongoComponent.database.drop().toFuture.futureValue
+  }
 }
 
 object PlayMongoCollectionSpec {
@@ -240,24 +250,48 @@ object PlayMongoCollectionSpec {
     import Implicits._
     import MongoFormats.Implicits._
     import MongoJodaFormats.Implicits._
-    // Note without the following import, it will compile, but use plays Javatime formats, and fail in runtime
+    // Note without the following import, it will compile, but use plays Javatime formats.
+    // Applying `myObjectSchema` will check that dates are being stored as dates
     import MongoJavatimeFormats.Implicits._
-    ((__ \ "id").format[ObjectId]
-      ~ (__ \ "string").format[StringWrapper]
-      ~ (__ \ "boolean").format[BooleanWrapper]
-      ~ (__ \ "int").format[IntWrapper]
-      ~ (__ \ "long").format[LongWrapper]
-      ~ (__ \ "double").format[DoubleWrapper]
-      ~ (__ \ "bigDecimal").format[BigDecimalWrapper]
-      ~ (__ \ "sum").format[Sum]
-      ~ (__ \ "jodaDateTime").format[jot.DateTime]
-      ~ (__ \ "jodaLocalDate").format[jot.LocalDate]
-      ~ (__ \ "jodaLocalDateTime").format[jot.LocalDateTime]
-      ~ (__ \ "javaInstant").format[jat.Instant]
-      ~ (__ \ "javaLocalDate").format[jat.LocalDate]
-      ~ (__ \ "javaLocalDateTime").format[jat.LocalDateTime]
-      ~ (__ \ "objectId").format[ObjectId])(MyObject.apply, unlift(MyObject.unapply))
+    ( (__ \ "_id").format[ObjectId]
+    ~ (__ \ "string").format[StringWrapper]
+    ~ (__ \ "boolean").format[BooleanWrapper]
+    ~ (__ \ "int").format[IntWrapper]
+    ~ (__ \ "long").format[LongWrapper]
+    ~ (__ \ "double").format[DoubleWrapper]
+    ~ (__ \ "bigDecimal").format[BigDecimalWrapper]
+    ~ (__ \ "sum").format[Sum]
+    ~ (__ \ "jodaDateTime").format[jot.DateTime]
+    ~ (__ \ "jodaLocalDate").format[jot.LocalDate]
+    ~ (__ \ "jodaLocalDateTime").format[jot.LocalDateTime]
+    ~ (__ \ "javaInstant").format[jat.Instant]
+    ~ (__ \ "javaLocalDate").format[jat.LocalDate]
+    ~ (__ \ "javaLocalDateTime").format[jat.LocalDateTime]
+    ~ (__ \ "objectId").format[ObjectId])(MyObject.apply, unlift(MyObject.unapply))
   }
+
+  val myObjectSchema = BsonDocument(
+    """
+    { bsonType: "object"
+    , properties:
+      { _id              : { bsonType: "objectId" }
+      , string           : { bsonType: "string"   }
+      , boolean          : { bsonType: "bool"     }
+      , int              : { bsonType: "int"      }
+      , long_disabled             : { bsonType: "long"     }
+      , double_disabled           : { bsonType: "double"   }
+      , bigDecimal_disabled       : { bsonType: "double"   }
+      , sum              : { bsonType: "string"   }
+      , jodaDateTime     : { bsonType: "date"     }
+      , jodaLocalDate    : { bsonType: "date"     }
+      , jodaLocalDateTime: { bsonType: "date"     }
+      , javaInstant      : { bsonType: "date"     }
+      , javaLocalDate    : { bsonType: "date"     }
+      , javaLocalDateTime: { bsonType: "date"     }
+      }
+    }
+    """
+  )
 
   def myObjectGen =
     for {

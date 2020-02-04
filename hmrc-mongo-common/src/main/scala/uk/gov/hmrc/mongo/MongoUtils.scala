@@ -17,7 +17,7 @@
 package uk.gov.hmrc.mongo
 
 import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, MongoWriteException}
-import org.mongodb.scala.model.IndexModel
+import org.mongodb.scala.model.{IndexModel, ValidationAction, ValidationLevel}
 import org.mongodb.scala.Document
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -47,24 +47,39 @@ trait MongoUtils {
         }
     }
 
-  def ensureSchema(
+  def existsCollection[A](
       mongoComponent: MongoComponent,
-      collectionName: String,
+      collection: MongoCollection[A]
+    )(implicit ec: ExecutionContext
+    ): Future[Boolean] =
+      for {
+        collections <- mongoComponent.database.listCollectionNames.toFuture
+      } yield collections.contains(collection.namespace.getCollectionName)
+
+
+  def ensureSchema[A](
+      mongoComponent: MongoComponent,
+      collection: MongoCollection[A],
       schema: Document
     )(implicit ec: ExecutionContext
     ): Future[Unit] = {
-      logger.info("Applying schema")
-      mongoComponent.database
-        .runCommand(
-          Document(
-            "collMod"          -> collectionName,
-            "validator"        -> Document(f"$$jsonSchema" -> schema),
-            "validationLevel"  -> "strict",
-            "validationAction" -> "error"
-          )
-        )
-        .toFuture
-        .map(_ => ())
+      logger.info(s"Applying schema to ${collection.namespace}")
+      for {
+        exists <- existsCollection(mongoComponent, collection)
+        _      <- if (!exists) {
+                    mongoComponent.database.createCollection(collection.namespace.getCollectionName).toFuture
+                  } else Future.successful(())
+        _      <- mongoComponent.database
+                    .runCommand(
+                      Document(
+                        "collMod"          -> collection.namespace.getCollectionName,
+                        "validator"        -> Document(f"$$jsonSchema" -> schema),
+                        "validationLevel"  -> ValidationLevel.STRICT.getValue,
+                        "validationAction" -> ValidationAction.ERROR.getValue
+                      )
+                    )
+                    .toFuture
+       } yield ()
     }
 
   object IndexConflict {

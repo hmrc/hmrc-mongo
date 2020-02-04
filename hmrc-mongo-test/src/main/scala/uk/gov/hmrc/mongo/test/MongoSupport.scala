@@ -22,7 +22,6 @@ import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.{Completed, Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Configuration
-import play.api.Logger
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.throttle.ThrottleConfig
 
@@ -101,19 +100,19 @@ trait MongoCollectionSupport extends MongoSupport {
       .toFuture
       .futureValue
 
-  protected def createIndexes(): Seq[String] =
+  protected def ensureIndexes(): Seq[String] =
     MongoUtils.ensureIndexes(mongoCollection, indexes, rebuildIndexes = false)
       .futureValue
 
-  protected def createSchemas(): Unit =
+  protected def ensureSchemas(): Unit =
     jsonSchema.fold(()){ schema =>
-      MongoUtils.ensureSchema(mongoComponent, collectionName, schema)
+      MongoUtils.ensureSchema(mongoComponent, mongoCollection, schema)
         .futureValue
     }
 
   override protected def prepareDatabase(): Unit = {
     super.prepareDatabase()
-    createIndexes()
-    createSchemas()
+    ensureIndexes()
+    ensureSchemas()
   }
 }
