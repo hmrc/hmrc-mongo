@@ -13,8 +13,10 @@ object AppDependencies {
     "ch.qos.logback"       % "logback-classic"           % "1.2.3"        % Test,
   )
 
-  lazy val mongoCommon: Seq[ModuleID] =
-    Seq("org.mongodb.scala" %% "mongo-scala-driver" % "2.8.0")
+  lazy val mongoCommon: Seq[ModuleID] = Seq(
+    "org.mongodb.scala" %% "mongo-scala-driver" % "2.8.0",
+    "org.slf4j"         %  "slf4j-api"          % "1.7.30"
+  )
 
   lazy val metrixCommon: Seq[ModuleID] =
     Seq("io.dropwizard.metrics" % "metrics-graphite" % "3.2.6")
@@ -31,10 +33,17 @@ object AppDependencies {
 
   lazy val hmrcMongoCachePlay26: Seq[ModuleID] = Seq() ++ mongoCommon ++ test
 
-  lazy val hmrcMongoTest: Seq[ModuleID] = Seq(
-    "com.vladsch.flexmark"    % "flexmark-all"   % "0.35.10",
-    "org.scalatest"           %% "scalatest"     % "3.1.0"
-  ) ++ mongoCommon ++ test
+  lazy val hmrcMongoTestPlay26: Seq[ModuleID] = Seq(
+    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
+    "org.scalatest"         %% "scalatest"       % "3.1.0",
+    "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
+  ) ++ mongoCommon ++ hmrcMongoPlay26 ++ test
+
+  lazy val hmrcMongoTestPlay27: Seq[ModuleID] = Seq(
+    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
+    "org.scalatest"         %% "scalatest"       % "3.1.0",
+    "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
+  ) ++ mongoCommon ++ hmrcMongoPlay27 ++ test
 
   lazy val hmrcMongoMetrixPlay26: Seq[ModuleID] = Seq(
     "com.kenshoo"           %% "metrics-play"    % "2.6.19_0.7.0",
@@ -45,5 +54,4 @@ object AppDependencies {
     "com.kenshoo"           %% "metrics-play"    % "2.7.3_0.8.1",
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
   ) ++ hmrcMongoPlay27 ++ metrixCommon
-
 }

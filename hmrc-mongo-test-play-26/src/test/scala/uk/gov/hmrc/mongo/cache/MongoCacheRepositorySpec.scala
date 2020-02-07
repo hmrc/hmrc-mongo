@@ -26,7 +26,7 @@ import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.play.json.Codecs._
-import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
+import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoCollectionSupport}
 import uk.gov.hmrc.mongo.{CurrentTimestampSupport, TimestampSupport}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -143,7 +143,7 @@ class MongoCacheRepositorySpec
     override def timestamp(): Instant = now
   }
 
-  private val cacheRepository = new MongoCacheRepository[String](
+  override protected val cacheRepository = new MongoCacheRepository[String](
     mongoComponent   = mongoComponent,
     collectionName   = "play-mongo-cache",
     ttl              = ttl,
