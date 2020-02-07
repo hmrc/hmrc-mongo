@@ -24,6 +24,7 @@ import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.Updates
 import play.api.Logger
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
+import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
 import uk.gov.hmrc.mongo.play.json.PlayMongoCollection
 
 import scala.concurrent.duration.Duration
@@ -85,7 +86,6 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
     with LockRepository {
 
   private val logger       = Logger(getClass)
-  private val duplicateKey = "11000"
 
   override def lock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = {
     val timeCreated = timestampSupport.timestamp()
@@ -114,7 +114,7 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
     logger.debug(s"Releasing lock '$lockId' for '$owner'")
     collection
       .deleteOne(filter = and(equal(Lock.id, lockId), equal(Lock.owner, owner)))
-      .toFuture()
+      .toFuture
       .map(_ => ())
   }
 
@@ -128,7 +128,7 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
         filter = and(equal(Lock.id, lockId), equal(Lock.owner, owner), gte(Lock.expiryTime, timeCreated)),
         update = Updates.set(Lock.expiryTime, expiryTime)
       )
-      .toFutureOption()
+      .toFutureOption
       .map {
         case Some(_) =>
           logger.debug(s"Could not renew lock '$lockId' for '$owner' that does not exist or has expired")
@@ -138,7 +138,7 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
           false
       }
       .recover {
-        case e if e.getMessage.contains(duplicateKey) =>
+        case DuplicateKey(e) =>
           logger.debug(s"Unable to renew lock '$lockId' for '$owner'")
           false
       }
@@ -147,7 +147,6 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
   override def isLocked(lockId: String, owner: String): Future[Boolean] =
     collection
       .find(and(equal(Lock.id, lockId), equal(Lock.owner, owner), gt(Lock.expiryTime, timestampSupport.timestamp())))
-      .toFuture()
+      .toFuture
       .map(_.nonEmpty)
-
 }

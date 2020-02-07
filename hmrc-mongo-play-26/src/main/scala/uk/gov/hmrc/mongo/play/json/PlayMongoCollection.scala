@@ -16,12 +16,12 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import org.bson.codecs.configuration.CodecRegistry
-import org.mongodb.scala._
+import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.IndexModel
+import org.mongodb.scala.bson.BsonDocument
 import play.api.Logger
 import play.api.libs.json.Format
-import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection}
+import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
@@ -31,8 +31,8 @@ class PlayMongoCollection[A: ClassTag](
   mongoComponent: MongoComponent,
   val collectionName: String,
   domainFormat: Format[A],
-  optRegistry: Option[CodecRegistry] = None,
   val indexes: Seq[IndexModel],
+  val optSchema: Option[BsonDocument] = None,
   rebuildIndexes: Boolean = false
 )(implicit ec: ExecutionContext)
     extends MongoDatabaseCollection {
@@ -40,38 +40,22 @@ class PlayMongoCollection[A: ClassTag](
   private val logger = Logger(getClass)
 
   val collection: MongoCollection[A] =
-    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, optRegistry)
+    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat)
 
-  Await.result(ensureIndexes(), 5.seconds)
+  Await.result(ensureIndexes, 5.seconds)
 
-  def ensureIndexes(): Future[Seq[String]] = {
+  Await.result(ensureSchema, 5.seconds)
+
+  def ensureIndexes: Future[Seq[String]] = {
     if (indexes.isEmpty)
       logger.info("Skipping Mongo index creation as no indexes supplied")
-
-    Future.traverse(indexes) { index =>
-      collection
-        .createIndex(index.getKeys, index.getOptions)
-        .toFuture()
-        .recoverWith {
-          case PlayMongoCollection.IndexConflict(e) if rebuildIndexes =>
-            logger.warn("Conflicting Mongo index found. This index will be updated")
-            for {
-              _      <- collection.dropIndex(index.getOptions.getName).toFuture()
-              result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
-            } yield result
-        }
-    }
+    MongoUtils.ensureIndexes(collection, indexes, rebuildIndexes)
   }
-}
 
-object PlayMongoCollection {
-  object IndexConflict {
-    val IndexOptionsConflict  = 85 // e.g. change of ttl option
-    val IndexKeySpecsConflict = 86 // e.g. change of field name
-    def unapply(e: MongoCommandException): Option[MongoCommandException] =
-      e.getErrorCode match {
-        case IndexOptionsConflict | IndexKeySpecsConflict => Some(e)
-        case _                                            => None
-      }
-  }
+  def ensureSchema: Future[Unit] =
+    // if schema is not defined, leave any existing ones
+    if (optSchema.isDefined)
+      MongoUtils.ensureSchema(mongoComponent, collection, optSchema)
+    else
+      Future.successful(())
 }

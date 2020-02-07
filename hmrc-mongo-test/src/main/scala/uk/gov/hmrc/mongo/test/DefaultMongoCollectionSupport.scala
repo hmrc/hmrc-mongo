@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.test
 
-import org.scalatest._
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, TestSuite}
 import scala.concurrent.duration.DurationInt
 
 trait DefaultMongoCollectionSupport extends CleanMongoCollectionSupport with IndexedMongoQueriesSupport {

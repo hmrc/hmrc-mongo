@@ -17,11 +17,12 @@
 package uk.gov.hmrc.mongo.test
 
 import org.mongodb.scala.bson.conversions.Bson
+import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.{Completed, Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Configuration
-import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.throttle.ThrottleConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -62,6 +63,8 @@ trait MongoCollectionSupport extends MongoSupport {
 
   protected def indexes: Seq[IndexModel]
 
+  protected def optSchema: Option[BsonDocument]
+
   protected lazy val mongoCollection: MongoCollection[Document] =
     mongoDatabase.getCollection(collectionName)
 
@@ -97,18 +100,17 @@ trait MongoCollectionSupport extends MongoSupport {
       .toFuture
       .futureValue
 
-  protected def createIndexes(): Seq[String] =
-    if (indexes.nonEmpty) {
-      mongoCollection
-        .createIndexes(indexes)
-        .toFuture
-        .futureValue
-    } else {
-      Seq.empty
-    }
+  protected def ensureIndexes(): Seq[String] =
+    MongoUtils.ensureIndexes(mongoCollection, indexes, rebuildIndexes = false)
+      .futureValue
+
+  protected def ensureSchemas(): Unit =
+    MongoUtils.ensureSchema(mongoComponent, mongoCollection, optSchema)
+      .futureValue
 
   override protected def prepareDatabase(): Unit = {
     super.prepareDatabase()
-    createIndexes()
+    ensureIndexes()
+    ensureSchemas()
   }
 }

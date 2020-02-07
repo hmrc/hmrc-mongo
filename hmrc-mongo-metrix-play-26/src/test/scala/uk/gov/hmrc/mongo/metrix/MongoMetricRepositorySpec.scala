@@ -16,12 +16,11 @@
 
 package uk.gov.hmrc.mongo.metrix
 
+import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.LoneElement
-import play.api.Configuration
 import org.scalatest.concurrent.ScalaFutures
 import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
-import uk.gov.hmrc.mongo.throttle.ThrottleConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -39,6 +38,7 @@ class MongoMetricRepositorySpec extends UnitSpec with ScalaFutures with LoneElem
     }
   }
 
-  override protected val collectionName: String   = metricsRepo.collectionName
-  override protected val indexes: Seq[IndexModel] = metricsRepo.indexes
+  override protected val collectionName: String          = metricsRepo.collectionName
+  override protected val indexes: Seq[IndexModel]        = metricsRepo.indexes
+  override protected val optSchema: Option[BsonDocument] = metricsRepo.optSchema
 }

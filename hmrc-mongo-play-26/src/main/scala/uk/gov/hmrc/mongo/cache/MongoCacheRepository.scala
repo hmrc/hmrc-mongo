@@ -43,8 +43,7 @@ class MongoCacheRepository[CacheId] @Inject() (
       mongoComponent = mongoComponent,
       collectionName = collectionName,
       domainFormat   = MongoCacheRepository.format,
-      optRegistry    = None,
-      indexes = Seq(
+      indexes        = Seq(
         IndexModel(
           Indexes.ascending("modifiedDetails.lastUpdated"),
           IndexOptions()

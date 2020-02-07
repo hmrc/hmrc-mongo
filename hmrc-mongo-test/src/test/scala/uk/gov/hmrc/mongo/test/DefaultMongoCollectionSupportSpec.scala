@@ -19,7 +19,7 @@ package uk.gov.hmrc.mongo.test
 import com.mongodb.MongoQueryException
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import com.mongodb.client.model.Indexes
-import org.mongodb.scala.bson.BsonString
+import org.mongodb.scala.bson.{BsonString, BsonDocument}
 import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.Matchers.{include, _}
@@ -71,6 +71,7 @@ class DefaultMongoCollectionSupportSpec extends WordSpec with DefaultMongoCollec
     }
   }
 
-  override protected val collectionName: String   = "test-collection"
-  override protected val indexes: Seq[IndexModel] = Seq(IndexModel(Indexes.ascending("indexed")))
+  override protected val collectionName: String          = "test-collection"
+  override protected val indexes: Seq[IndexModel]        = Seq(IndexModel(Indexes.ascending("indexed")))
+  override protected val optSchema: Option[BsonDocument] = None
 }

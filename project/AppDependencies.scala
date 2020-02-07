@@ -9,7 +9,8 @@ object AppDependencies {
     "org.scalatest"        %% "scalatest"                % "3.1.0"        % Test,
     "org.scalacheck"       %% "scalacheck"               % "1.14.3"       % Test,
     "org.scalatestplus"    %% "scalatestplus-scalacheck" % "3.1.0.0-RC2"  % Test,
-    "com.vladsch.flexmark" % "flexmark-all"              % "0.35.10"      % Test
+    "com.vladsch.flexmark" % "flexmark-all"              % "0.35.10"      % Test,
+    "ch.qos.logback"       % "logback-classic"           % "1.2.3"        % Test,
   )
 
   lazy val mongoCommon: Seq[ModuleID] =

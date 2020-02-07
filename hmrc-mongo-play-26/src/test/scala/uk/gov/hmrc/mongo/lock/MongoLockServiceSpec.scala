@@ -19,6 +19,7 @@ package uk.gov.hmrc.mongo.lock
 import java.time.Instant
 
 import com.mongodb.client.model.Filters.{eq => mongoEq}
+import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -153,6 +154,7 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
   private val mongoLockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
   private val mongoLockService    = mongoLockRepository.toService(lockId, ttl)
 
-  override protected val collectionName: String   = mongoLockRepository.collectionName
-  override protected val indexes: Seq[IndexModel] = Seq()
+  override protected val collectionName: String               = mongoLockRepository.collectionName
+  override protected val indexes: Seq[IndexModel]             = Seq()
+  override protected lazy val optSchema: Option[BsonDocument] = mongoLockRepository.optSchema
 }
