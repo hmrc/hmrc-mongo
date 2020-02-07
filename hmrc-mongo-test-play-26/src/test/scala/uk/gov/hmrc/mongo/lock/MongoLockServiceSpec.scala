@@ -25,13 +25,17 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
 import uk.gov.hmrc.mongo.play.json.Codecs._
-import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
+import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoCollectionSupport}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, DurationInt}
 
-class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMongoCollectionSupport {
+class MongoLockServiceSpec
+  extends AnyWordSpecLike
+     with Matchers
+     with DefaultMongoCollectionSupport
+     with PlayMongoCollectionSupport[Lock] {
 
   "attemptLockWithRelease" should {
     "obtain lock, run the block supplied and release the lock" in {
@@ -116,7 +120,7 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
 
     "not execute the body and exit if the lock for another serverId exists" in {
       var counter = 0
-      mongoLockRepository
+      collection
         .toService(lockId, ttl)
         .attemptLockWithRefreshExpiry {
           Future.successful(counter += 1)
@@ -151,10 +155,6 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
   private val ttl: Duration = 1000.millis
   private val now           = Instant.now()
 
-  private val mongoLockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
-  private val mongoLockService    = mongoLockRepository.toService(lockId, ttl)
-
-  override protected val collectionName: String               = mongoLockRepository.collectionName
-  override protected val indexes: Seq[IndexModel]             = Seq()
-  override protected lazy val optSchema: Option[BsonDocument] = mongoLockRepository.optSchema
+  override protected val collection = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
+  private val mongoLockService    = collection.toService(lockId, ttl)
 }

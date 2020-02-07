@@ -31,10 +31,6 @@ import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-// : uk.gov.hmrc.mongo.cache.MongoCacheRepository[String]
-// required: uk.gov.hmrc.mongo.play.json.PlayMongoCollection[String]
-
-
 class MongoCacheRepository[CacheId] @Inject() (
   mongoComponent: MongoComponent,
   collectionName: String,
