@@ -22,8 +22,7 @@ import com.mongodb.client.model.Filters.{eq => mongoEq}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
-import uk.gov.hmrc.mongo.play.json.Codecs._
-import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoRepositorySupport}
+import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -32,8 +31,7 @@ import scala.concurrent.duration.{Duration, DurationInt}
 class MongoLockServiceSpec
   extends AnyWordSpecLike
      with Matchers
-     with DefaultMongoCollectionSupport
-     with PlayMongoRepositorySupport[Lock] {
+     with DefaultPlayMongoRepositorySupport[Lock] {
 
   "attemptLockWithRelease" should {
     "obtain lock, run the block supplied and release the lock" in {
@@ -43,7 +41,6 @@ class MongoLockServiceSpec
           find(mongoEq(Lock.id, lockId)).map(_.head)
         }
         .futureValue
-        .map(_.fromBson[Lock])
 
       optionalLock.map { lock =>
         lock.id         shouldBe lockId
@@ -68,7 +65,7 @@ class MongoLockServiceSpec
 
     "not run the block supplied if the lock is owned by someone else and return None" in {
       val existingLock = Lock(lockId, "owner2", now, now.plusSeconds(100))
-      insert(existingLock.toDocument()).futureValue
+      insert(existingLock).futureValue
 
       mongoLockService
         .attemptLockWithRelease(fail("Should not execute!"))
@@ -76,12 +73,12 @@ class MongoLockServiceSpec
 
       count().futureValue shouldBe 1
 
-      findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
+      findAll().futureValue.head shouldBe existingLock
     }
 
     "not run the block supplied if the lock is already owned by the caller and return None" in {
       val existingLock = Lock(lockId, owner, now, now.plusSeconds(100))
-      insert(existingLock.toDocument()).futureValue
+      insert(existingLock).futureValue
 
       mongoLockService
         .attemptLockWithRelease(fail("Should not execute!"))
@@ -89,7 +86,7 @@ class MongoLockServiceSpec
 
       count().futureValue shouldBe 1
 
-      findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
+      findAll().futureValue.head shouldBe existingLock
     }
   }
 

@@ -20,13 +20,11 @@ import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.{Metric, MetricFilter, MetricRegistry}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
-import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.IndexModel
 import org.scalatest.Inside._
 import org.scalatest.LoneElement
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
 import uk.gov.hmrc.mongo.lock.{MongoLockRepository, MongoLockService}
-import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoRepositorySupport}
+import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -37,8 +35,7 @@ class MetricOrchestratorSpec
     with LoneElement
     with MockitoSugar
     with ArgumentMatchersSugar
-    with DefaultMongoCollectionSupport
-    with PlayMongoRepositorySupport[PersistedMetric] {
+    with DefaultPlayMongoRepositorySupport[PersistedMetric] {
 
   "metric orchestrator" should {
 

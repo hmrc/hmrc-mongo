@@ -16,11 +16,9 @@
 
 package uk.gov.hmrc.mongo.metrix
 
-import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.IndexModel
 import org.scalatest.LoneElement
 import org.scalatest.concurrent.ScalaFutures
-import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoRepositorySupport}
+import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -28,8 +26,7 @@ class MongoMetricRepositorySpec
   extends UnitSpec
      with ScalaFutures
      with LoneElement
-     with DefaultMongoCollectionSupport
-     with PlayMongoRepositorySupport[PersistedMetric] {
+     with DefaultPlayMongoRepositorySupport[PersistedMetric] {
 
   override lazy val repository = new MongoMetricRepository(mongoComponent, throttleConfig)
 

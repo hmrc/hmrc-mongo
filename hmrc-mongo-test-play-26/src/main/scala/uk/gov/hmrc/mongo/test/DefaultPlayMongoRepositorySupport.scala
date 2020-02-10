@@ -16,14 +16,22 @@
 
 package uk.gov.hmrc.mongo.test
 
-import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.IndexModel
-import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
+import org.scalatest.TestSuite
 
-trait PlayMongoRepositorySupport[A] extends MongoCollectionSupport {
-  protected def repository: PlayMongoRepository[A]
+import scala.concurrent.duration.DurationInt
 
-  override protected lazy val collectionName: String          = repository.collectionName
-  override protected lazy val indexes: Seq[IndexModel]        = repository.indexes
-  override protected lazy val optSchema: Option[BsonDocument] = repository.optSchema
+/** Provides all the typical mongo testing support.
+  *
+  * See [[PlayMongoRepositorySupport]] for setting up.
+  *
+  * In addition it will ensure the database is cleaned, and setup (with indexes and schemas)
+  * before each test.
+  */
+trait DefaultPlayMongoRepositorySupport[A]
+    extends PlayMongoRepositorySupport[A]
+    with CleanMongoCollectionSupport
+    with IndexedMongoQueriesSupport {
+  this: TestSuite =>
+
+  override implicit val patienceConfig = PatienceConfig(timeout = 30.seconds, interval = 100.millis)
 }

@@ -19,24 +19,26 @@ package uk.gov.hmrc.mongo.test
 import com.mongodb.MongoQueryException
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import com.mongodb.client.model.Indexes
-import org.mongodb.scala.bson.{BsonString, BsonDocument}
-import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.Matchers.{include, _}
-import org.scalatest.WordSpec
+import org.scalatest.wordspec.AnyWordSpecLike
+import play.api.libs.json.{Format, Json, JsObject}
+import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
-class DefaultMongoCollectionSupportSpec extends WordSpec with DefaultMongoCollectionSupport {
+import scala.concurrent.ExecutionContext.Implicits.global
+
+class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with DefaultPlayMongoRepositorySupport[JsObject] {
 
   "updateIndexPreference" should {
 
     "throw and exception in a unindexed query" in {
-      mongoCollection
-        .insertOne(Document("unindexed" -> "value"))
+      repository.collection
+        .insertOne(Json.obj("unindexed" -> "value"))
         .toFuture
         .futureValue
 
       whenReady {
-        mongoCollection
+        repository.collection
           .find(mongoEq("unindexed", "value"))
           .toFuture
           .failed
@@ -47,17 +49,19 @@ class DefaultMongoCollectionSupportSpec extends WordSpec with DefaultMongoCollec
     }
 
     "not throw an exception in indexed query" in {
-      mongoCollection
-        .insertOne(Document("indexed" -> "value"))
+      repository.collection
+        .insertOne(Json.obj("indexed" -> "value"))
         .toFuture
         .futureValue
 
-      mongoCollection
+      repository.collection
         .find(mongoEq("indexed", "value"))
         .first()
         .toFuture
         .futureValue
-        .get("indexed") shouldEqual Some(BsonString("value"))
+        .value
+        .get("indexed")
+        .map(_.as[String]) shouldEqual Some("value")
     }
 
     "update notablescan when index preference is to allow only indexed queries" in {
@@ -71,7 +75,11 @@ class DefaultMongoCollectionSupportSpec extends WordSpec with DefaultMongoCollec
     }
   }
 
-  override protected val collectionName: String          = "test-collection"
-  override protected val indexes: Seq[IndexModel]        = Seq(IndexModel(Indexes.ascending("indexed")))
-  override protected val optSchema: Option[BsonDocument] = None
+  override protected lazy val repository =
+    new PlayMongoRepository[JsObject](
+      mongoComponent,
+      collectionName = "test-collection",
+      domainFormat   = Format.of[JsObject],
+      indexes        = Seq(IndexModel(Indexes.ascending("indexed")))
+    )
 }
