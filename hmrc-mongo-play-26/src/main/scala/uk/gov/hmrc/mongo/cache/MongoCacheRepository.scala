@@ -25,7 +25,7 @@ import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, IndexModel, In
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{Format, JsObject, Reads, Writes, __}
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
-import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoCollection}
+import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
 import scala.concurrent.duration.Duration
@@ -39,7 +39,7 @@ class MongoCacheRepository[CacheId] @Inject() (
   timestampSupport: TimestampSupport,
   cacheIdType: CacheIdType[CacheId]
 )(implicit ec: ExecutionContext)
-    extends PlayMongoCollection[CacheItem](
+    extends PlayMongoRepository[CacheItem](
       mongoComponent = mongoComponent,
       collectionName = collectionName,
       domainFormat   = MongoCacheRepository.format,

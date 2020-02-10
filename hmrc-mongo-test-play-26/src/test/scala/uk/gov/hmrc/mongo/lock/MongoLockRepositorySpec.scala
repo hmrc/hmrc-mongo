@@ -20,15 +20,13 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 import com.mongodb.MongoWriteException
-import org.mongodb.scala.bson.BsonDocument
 import com.mongodb.client.model.Filters.{eq => mongoEq}
-import org.mongodb.scala.model.IndexModel
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
 import uk.gov.hmrc.mongo.TimestampSupport
 import uk.gov.hmrc.mongo.play.json.Codecs._
-import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoCollectionSupport}
+import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoRepositorySupport}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
@@ -37,12 +35,12 @@ class MongoLockRepositorySpec
   extends AnyWordSpecLike
      with Matchers
      with DefaultMongoCollectionSupport
-     with PlayMongoCollectionSupport[Lock] {
+     with PlayMongoRepositorySupport[Lock] {
 
   "lock" should {
 
     "successfully create a lock if one does not already exist" in {
-      collection.lock(lockId, owner, ttl).futureValue shouldBe true
+      repository.lock(lockId, owner, ttl).futureValue shouldBe true
 
       count().futureValue shouldBe 1
 
@@ -52,7 +50,7 @@ class MongoLockRepositorySpec
     "successfully create a lock if a different one already exists" in {
       insert(Lock("different-lock", owner, now, now.plus(1, ChronoUnit.SECONDS)).toDocument()).futureValue
 
-      collection.lock(lockId, owner, ttl).futureValue shouldBe true
+      repository.lock(lockId, owner, ttl).futureValue shouldBe true
 
       count().futureValue shouldBe 2
 
@@ -65,7 +63,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock.toDocument()).futureValue
 
-      collection.lock(lockId, owner, ttl).futureValue shouldBe false
+      repository.lock(lockId, owner, ttl).futureValue shouldBe false
 
       count().futureValue shouldBe 1
 
@@ -77,7 +75,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock.toDocument()).futureValue
 
-      collection.lock(lockId, owner, ttl).futureValue shouldBe false
+      repository.lock(lockId, owner, ttl).futureValue shouldBe false
 
       count().futureValue shouldBe 1
 
@@ -89,7 +87,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock.toDocument()).futureValue
 
-      collection.lock(lockId, owner, ttl).futureValue shouldBe true
+      repository.lock(lockId, owner, ttl).futureValue shouldBe true
 
       count().futureValue shouldBe 1
 
@@ -100,7 +98,7 @@ class MongoLockRepositorySpec
   "refreshExpiry" should {
 
     "not renew a lock if one does not already exist" in {
-      collection.refreshExpiry(lockId, owner, ttl).futureValue shouldBe false
+      repository.refreshExpiry(lockId, owner, ttl).futureValue shouldBe false
       count().futureValue                                               shouldBe 0
     }
 
@@ -109,7 +107,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock.toDocument()).futureValue
 
-      collection.refreshExpiry(lockId, owner, ttl).futureValue shouldBe false
+      repository.refreshExpiry(lockId, owner, ttl).futureValue shouldBe false
       count().futureValue                                               shouldBe 1
 
       findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
@@ -120,7 +118,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock.toDocument()).futureValue
 
-      collection.refreshExpiry(lockId, owner, ttl).futureValue shouldBe false
+      repository.refreshExpiry(lockId, owner, ttl).futureValue shouldBe false
 
       count().futureValue shouldBe 1
 
@@ -131,7 +129,7 @@ class MongoLockRepositorySpec
       val existingLock = Lock(lockId, owner, now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS))
 
       insert(existingLock.toDocument()).futureValue
-      collection.refreshExpiry(lockId, owner, ttl).futureValue shouldBe true
+      repository.refreshExpiry(lockId, owner, ttl).futureValue shouldBe true
       count().futureValue                                               shouldBe 1
 
       findAll().futureValue.head
@@ -148,7 +146,7 @@ class MongoLockRepositorySpec
 
       count().futureValue shouldBe 1
 
-      collection.releaseLock(lockId, owner).futureValue
+      repository.releaseLock(lockId, owner).futureValue
 
       count().futureValue shouldBe 0
     }
@@ -160,13 +158,13 @@ class MongoLockRepositorySpec
 
       count().futureValue shouldBe 1
 
-      collection.releaseLock(lockId, owner).futureValue
+      repository.releaseLock(lockId, owner).futureValue
 
       count().futureValue shouldBe 0
     }
 
     "do nothing if the lock doesn't exist" in {
-      collection.releaseLock(lockId, owner).futureValue
+      repository.releaseLock(lockId, owner).futureValue
 
       count().futureValue shouldBe 0
     }
@@ -176,7 +174,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock.toDocument()).futureValue
 
-      collection.releaseLock(lockId, owner).futureValue
+      repository.releaseLock(lockId, owner).futureValue
 
       count().futureValue                       shouldBe 1
       findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
@@ -186,7 +184,7 @@ class MongoLockRepositorySpec
       val existingLock = Lock(lockId, "different-owner", now.minus(2, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS))
       insert(existingLock.toDocument()).futureValue
 
-      collection.releaseLock(lockId, owner).futureValue
+      repository.releaseLock(lockId, owner).futureValue
 
       count().futureValue                       shouldBe 1
       findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
@@ -197,7 +195,7 @@ class MongoLockRepositorySpec
       val existingLock = Lock("different-lock", owner, now.minus(1, ChronoUnit.DAYS), now.plus(1, ChronoUnit.DAYS))
       insert(existingLock.toDocument()).futureValue
 
-      collection.releaseLock(lockId, owner).futureValue
+      repository.releaseLock(lockId, owner).futureValue
 
       count().futureValue                       shouldBe 1
       findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
@@ -206,17 +204,17 @@ class MongoLockRepositorySpec
 
   "isLocked" should {
     "return false if no lock obtained" in {
-      collection.isLocked(lockId, owner).futureValue shouldBe false
+      repository.isLocked(lockId, owner).futureValue shouldBe false
     }
 
     "return true if lock held" in {
       insert(Lock(lockId, owner, now, now.plus(100, ChronoUnit.SECONDS)).toDocument()).futureValue
-      collection.isLocked(lockId, owner).futureValue shouldBe true
+      repository.isLocked(lockId, owner).futureValue shouldBe true
     }
 
     "return false if the lock is held but expired" in {
       insert(Lock(lockId, owner, now.minus(2, ChronoUnit.DAYS), now.minus(1, ChronoUnit.DAYS)).toDocument()).futureValue
-      collection.isLocked(lockId, owner).futureValue shouldBe false
+      repository.isLocked(lockId, owner).futureValue shouldBe false
     }
   }
 
@@ -241,7 +239,7 @@ class MongoLockRepositorySpec
     override def timestamp(): Instant = now
   }
 
-  override protected lazy val collection = new MongoLockRepository(mongoComponent, timestampSupport)
+  override protected lazy val repository = new MongoLockRepository(mongoComponent, timestampSupport)
 
   private val lockId = "lockId"
   private val owner  = "owner"

@@ -19,13 +19,11 @@ package uk.gov.hmrc.mongo.lock
 import java.time.Instant
 
 import com.mongodb.client.model.Filters.{eq => mongoEq}
-import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.IndexModel
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
 import uk.gov.hmrc.mongo.play.json.Codecs._
-import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoCollectionSupport}
+import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoRepositorySupport}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -35,7 +33,7 @@ class MongoLockServiceSpec
   extends AnyWordSpecLike
      with Matchers
      with DefaultMongoCollectionSupport
-     with PlayMongoCollectionSupport[Lock] {
+     with PlayMongoRepositorySupport[Lock] {
 
   "attemptLockWithRelease" should {
     "obtain lock, run the block supplied and release the lock" in {
@@ -120,7 +118,7 @@ class MongoLockServiceSpec
 
     "not execute the body and exit if the lock for another serverId exists" in {
       var counter = 0
-      collection
+      repository
         .toService(lockId, ttl)
         .attemptLockWithRefreshExpiry {
           Future.successful(counter += 1)
@@ -155,6 +153,6 @@ class MongoLockServiceSpec
   private val ttl: Duration = 1000.millis
   private val now           = Instant.now()
 
-  override protected val collection = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
-  private val mongoLockService    = collection.toService(lockId, ttl)
+  override protected val repository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
+  private val mongoLockService    = repository.toService(lockId, ttl)
 }

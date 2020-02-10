@@ -18,15 +18,13 @@ package uk.gov.hmrc.mongo.cache
 
 import java.time.Instant
 
-import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.IndexModel
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.play.json.Codecs._
-import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoCollectionSupport}
+import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoRepositorySupport}
 import uk.gov.hmrc.mongo.{CurrentTimestampSupport, TimestampSupport}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -36,13 +34,13 @@ class MongoCacheRepositorySpec
     extends AnyWordSpecLike
     with Matchers
     with DefaultMongoCollectionSupport
-    with PlayMongoCollectionSupport[CacheItem]
+    with PlayMongoRepositorySupport[CacheItem]
     with ScalaFutures
     with Eventually {
 
   "put" should {
     "successfully create a cacheItem if one does not already exist" in {
-      collection.put(cacheId)(dataKey, person).futureValue shouldBe cacheId
+      repository.put(cacheId)(dataKey, person).futureValue shouldBe cacheId
       count().futureValue                                       shouldBe 1
       findAll()
         .map(_.fromBson[CacheItem])
@@ -55,8 +53,8 @@ class MongoCacheRepositorySpec
 
       insert(cacheItem.copy(createdAt = creationTimestamp, modifiedAt = creationTimestamp).toDocument()).futureValue
 
-      collection.put(cacheId)(dataKey, person).futureValue shouldBe cacheId
-      count().futureValue                                       shouldBe 1
+      repository.put(cacheId)(dataKey, person).futureValue shouldBe cacheId
+      count().futureValue                                  shouldBe 1
       findAll().map(_.fromBson[CacheItem]).futureValue.head shouldBe cacheItem
         .copy(createdAt = creationTimestamp, modifiedAt = now)
     }
@@ -83,11 +81,11 @@ class MongoCacheRepositorySpec
   "get" should {
     "successfully return CacheItem if cacheItem exists within ttl" in {
       insert(cacheItem.toDocument()).futureValue
-      collection.get[Person](cacheId)(dataKey).futureValue shouldBe Some(person)
+      repository.get[Person](cacheId)(dataKey).futureValue shouldBe Some(person)
     }
 
     "successfully return None if cacheItem does not exist" in {
-      collection.get[Person](cacheId)(dataKey).futureValue shouldBe None
+      repository.get[Person](cacheId)(dataKey).futureValue shouldBe None
     }
 
     "successfully return None if outside ttl" in {
@@ -95,7 +93,7 @@ class MongoCacheRepositorySpec
       insert(cacheItem.copy(id = cacheId2).toDocument()).futureValue
       //Items can live beyond the TTL https://docs.mongodb.com/manual/core/index-ttl/#timing-of-the-delete-operation
       eventually(timeout(Span(60, Seconds)), interval(Span(500, Millis))) {
-        collection.get[Person](cacheId2)(dataKey).futureValue shouldBe None
+        repository.get[Person](cacheId2)(dataKey).futureValue shouldBe None
       }
     }
   }
@@ -105,7 +103,7 @@ class MongoCacheRepositorySpec
       insert(cacheItem.toDocument()).futureValue
       count().futureValue shouldBe 1
 
-      collection.deleteEntity(cacheId)
+      repository.deleteEntity(cacheId)
       count().futureValue shouldBe 0
     }
 
@@ -113,7 +111,7 @@ class MongoCacheRepositorySpec
       insert(cacheItem.copy(id = "another-id").toDocument()).futureValue
       count().futureValue shouldBe 1
 
-      collection.deleteEntity(cacheId)
+      repository.deleteEntity(cacheId)
       count().futureValue shouldBe 1
     }
   }
@@ -144,7 +142,7 @@ class MongoCacheRepositorySpec
     override def timestamp(): Instant = now
   }
 
-  protected override val collection = new MongoCacheRepository[String](
+  protected override val repository = new MongoCacheRepository[String](
     mongoComponent   = mongoComponent,
     collectionName   = "play-mongo-cache",
     ttl              = ttl,

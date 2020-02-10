@@ -26,7 +26,7 @@ import org.scalatest.Inside._
 import org.scalatest.LoneElement
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
 import uk.gov.hmrc.mongo.lock.{MongoLockRepository, MongoLockService}
-import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoCollectionSupport}
+import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoRepositorySupport}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -38,7 +38,7 @@ class MetricOrchestratorSpec
     with MockitoSugar
     with ArgumentMatchersSugar
     with DefaultMongoCollectionSupport
-    with PlayMongoCollectionSupport[PersistedMetric] {
+    with PlayMongoRepositorySupport[PersistedMetric] {
 
   "metric orchestrator" should {
 
@@ -280,7 +280,7 @@ class MetricOrchestratorSpec
   }
 
   private val metricRegistry        = new MetricRegistry()
-  override protected val collection = new MongoMetricRepository(mongoComponent, throttleConfig)
+  override protected val repository = new MongoMetricRepository(mongoComponent, throttleConfig)
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -301,7 +301,7 @@ class MetricOrchestratorSpec
 
   private def metricOrchestratorFor(
     sources: List[MetricSource],
-    metricRepository: MetricRepository = collection
+    metricRepository: MetricRepository = repository
   ) =
     new MetricOrchestrator(
       metricSources    = sources,

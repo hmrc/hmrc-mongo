@@ -20,7 +20,7 @@ import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.LoneElement
 import org.scalatest.concurrent.ScalaFutures
-import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoCollectionSupport}
+import uk.gov.hmrc.mongo.test.{DefaultMongoCollectionSupport, PlayMongoRepositorySupport}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -29,17 +29,17 @@ class MongoMetricRepositorySpec
      with ScalaFutures
      with LoneElement
      with DefaultMongoCollectionSupport
-     with PlayMongoCollectionSupport[PersistedMetric] {
+     with PlayMongoRepositorySupport[PersistedMetric] {
 
-  lazy val collection = new MongoMetricRepository(mongoComponent, throttleConfig)
+  override lazy val repository = new MongoMetricRepository(mongoComponent, throttleConfig)
 
   "update" should {
     "store the provided MetricsStorage instance with the 'name' key" in {
       val storedMetric = PersistedMetric("test-metric", 5)
 
-      collection.persist(storedMetric).futureValue
+      repository.persist(storedMetric).futureValue
 
-      collection.findAll().futureValue.loneElement shouldBe storedMetric
+      repository.findAll().futureValue.loneElement shouldBe storedMetric
     }
   }
 }

@@ -18,12 +18,12 @@ package uk.gov.hmrc.mongo.test
 
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.IndexModel
-import uk.gov.hmrc.mongo.play.json.PlayMongoCollection
+import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
-trait PlayMongoCollectionSupport[A] extends MongoCollectionSupport {
-  protected def collection: PlayMongoCollection[A]
+trait PlayMongoRepositorySupport[A] extends MongoCollectionSupport {
+  protected def repository: PlayMongoRepository[A]
 
-  override protected lazy val collectionName: String          = collection.collectionName
-  override protected lazy val indexes: Seq[IndexModel]        = collection.indexes
-  override protected lazy val optSchema: Option[BsonDocument] = collection.optSchema
+  override protected lazy val collectionName: String          = repository.collectionName
+  override protected lazy val indexes: Seq[IndexModel]        = repository.indexes
+  override protected lazy val optSchema: Option[BsonDocument] = repository.optSchema
 }
