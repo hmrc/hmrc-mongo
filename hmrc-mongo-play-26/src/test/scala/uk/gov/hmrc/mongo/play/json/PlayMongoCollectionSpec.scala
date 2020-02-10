@@ -40,7 +40,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import ExecutionContext.Implicits.global
 
-class PlayMongoCollectionSpec
+class PlayMongoRepositorySpec
     extends AnyWordSpecLike
     with Matchers
     with ScalaFutures
@@ -48,7 +48,7 @@ class PlayMongoCollectionSpec
     with BeforeAndAfterAll {
 
   import Codecs.toBson
-  import PlayMongoCollectionSpec._
+  import PlayMongoRepositorySpec._
 
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(5.seconds)
 
@@ -57,7 +57,7 @@ class PlayMongoCollectionSpec
     MongoComponent(mongoUri = s"mongodb://localhost:27017/$databaseName")
   }
 
-  val playMongoCollection = new PlayMongoCollection[MyObject](
+  val playMongoRepository = new PlayMongoRepository[MyObject](
     mongoComponent = mongoComponent,
     collectionName = "myobject",
     domainFormat   = myObjectFormat,
@@ -72,16 +72,16 @@ class PlayMongoCollectionSpec
   // Applying `myObjectSchema` will check that dates are being stored as dates
   import MongoJavatimeFormats.Implicits._
 
-  "PlayMongoCollection.collection" should {
+  "PlayMongoRepository.collection" should {
 
     "read and write object with fields" in {
       forAll(myObjectGen) { myObj =>
         prepareDatabase()
 
-        val result = playMongoCollection.collection.insertOne(myObj).toFuture
+        val result = playMongoRepository.collection.insertOne(myObj).toFuture
         result.futureValue shouldBe Completed()
 
-        val writtenObj = playMongoCollection.collection.find().toFuture
+        val writtenObj = playMongoRepository.collection.find().toFuture
         writtenObj.futureValue shouldBe List(myObj)
       }
     }
@@ -90,11 +90,11 @@ class PlayMongoCollectionSpec
       forAll(myObjectGen) { myObj =>
         prepareDatabase()
 
-        val result = playMongoCollection.collection.insertOne(myObj).toFuture
+        val result = playMongoRepository.collection.insertOne(myObj).toFuture
         result.futureValue shouldBe Completed()
 
         def checkFind[A: Writes](key: String, value: A): Assertion =
-          playMongoCollection.collection
+          playMongoRepository.collection
             .find(filter = Filters.equal(key, toBson(value)))
             .toFuture
             .futureValue shouldBe List(myObj)
@@ -122,11 +122,11 @@ class PlayMongoCollectionSpec
         forAll(myObjectGen suchThat (_ != originalObj)) { targetObj =>
           prepareDatabase()
 
-          val result = playMongoCollection.collection.insertOne(originalObj).toFuture
+          val result = playMongoRepository.collection.insertOne(originalObj).toFuture
           result.futureValue shouldBe Completed()
 
           def checkUpdate[A: Writes](key: String, value: A): Assertion =
-            playMongoCollection.collection
+            playMongoRepository.collection
               .updateOne(filter = BsonDocument(), update = Updates.set(key, toBson(value)))
               .toFuture
               .futureValue
@@ -148,7 +148,7 @@ class PlayMongoCollectionSpec
           checkUpdate("sum", targetObj.sum)
           checkUpdate("objectId", targetObj.objectId)
 
-          val writtenObj = playMongoCollection.collection.find().toFuture
+          val writtenObj = playMongoRepository.collection.find().toFuture
           writtenObj.futureValue shouldBe List(targetObj.copy(id = originalObj.id))
         }
       }
@@ -159,12 +159,12 @@ class PlayMongoCollectionSpec
         forAll(myObjectGen suchThat (_ != originalObj)) { targetObj =>
           prepareDatabase()
 
-          val result = playMongoCollection.collection.insertOne(originalObj).toFuture
+          val result = playMongoRepository.collection.insertOne(originalObj).toFuture
           result.futureValue shouldBe Completed()
 
           def checkUpdateFails[A](key: String, value: A)(implicit ev: Writes[A]): Assertion =
             whenReady {
-              playMongoCollection.collection
+              playMongoRepository.collection
                 .updateOne(filter = BsonDocument(), update = Updates.set(key, toBson(value)))
                 .toFuture
                 .failed
@@ -184,8 +184,8 @@ class PlayMongoCollectionSpec
 
   def prepareDatabase(): Unit =
     (for {
-      exists <- MongoUtils.existsCollection(mongoComponent, playMongoCollection.collection)
-      _      <- if (exists) playMongoCollection.collection.deleteMany(BsonDocument()).toFuture
+      exists <- MongoUtils.existsCollection(mongoComponent, playMongoRepository.collection)
+      _      <- if (exists) playMongoRepository.collection.deleteMany(BsonDocument()).toFuture
                 else Future.successful(())
      } yield ()
     ).futureValue
@@ -195,18 +195,18 @@ class PlayMongoCollectionSpec
     // ensure jsonSchema is defined as expected
     (for {
        collections <- mongoComponent.database.listCollections.toFuture
-       collection  =  collections.find(_.get("name") == Some(BsonString(playMongoCollection.collection.namespace.getCollectionName)))
+       collection  =  collections.find(_.get("name") == Some(BsonString(playMongoRepository.collection.namespace.getCollectionName)))
        _           =  collection.isDefined shouldBe true
        options     =  collection.flatMap(_.get[BsonDocument]("options"))
        _           =  options.exists(_.containsKey("validator")) shouldBe true
        validator   =  options.get.getDocument("validator")
-       _           =  Option(validator.get(f"$$jsonSchema")) shouldBe playMongoCollection.optSchema
+       _           =  Option(validator.get(f"$$jsonSchema")) shouldBe playMongoRepository.optSchema
      } yield ()
     ).futureValue
   }
 }
 
-object PlayMongoCollectionSpec {
+object PlayMongoRepositorySpec {
 
   case class StringWrapper(unwrap: String) extends AnyVal
   case class BooleanWrapper(unwrap: Boolean) extends AnyVal

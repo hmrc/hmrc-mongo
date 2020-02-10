@@ -27,7 +27,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.reflect.ClassTag
 
-class PlayMongoCollection[A: ClassTag](
+class PlayMongoRepository[A: ClassTag](
   mongoComponent: MongoComponent,
   val collectionName: String,
   domainFormat: Format[A],

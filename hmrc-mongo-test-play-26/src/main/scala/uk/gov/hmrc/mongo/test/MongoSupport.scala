@@ -16,13 +16,11 @@
 
 package uk.gov.hmrc.mongo.test
 
-import org.mongodb.scala.bson.conversions.Bson
-import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.{Completed, Document, MongoClient, MongoCollection, MongoDatabase, ReadPreference}
+import org.mongodb.scala.{Document, MongoClient, MongoDatabase, ReadPreference}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, TestSuite}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Configuration
-import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
+import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.throttle.ThrottleConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -58,59 +56,29 @@ trait MongoSupport extends ScalaFutures {
   }
 }
 
-trait MongoCollectionSupport extends MongoSupport {
-  protected def collectionName: String
+/** Calls prepareDatabase before each test, ensuring a clean database */
+trait CleanMongoCollectionSupport extends MongoSupport with BeforeAndAfterEach {
+  this: TestSuite =>
 
-  protected def indexes: Seq[IndexModel]
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    prepareDatabase()
+  }
+}
 
-  protected def optSchema: Option[BsonDocument]
+/** Causes queries which don't use an index to generate [[com.mongodb.MongoQueryException]]
+  * or [[com.mongodb.MongoWriteException]] containing message 'No query solutions'
+  */
+trait IndexedMongoQueriesSupport extends MongoSupport with BeforeAndAfterAll {
+  this: TestSuite =>
 
-  protected lazy val mongoCollection: MongoCollection[Document] =
-    mongoDatabase.getCollection(collectionName)
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+    updateIndexPreference(onlyAllowIndexedQuery = true)
+  }
 
-  protected def findAll(): Future[Seq[Document]] =
-    mongoCollection
-      .find()
-      .toFuture
-
-  protected def count(): Future[Long] =
-    mongoCollection
-      .countDocuments()
-      .toFuture()
-
-  protected def find(filter: Bson): Future[Seq[Document]] =
-    mongoCollection
-      .find(filter)
-      .toFuture()
-
-  protected def insert[T](document: Document): Future[Completed] =
-    mongoCollection
-      .insertOne(document)
-      .toFuture()
-
-  protected def createCollection(): Unit =
-    mongoDatabase
-      .createCollection(collectionName)
-      .toFuture
-      .futureValue
-
-  protected def dropCollection(): Unit =
-    mongoCollection
-      .drop()
-      .toFuture
-      .futureValue
-
-  protected def ensureIndexes(): Seq[String] =
-    MongoUtils.ensureIndexes(mongoCollection, indexes, rebuildIndexes = false)
-      .futureValue
-
-  protected def ensureSchemas(): Unit =
-    MongoUtils.ensureSchema(mongoComponent, mongoCollection, optSchema)
-      .futureValue
-
-  override protected def prepareDatabase(): Unit = {
-    super.prepareDatabase()
-    ensureIndexes()
-    ensureSchemas()
+  override protected def afterAll(): Unit = {
+    super.afterAll()
+    updateIndexPreference(onlyAllowIndexedQuery = false)
   }
 }

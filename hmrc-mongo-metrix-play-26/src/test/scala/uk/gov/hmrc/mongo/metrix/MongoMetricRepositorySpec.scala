@@ -16,29 +16,27 @@
 
 package uk.gov.hmrc.mongo.metrix
 
-import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.IndexModel
 import org.scalatest.LoneElement
 import org.scalatest.concurrent.ScalaFutures
-import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
+import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class MongoMetricRepositorySpec extends UnitSpec with ScalaFutures with LoneElement with DefaultMongoCollectionSupport {
+class MongoMetricRepositorySpec
+  extends UnitSpec
+     with ScalaFutures
+     with LoneElement
+     with DefaultPlayMongoRepositorySupport[PersistedMetric] {
 
-  lazy val metricsRepo = new MongoMetricRepository(mongoComponent, throttleConfig)
+  override lazy val repository = new MongoMetricRepository(mongoComponent, throttleConfig)
 
   "update" should {
     "store the provided MetricsStorage instance with the 'name' key" in {
       val storedMetric = PersistedMetric("test-metric", 5)
 
-      metricsRepo.persist(storedMetric).futureValue
+      repository.persist(storedMetric).futureValue
 
-      metricsRepo.findAll().futureValue.loneElement shouldBe storedMetric
+      repository.findAll().futureValue.loneElement shouldBe storedMetric
     }
   }
-
-  override protected val collectionName: String          = metricsRepo.collectionName
-  override protected val indexes: Seq[IndexModel]        = metricsRepo.indexes
-  override protected val optSchema: Option[BsonDocument] = metricsRepo.optSchema
 }

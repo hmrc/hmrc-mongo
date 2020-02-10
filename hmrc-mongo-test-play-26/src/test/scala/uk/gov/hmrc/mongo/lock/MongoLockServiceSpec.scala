@@ -19,19 +19,19 @@ package uk.gov.hmrc.mongo.lock
 import java.time.Instant
 
 import com.mongodb.client.model.Filters.{eq => mongoEq}
-import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.IndexModel
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
-import uk.gov.hmrc.mongo.play.json.Codecs._
-import uk.gov.hmrc.mongo.test.DefaultMongoCollectionSupport
+import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, DurationInt}
 
-class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMongoCollectionSupport {
+class MongoLockServiceSpec
+  extends AnyWordSpecLike
+     with Matchers
+     with DefaultPlayMongoRepositorySupport[Lock] {
 
   "attemptLockWithRelease" should {
     "obtain lock, run the block supplied and release the lock" in {
@@ -41,7 +41,6 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
           find(mongoEq(Lock.id, lockId)).map(_.head)
         }
         .futureValue
-        .map(_.fromBson[Lock])
 
       optionalLock.map { lock =>
         lock.id         shouldBe lockId
@@ -66,7 +65,7 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
 
     "not run the block supplied if the lock is owned by someone else and return None" in {
       val existingLock = Lock(lockId, "owner2", now, now.plusSeconds(100))
-      insert(existingLock.toDocument()).futureValue
+      insert(existingLock).futureValue
 
       mongoLockService
         .attemptLockWithRelease(fail("Should not execute!"))
@@ -74,12 +73,12 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
 
       count().futureValue shouldBe 1
 
-      findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
+      findAll().futureValue.head shouldBe existingLock
     }
 
     "not run the block supplied if the lock is already owned by the caller and return None" in {
       val existingLock = Lock(lockId, owner, now, now.plusSeconds(100))
-      insert(existingLock.toDocument()).futureValue
+      insert(existingLock).futureValue
 
       mongoLockService
         .attemptLockWithRelease(fail("Should not execute!"))
@@ -87,7 +86,7 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
 
       count().futureValue shouldBe 1
 
-      findAll().futureValue.head.fromBson[Lock] shouldBe existingLock
+      findAll().futureValue.head shouldBe existingLock
     }
   }
 
@@ -116,7 +115,7 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
 
     "not execute the body and exit if the lock for another serverId exists" in {
       var counter = 0
-      mongoLockRepository
+      repository
         .toService(lockId, ttl)
         .attemptLockWithRefreshExpiry {
           Future.successful(counter += 1)
@@ -151,10 +150,6 @@ class MongoLockServiceSpec extends AnyWordSpecLike with Matchers with DefaultMon
   private val ttl: Duration = 1000.millis
   private val now           = Instant.now()
 
-  private val mongoLockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
-  private val mongoLockService    = mongoLockRepository.toService(lockId, ttl)
-
-  override protected val collectionName: String               = mongoLockRepository.collectionName
-  override protected val indexes: Seq[IndexModel]             = Seq()
-  override protected lazy val optSchema: Option[BsonDocument] = mongoLockRepository.optSchema
+  override protected val repository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
+  private val mongoLockService    = repository.toService(lockId, ttl)
 }

@@ -23,7 +23,7 @@ import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptio
 import org.mongodb.scala.model.Indexes.ascending
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.throttle.{ThrottleConfig, WithThrottling}
-import uk.gov.hmrc.mongo.play.json.PlayMongoCollection
+import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -38,7 +38,7 @@ class MongoMetricRepository @Inject() (
     mongoComponent: MongoComponent,
     val throttleConfig: ThrottleConfig
   )(implicit ec: ExecutionContext)
-    extends PlayMongoCollection[PersistedMetric](
+    extends PlayMongoRepository[PersistedMetric](
       collectionName = "metrics",
       mongoComponent = mongoComponent,
       domainFormat   = PersistedMetric.format,

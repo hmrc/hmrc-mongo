@@ -25,7 +25,7 @@ import org.mongodb.scala.model.Updates
 import play.api.Logger
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
 import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
-import uk.gov.hmrc.mongo.play.json.PlayMongoCollection
+import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -77,7 +77,7 @@ trait LockRepository {
 @Singleton
 class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSupport: TimestampSupport)(
   implicit ec: ExecutionContext
-) extends PlayMongoCollection[Lock](
+) extends PlayMongoRepository[Lock](
       mongoComponent,
       collectionName = "locks",
       domainFormat   = Lock.format,
