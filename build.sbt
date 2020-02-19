@@ -1,3 +1,4 @@
+import sbt.Keys._
 import sbt._
 
 val name = "hmrc-mongo"
@@ -9,16 +10,18 @@ val scala2_12 = "2.12.10"
 // TODO: restrict parallelExecution to tests only (the obvious way to do this using Test scope does not seem to work correctly)
 parallelExecution in Global := false
 
-lazy val commonSettings = Seq(
-  organization := "uk.gov.hmrc.mongo",
-  majorVersion := 0
-)
-
 lazy val commonResolvers = Seq(
-  resolvers := Seq(
     Resolver.bintrayRepo("hmrc", "releases"),
     Resolver.typesafeRepo("releases")
-  )
+)
+
+lazy val commonSettings = Seq(
+  organization := "uk.gov.hmrc.mongo",
+  majorVersion := 0,
+  scalaVersion := scala2_12,
+  crossScalaVersions := Seq(scala2_11, scala2_12),
+  makePublicallyAvailableOnBintray := true,
+  resolvers := commonResolvers
 )
 
 lazy val library = Project(name, file("."))
@@ -27,101 +30,65 @@ lazy val library = Project(name, file("."))
     commonSettings,
     publish := {},
     publishAndDistribute := {},
-    scalaVersion := scala2_12,
-    crossScalaVersions := Seq.empty // by default, this is Seq(scalaVersion), which doesn't play well with sbt-cross and will cause sbt `+` commands to build multiple times
+
+    // by default this is Seq(scalaVersion) which doesn't play well and causes sbt
+    // to try to an invalid cross-build for hmrcMongoMetrixPlay27
+    crossScalaVersions := Seq.empty
   )
   .aggregate(
-    hmrcMongoCommon_2_11    , hmrcMongoCommon_2_12,
-    hmrcMongoPlay26_2_11    , hmrcMongoPlay26_2_12,
-    hmrcMongoPlay27_2_11    , hmrcMongoPlay27_2_12,
-    metrixPlay26_2_11       , metrixPlay26_2_12
-    /*    N/A            */ , metrixPlay27_2_12, // metrics-play for 2.7 only exists for 2.12+
-    hmrcMongoTestPlay26_2_11, hmrcMongoTestPlay26_2_12,
-    hmrcMongoTestPlay27_2_11, hmrcMongoTestPlay27_2_12,
+    hmrcMongoCommon,
+    hmrcMongoPlay26, hmrcMongoPlay27,
+    hmrcMongoTestPlay26, hmrcMongoTestPlay27,
+    hmrcMongoMetrixPlay26, hmrcMongoMetrixPlay27
   )
 
 lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
-    commonResolvers,
-    libraryDependencies ++= AppDependencies.mongoCommon,
-    makePublicallyAvailableOnBintray := true
-  ).cross
-
-lazy val hmrcMongoCommon_2_11 = hmrcMongoCommon(scala2_11)
-lazy val hmrcMongoCommon_2_12 = hmrcMongoCommon(scala2_12)
+    libraryDependencies ++= AppDependencies.mongoCommon
+  )
 
 lazy val hmrcMongoPlay26 = Project("hmrc-mongo-play-26", file("hmrc-mongo-play-26"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
-    commonResolvers,
-    libraryDependencies ++= AppDependencies.hmrcMongoPlay26,
-    makePublicallyAvailableOnBintray := true
-  ).cross
-
-lazy val hmrcMongoPlay26_2_11 = hmrcMongoPlay26(scala2_11).dependsOn(hmrcMongoCommon_2_11)
-lazy val hmrcMongoPlay26_2_12 = hmrcMongoPlay26(scala2_12).dependsOn(hmrcMongoCommon_2_12)
+    libraryDependencies ++= AppDependencies.hmrcMongoPlay26
+  ).dependsOn(hmrcMongoCommon)
 
 lazy val hmrcMongoPlay27 = Project("hmrc-mongo-play-27", file("hmrc-mongo-play-27"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
-    commonResolvers,
-    unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-play-26/src/main/scala",
-    libraryDependencies ++= AppDependencies.hmrcMongoPlay27,
-    makePublicallyAvailableOnBintray := true
-  )
-  .cross
-
-lazy val hmrcMongoPlay27_2_11 = hmrcMongoPlay27(scala2_11).dependsOn(hmrcMongoCommon_2_11)
-lazy val hmrcMongoPlay27_2_12 = hmrcMongoPlay27(scala2_12).dependsOn(hmrcMongoCommon_2_12)
+    libraryDependencies ++= AppDependencies.hmrcMongoPlay27
+  ).dependsOn(hmrcMongoCommon)
 
 lazy val hmrcMongoTestPlay26 = Project("hmrc-mongo-test-play-26", file("hmrc-mongo-test-play-26"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
-    commonResolvers,
-    libraryDependencies ++= AppDependencies.hmrcMongoTestPlay26,
-    makePublicallyAvailableOnBintray := true
-  ).cross
-
-lazy val hmrcMongoTestPlay26_2_11 = hmrcMongoTestPlay26(scala2_11).dependsOn(hmrcMongoPlay26_2_11)
-lazy val hmrcMongoTestPlay26_2_12 = hmrcMongoTestPlay26(scala2_12).dependsOn(hmrcMongoPlay26_2_12)
+    libraryDependencies ++= AppDependencies.hmrcMongoTestPlay26
+  ).dependsOn(hmrcMongoPlay26)
 
 lazy val hmrcMongoTestPlay27 = Project("hmrc-mongo-test-play-27", file("hmrc-mongo-test-play-27"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
-    commonResolvers,
-    unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-test-play-26/src/main/scala",
-    libraryDependencies ++= AppDependencies.hmrcMongoTestPlay27,
-    makePublicallyAvailableOnBintray := true
-  ).cross
+    unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-test-play-27/src/main/scala",
+    libraryDependencies ++= AppDependencies.hmrcMongoTestPlay27
+  ).dependsOn(hmrcMongoPlay27)
 
-lazy val hmrcMongoTestPlay27_2_11 = hmrcMongoTestPlay27(scala2_11).dependsOn(hmrcMongoPlay27_2_11)
-lazy val hmrcMongoTestPlay27_2_12 = hmrcMongoTestPlay27(scala2_12).dependsOn(hmrcMongoPlay27_2_12)
-
-lazy val metrixPlay26 = Project("hmrc-mongo-metrix-play-26", file("hmrc-mongo-metrix-play-26"))
+lazy val hmrcMongoMetrixPlay26 = Project("hmrc-mongo-metrix-play-26", file("hmrc-mongo-metrix-play-26"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
-    commonResolvers,
-    libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay26,
-    makePublicallyAvailableOnBintray := true
-  ).cross
+    libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay26
+  ).dependsOn(hmrcMongoPlay26, hmrcMongoTestPlay26)
 
-lazy val metrixPlay26_2_11 = metrixPlay26(scala2_11).dependsOn(hmrcMongoPlay26_2_11, hmrcMongoTestPlay26_2_11)
-lazy val metrixPlay26_2_12 = metrixPlay26(scala2_12).dependsOn(hmrcMongoPlay26_2_12, hmrcMongoTestPlay26_2_12)
-
-lazy val metrixPlay27 = Project("hmrc-mongo-metrix-play-27", file("hmrc-mongo-metrix-play-27"))
+lazy val hmrcMongoMetrixPlay27 = Project("hmrc-mongo-metrix-play-27", file("hmrc-mongo-metrix-play-27"))
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
-    commonResolvers,
     libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay27,
-    makePublicallyAvailableOnBintray := true
-  ).cross
-
-lazy val metrixPlay27_2_12 = metrixPlay27(scala2_12).dependsOn(hmrcMongoPlay27_2_12, hmrcMongoTestPlay27_2_12)
+    crossScalaVersions := Seq(scala2_12), // metrics-play for 2.7 only exists for 2.12+
+  ).dependsOn(hmrcMongoPlay27, hmrcMongoTestPlay27)
