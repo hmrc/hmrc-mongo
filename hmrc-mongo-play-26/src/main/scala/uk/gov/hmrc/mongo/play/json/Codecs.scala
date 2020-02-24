@@ -20,7 +20,7 @@ import org.bson._
 import org.bson.codecs.{BsonTypeCodecMap, Codec, DecoderContext, EncoderContext}
 import org.bson.json.{JsonMode, JsonReader, JsonWriter, JsonWriterSettings}
 import org.bson.types.Decimal128
-import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
+import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
 import org.slf4j.{Logger, LoggerFactory}
 import play.api.libs.json._
 import org.mongodb.scala.{Document => ScalaDocument}
@@ -143,7 +143,8 @@ trait Codecs {
     // wrap value in a document inorder to reuse the document -> JsonString, then extract
     val writer = new java.io.StringWriter
     val doc    = new BsonDocument("tempKey", bs)
-    bsonDocumentCodec.encode(new JsonWriter(writer, new JsonWriterSettings(mode)), doc, EncoderContext.builder.build)
+    val writerSettings = JsonWriterSettings.builder.outputMode(mode).build
+    bsonDocumentCodec.encode(new JsonWriter(writer, writerSettings), doc, EncoderContext.builder.build)
     Json.parse(writer.toString) \ "tempKey"
   }
 

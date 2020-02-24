@@ -14,7 +14,9 @@ object AppDependencies {
   )
 
   lazy val mongoCommon: Seq[ModuleID] = Seq(
-    "org.mongodb.scala" %% "mongo-scala-driver" % "2.8.0",
+    "org.mongodb.scala" %% "mongo-scala-driver" % "4.0.0-rc0"
+       exclude(org = "org.mongodb.scala", name = "bson-scala_2.11")
+       exclude(org = "org.mongodb.scala", name = "bson-scala_2.12"), // TODO exclude for all scala versions...
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
   )
 

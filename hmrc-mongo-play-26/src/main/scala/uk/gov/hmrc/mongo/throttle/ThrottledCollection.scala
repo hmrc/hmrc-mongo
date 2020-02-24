@@ -31,7 +31,7 @@ class ThrottleConfig @Inject()(configuration: Configuration) {
   val maxWaitQueueSize = {
     val mongoUri = configuration.get[String]("mongodb.uri")
     val client = MongoClient(uri = mongoUri)
-    client.settings.getConnectionPoolSettings.getMaxWaitQueueSize
+    1000//client.settings.getConnectionPoolSettings.getMaxWaitQueueSize // TODO
   }
 
   /** size should be no larger than the WaitQueueSize (default size is 500)

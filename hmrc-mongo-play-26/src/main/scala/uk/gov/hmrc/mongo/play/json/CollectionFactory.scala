@@ -17,8 +17,8 @@
 package uk.gov.hmrc.mongo.play.json
 
 import org.bson.codecs.configuration.CodecRegistries
-import org.mongodb.scala.bson.codecs.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.{MongoCollection, MongoDatabase}
+import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
 import play.api.libs.json.Format
 
 import scala.reflect.ClassTag

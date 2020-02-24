@@ -16,10 +16,10 @@
 
 package uk.gov.hmrc.mongo.test
 
-import org.mongodb.scala.Completed
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.model.IndexModel
+import org.mongodb.scala.result.InsertOneResult
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.MongoUtils
 
@@ -62,7 +62,7 @@ trait PlayMongoRepositorySupport[A] extends MongoSupport {
       .find(filter)
       .toFuture
 
-  protected def insert(a: A): Future[Completed] =
+  protected def insert(a: A): Future[InsertOneResult] =
     repository.collection
       .insertOne(a)
       .toFuture
