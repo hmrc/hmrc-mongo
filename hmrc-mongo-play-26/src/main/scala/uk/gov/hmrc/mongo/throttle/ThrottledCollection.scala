@@ -28,17 +28,8 @@ import scala.concurrent.duration.{Duration, DurationInt}
 @Singleton
 class ThrottleConfig @Inject()(configuration: Configuration) {
 
-  val maxWaitQueueSize = {
-    val mongoUri = configuration.get[String]("mongodb.uri")
-    val client = MongoClient(uri = mongoUri)
-    1000//client.settings.getConnectionPoolSettings.getMaxWaitQueueSize // TODO
-  }
-
-  /** size should be no larger than the WaitQueueSize (default size is 500)
-    * larger than this will cause `com.mongodb.MongoWaitQueueFullException: Too many operations are already waiting for a connection. Max number of operations (maxWaitQueueSize) of 500 has been exceeded.`
-    */
   val throttleSize =
-    configuration.getOptional[Int]("mongodb.throttle.size").getOrElse(maxWaitQueueSize)
+    configuration.get[Int]("mongodb.throttle.size")
 
   Logger.debug(s"Throttling mongo queries using throttleSize=$throttleSize")
 
