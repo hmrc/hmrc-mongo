@@ -52,16 +52,16 @@ class MongoMetricRepository @Inject() (
   override def findAll(): Future[List[PersistedMetric]] =
     collection.withReadPreference(ReadPreference.secondaryPreferred)
       .find()
-      .toThrottledFuture()
+      .toFuture()
       .map(_.toList)
 
   override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
     collection
       .findOneAndReplace(
-        filter = equal("name", calculatedMetric.name),
-        calculatedMetric,
-        FindOneAndReplaceOptions().upsert(true)
+        filter      = equal("name", calculatedMetric.name),
+        replacement = calculatedMetric,
+        options     = FindOneAndReplaceOptions().upsert(true)
       )
-      .toThrottledFutureOption()
+      .toFutureOption()
       .map(_ => ())
 }

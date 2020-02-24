@@ -83,13 +83,9 @@ class MetricOrchestrator(
                        case None => Future(Map.empty[String, Int])
                      }
       mapFromSources <- Future.traverse(metricSources)(_.metrics)
-      mapToPersist = (mapFromReset :: mapFromSources) reduce {
-        _ ++ _
-      }
+      mapToPersist = (mapFromReset :: mapFromSources).reduce(_ ++ _)
       metricsToPersist = mapToPersist.map { case (name: String, value: Int) => PersistedMetric(name, value) }.toList
-      _ <- Future.traverse(metricsToPersist) { m =>
-            metricRepository.persist(m)
-          }
+      _ <- Future.traverse(metricsToPersist)(metricRepository.persist)
     } yield mapToPersist
 
   private def ensureMetricRegistered(persistedMetrics: List[PersistedMetric]): Unit = {
