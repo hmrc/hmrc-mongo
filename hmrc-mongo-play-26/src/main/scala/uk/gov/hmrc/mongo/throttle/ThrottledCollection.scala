@@ -53,7 +53,7 @@ trait WithThrottling {
 
   // the following overrides of `toFuture` ensure that the observables are evaluated on the throttled thread-pool.
 
-  object ObservableImplicits extends org.mongodb.scala.ObservableImplicits
+  private object ObservableImplicits extends org.mongodb.scala.ObservableImplicits
 
   implicit class SingleObservableFuture[T](observable: => SingleObservable[T])(implicit ec: ExecutionContext) {
     def toFuture(): Future[T] =

@@ -16,12 +16,13 @@
 
 package uk.gov.hmrc.mongo.throttle
 
+import org.mongodb.scala.{Observable, SingleObservable}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.Configuration
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 
@@ -30,7 +31,6 @@ class WithThrottlingSpec extends AnyWordSpecLike with Matchers with ScalaFutures
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(60.seconds)
 
   "WithThrottling.throttling" should {
-
     "not exceed throttleSize" in {
       val throttleSize = 2
       val config = new ThrottleConfig(Configuration("mongodb.throttle.size" -> throttleSize))
@@ -54,6 +54,34 @@ class WithThrottlingSpec extends AnyWordSpecLike with Matchers with ScalaFutures
           }
         }
       }.futureValue shouldBe range.map(_ => ())
+    }
+
+    class UnderTest extends WithThrottling {
+      // check with error, since we don't know the success type
+      val response = new RuntimeException("OK")
+
+      override def throttleConfig = ???
+
+      // short circuit with our response
+      override protected[throttle] def throttling[A, B](a: => A)(f: A => Future[B])(implicit ec: ExecutionContext): Future[B] =
+        Future.failed(response)
+    }
+
+    "find correct implicit class for Observer" in new UnderTest {
+      val observable = new Object with Observable[String] {
+        def subscribe(observer: org.mongodb.scala.Observer[_ >: String]): Unit = ()
+      }
+
+      observable.toFuture.failed.futureValue shouldBe response
+    }
+
+    "find correct implicit class for SingleObservable" in new UnderTest {
+      val singleObservable = new Object with SingleObservable[String] {
+        def subscribe(observer: org.mongodb.scala.Observer[_ >: String]): Unit = ()
+      }
+
+      singleObservable.toFuture.failed.futureValue shouldBe response
+      singleObservable.toFutureOption.failed.futureValue shouldBe response
     }
   }
 }
