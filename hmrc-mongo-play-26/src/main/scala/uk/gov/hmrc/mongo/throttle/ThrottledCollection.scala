@@ -41,43 +41,21 @@ class ThrottleConfig @Inject()(configuration: Configuration) {
     configuration.getOptional[Duration]("mongodb.throttle.timeout").getOrElse(20.seconds)
 }
 
-trait WithThrottling{
+trait WithThrottling {
   def throttleConfig: ThrottleConfig
 
-  private def throttling[A, B](a: => A)(f: A => Future[B])(implicit ec: ExecutionContext): Future[B] =
-    Mdc.preservingMdc {
-      Future {
+  protected[throttle] def throttling[A, B](a: => A)(f: A => Future[B])(implicit ec: ExecutionContext): Future[B] =
+    Mdc.preservingMdc(
+      Future(
         Await.result(f(a), throttleConfig.timeout)
-      }(throttleConfig.throttledEc)
-    }(ec)
-
-  // Either pass Observable[A], SingleObservable[A] to `throttledF` to get a Future[A]
-
-  trait FunDep[A, In[_], Out[_]] {
-    def apply(in: In[A]): Future[Out[A]]
-  }
-
-  type Identity[A] = A
-
-  implicit def so[A] = new FunDep[A, SingleObservable, Identity] {
-    def apply(in: SingleObservable[A]): Future[A] = in.toFuture
-  }
-
-  implicit def o[A] = new FunDep[A, Observable, Seq] {
-    def apply(in: Observable[A]): Future[Seq[A]] = in.toFuture
-  }
-
-  def throttledF[A, In[_], Out[_]](f: => In[A])(implicit ec: ExecutionContext, fd: FunDep[A, In, Out]): Future[Out[A]] =
-    throttling(f)(fd(_))
-
-
+      )(throttleConfig.throttledEc)
+    )(ec)
 
   // the following overrides of `toFuture` ensure that the observables are evaluated on the throttled thread-pool.
 
   object ObservableImplicits extends org.mongodb.scala.ObservableImplicits
 
   implicit class SingleObservableFuture[T](observable: => SingleObservable[T])(implicit ec: ExecutionContext) {
-
     def toFuture(): Future[T] =
       throttling(observable)(new ObservableImplicits.SingleObservableFuture(_).toFuture)
 
