@@ -32,7 +32,7 @@ lazy val library = Project(name, file("."))
     publishAndDistribute := {},
 
     // by default this is Seq(scalaVersion) which doesn't play well and causes sbt
-    // to try to an invalid cross-build for hmrcMongoMetrixPlay27
+    // to try an invalid cross-build for hmrcMongoMetrixPlay27
     crossScalaVersions := Seq.empty
   )
   .aggregate(
@@ -46,7 +46,7 @@ lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
-    libraryDependencies ++= AppDependencies.mongoCommon
+    libraryDependencies ++= AppDependencies.mongoCommon(scalaBinaryVersion.value)
   )
 
 lazy val hmrcMongoPlay26 = Project("hmrc-mongo-play-26", file("hmrc-mongo-play-26"))
