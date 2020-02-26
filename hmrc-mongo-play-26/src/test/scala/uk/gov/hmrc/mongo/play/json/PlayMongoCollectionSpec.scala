@@ -22,7 +22,6 @@ import com.mongodb.MongoWriteException
 import org.bson.types.ObjectId
 import org.joda.{time => jot}
 import org.mongodb.scala.bson.{BsonDocument, BsonString}
-import org.mongodb.scala.Completed
 import org.mongodb.scala.model.{Filters, Updates}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.compatible.Assertion
@@ -79,7 +78,7 @@ class PlayMongoRepositorySpec
         prepareDatabase()
 
         val result = playMongoRepository.collection.insertOne(myObj).toFuture
-        result.futureValue shouldBe Completed()
+        result.futureValue.wasAcknowledged shouldBe true
 
         val writtenObj = playMongoRepository.collection.find().toFuture
         writtenObj.futureValue shouldBe List(myObj)
@@ -91,7 +90,7 @@ class PlayMongoRepositorySpec
         prepareDatabase()
 
         val result = playMongoRepository.collection.insertOne(myObj).toFuture
-        result.futureValue shouldBe Completed()
+        result.futureValue.wasAcknowledged shouldBe true
 
         def checkFind[A: Writes](key: String, value: A): Assertion =
           playMongoRepository.collection
@@ -123,7 +122,7 @@ class PlayMongoRepositorySpec
           prepareDatabase()
 
           val result = playMongoRepository.collection.insertOne(originalObj).toFuture
-          result.futureValue shouldBe Completed()
+          result.futureValue.wasAcknowledged shouldBe true
 
           def checkUpdate[A: Writes](key: String, value: A): Assertion =
             playMongoRepository.collection
@@ -160,7 +159,7 @@ class PlayMongoRepositorySpec
           prepareDatabase()
 
           val result = playMongoRepository.collection.insertOne(originalObj).toFuture
-          result.futureValue shouldBe Completed()
+          result.futureValue.wasAcknowledged shouldBe true
 
           def checkUpdateFails[A](key: String, value: A)(implicit ev: Writes[A]): Assertion =
             whenReady {

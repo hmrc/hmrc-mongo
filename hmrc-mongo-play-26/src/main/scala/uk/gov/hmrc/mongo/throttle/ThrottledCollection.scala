@@ -17,7 +17,7 @@
 package uk.gov.hmrc.mongo.throttle
 
 import com.google.inject.{Inject, Singleton}
-import org.mongodb.scala.{MongoClient, Observable, SingleObservable}
+import org.mongodb.scala.{Observable, SingleObservable}
 import play.api.{Configuration, Logger}
 
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -28,17 +28,9 @@ import scala.concurrent.duration.{Duration, DurationInt}
 @Singleton
 class ThrottleConfig @Inject()(configuration: Configuration) {
 
-  val maxWaitQueueSize = {
-    val mongoUri = configuration.get[String]("mongodb.uri")
-    val client = MongoClient(uri = mongoUri)
-    client.settings.getConnectionPoolSettings.getMaxWaitQueueSize
-  }
-
-  /** size should be no larger than the WaitQueueSize (default size is 500)
-    * larger than this will cause `com.mongodb.MongoWaitQueueFullException: Too many operations are already waiting for a connection. Max number of operations (maxWaitQueueSize) of 500 has been exceeded.`
-    */
   val throttleSize =
-    configuration.getOptional[Int]("mongodb.throttle.size").getOrElse(maxWaitQueueSize)
+    // the default size of 500 is based on the default WaitQueueSize, which mongo previously used.
+    configuration.getOptional[Int]("mongodb.throttle.size").getOrElse(500)
 
   Logger.debug(s"Throttling mongo queries using throttleSize=$throttleSize")
 
@@ -50,59 +42,30 @@ class ThrottleConfig @Inject()(configuration: Configuration) {
     configuration.getOptional[Duration]("mongodb.throttle.timeout").getOrElse(20.seconds)
 }
 
-trait WithThrottling{
+trait WithThrottling {
   def throttleConfig: ThrottleConfig
 
-  // Either pass Observable[A], SingleObservable[A] to `throttledF` to get a Future[A]
+  protected[throttle] def throttling[A, B](a: => A)(f: A => Future[B])(implicit ec: ExecutionContext): Future[B] =
+    Mdc.preservingMdc(
+      Future(
+        Await.result(f(a), throttleConfig.timeout)
+      )(throttleConfig.throttledEc)
+    )(ec)
 
-  trait FunDep[A, In[_], Out[_]] {
-    def apply(in: In[A]): Future[Out[A]]
+  // the following overrides of `toFuture` ensure that the observables are evaluated on the throttled thread-pool.
+
+  private object ObservableImplicits extends org.mongodb.scala.ObservableImplicits
+
+  implicit class SingleObservableFuture[T](observable: => SingleObservable[T])(implicit ec: ExecutionContext) {
+    def toFuture(): Future[T] =
+      throttling(observable)(new ObservableImplicits.SingleObservableFuture(_).toFuture)
+
+    def toFutureOption(): Future[Option[T]] =
+      throttling(observable)(new ObservableImplicits.SingleObservableFuture(_).toFutureOption)
   }
 
-  type Identity[A] = A
-
-  implicit def so[A] = new FunDep[A, SingleObservable, Identity] {
-    def apply(in: SingleObservable[A]): Future[A] = in.toFuture
-  }
-
-  implicit def o[A] = new FunDep[A, Observable, Seq] {
-    def apply(in: Observable[A]): Future[Seq[A]] = in.toFuture
-  }
-
-  def throttledF[A, In[_], Out[_]](f: => In[A])(implicit ec: ExecutionContext, fd: FunDep[A, In, Out]): Future[Out[A]] =
-    Mdc.preservingMdc {
-      Future {
-        Await.result(fd(f), throttleConfig.timeout)
-      }(throttleConfig.throttledEc)
-    }
-
-  // Or provide implicit conversions to add `.toThrottledFuture` method to Observable, SingleObservable.
-
-  // Once mongo-scala library is updated to take observable by-name, our implicits conversions can take precedence
-  // over the library provided ones, and these methods can be renamed to `.toFuture`
-
-  implicit class ScalaSingleObservable[T](observable: => SingleObservable[T])(implicit ec: ExecutionContext) {
-    def toThrottledFuture(): Future[T] =
-      Mdc.preservingMdc {
-        Future {
-          Await.result(observable.toFuture, throttleConfig.timeout)
-        }(throttleConfig.throttledEc)
-      }
-
-    def toThrottledFutureOption(): Future[Option[T]] =
-      Mdc.preservingMdc {
-        Future {
-          Await.result(observable.toFutureOption, throttleConfig.timeout)
-        }(throttleConfig.throttledEc)
-      }
-  }
-
-  implicit class ScalaObservable[T](observable: => Observable[T])(implicit ec: ExecutionContext) {
-    def toThrottledFuture(): Future[Seq[T]] =
-      Mdc.preservingMdc {
-        Future {
-          Await.result(observable.toFuture, throttleConfig.timeout)
-        }(throttleConfig.throttledEc)
-      }
+  implicit class ObservableFuture[T](observable: => Observable[T])(implicit ec: ExecutionContext) {
+    def toFuture(): Future[Seq[T]] =
+      throttling(observable)(new ObservableImplicits.ObservableFuture(_).toFuture)
   }
 }
