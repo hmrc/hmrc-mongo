@@ -29,6 +29,7 @@ import scala.concurrent.duration.{Duration, DurationInt}
 class ThrottleConfig @Inject()(configuration: Configuration) {
 
   val throttleSize =
+    // the default size of 500 is based on the default WaitQueueSize, which mongo previously used.
     configuration.getOptional[Int]("mongodb.throttle.size").getOrElse(500)
 
   Logger.debug(s"Throttling mongo queries using throttleSize=$throttleSize")
