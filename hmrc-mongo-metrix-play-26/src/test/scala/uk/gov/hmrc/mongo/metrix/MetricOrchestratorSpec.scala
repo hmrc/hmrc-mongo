@@ -37,6 +37,8 @@ class MetricOrchestratorSpec
     with ArgumentMatchersSugar
     with DefaultPlayMongoRepositorySupport[PersistedMetric] {
 
+  import MetricOrchestrationResult._
+
   "metric orchestrator" should {
 
     "register all the gauges" in {
@@ -46,7 +48,7 @@ class MetricOrchestratorSpec
       val orchestrator = metricOrchestratorFor(List(sourceReturning(acquiredMetrics)))
 
       // when
-      orchestrator.attemptMetricRefresh().futureValue shouldResultIn MetricsUpdatedAndRefreshed(
+      orchestrator.attemptMetricRefresh().futureValue shouldResultIn UpdatedAndRefreshed(
         acquiredMetrics,
         persistedMetricsFrom(acquiredMetrics)
       )
@@ -67,7 +69,7 @@ class MetricOrchestratorSpec
       )
 
       // when
-      orchestrator.attemptMetricRefresh().futureValue shouldResultIn MetricsUpdatedAndRefreshed(
+      orchestrator.attemptMetricRefresh().futureValue shouldResultIn UpdatedAndRefreshed(
         acquiredMetrics ++ otherAcquiredMetrics,
         persistedMetricsFrom(acquiredMetrics ++ otherAcquiredMetrics)
       )
@@ -110,7 +112,7 @@ class MetricOrchestratorSpec
         .attemptMetricRefresh(
           skipReportingFor = Some((_: PersistedMetric) => true)
         )
-        .futureValue shouldResultIn MetricsUpdatedAndRefreshed(acquiredMetrics, Seq.empty)
+        .futureValue shouldResultIn UpdatedAndRefreshed(acquiredMetrics, Seq.empty)
 
       metricRegistry.getGauges shouldBe empty
     }
@@ -125,7 +127,7 @@ class MetricOrchestratorSpec
         .attemptMetricRefresh(skipReportingFor = Some((metric: PersistedMetric) => {
           metric.name.contains("ravaged") && metric.count < 3
         }))
-        .futureValue shouldResultIn MetricsUpdatedAndRefreshed(
+        .futureValue shouldResultIn UpdatedAndRefreshed(
         acquiredMetrics,
         List(PersistedMetric(openedMetricName, 4), PersistedMetric(notRavagedMetricName, 8))
       )
@@ -146,7 +148,7 @@ class MetricOrchestratorSpec
       orchestrator
         .attemptMetricRefresh(resetToZeroFor = Some(m => m.name == resetableButProvidedMetricName))
         .futureValue shouldResultIn
-        MetricsUpdatedAndRefreshed(
+        UpdatedAndRefreshed(
           acquiredMetrics,
           List(
             PersistedMetric(otherMetricName, 4),
@@ -210,7 +212,7 @@ class MetricOrchestratorSpec
         .thenReturn(Future[Unit]())
 
       // when
-      orchestrator.attemptMetricRefresh().futureValue shouldResultIn MetricsUpdatedAndRefreshed(
+      orchestrator.attemptMetricRefresh().futureValue shouldResultIn UpdatedAndRefreshed(
         acquiredMetrics,
         persistedMetricsFrom(acquiredMetrics) :+ PersistedMetric("z", 8)
       )
@@ -244,7 +246,7 @@ class MetricOrchestratorSpec
 
       when(mockedMetricRepository.findAll()).thenReturn(Future(List(PersistedMetric("a", 4), PersistedMetric("b", 5))))
 
-      orchestrator.attemptMetricRefresh().futureValue shouldResultIn MetricsOnlyRefreshed(
+      orchestrator.attemptMetricRefresh().futureValue shouldResultIn RefreshedOnly(
         List(PersistedMetric("a", 4), PersistedMetric("b", 5))
       )
 
@@ -266,7 +268,7 @@ class MetricOrchestratorSpec
       )
 
       // when
-      orchestrator.attemptMetricRefresh().futureValue shouldResultIn MetricsUpdatedAndRefreshed(
+      orchestrator.attemptMetricRefresh().futureValue shouldResultIn UpdatedAndRefreshed(
         acquiredMetrics,
         persistedMetricsFrom(acquiredMetrics)
       )
@@ -334,15 +336,15 @@ class MetricOrchestratorSpec
     }
 
   implicit class MetricOrchestrationResultComparison(metricUpdateResult: MetricOrchestrationResult) {
-    def shouldResultIn(expectedUpdateResult: MetricsOnlyRefreshed): Unit =
+    def shouldResultIn(expectedUpdateResult: RefreshedOnly): Unit =
       inside(metricUpdateResult) {
-        case MetricsOnlyRefreshed(refreshedMetrics) =>
+        case RefreshedOnly(refreshedMetrics) =>
           refreshedMetrics should contain theSameElementsAs expectedUpdateResult.refreshedMetrics
       }
 
-    def shouldResultIn(expectedUpdateResult: MetricsUpdatedAndRefreshed): Unit =
+    def shouldResultIn(expectedUpdateResult: UpdatedAndRefreshed): Unit =
       inside(metricUpdateResult) {
-        case MetricsUpdatedAndRefreshed(updatedMetrics, refreshedMetrics) =>
+        case UpdatedAndRefreshed(updatedMetrics, refreshedMetrics) =>
           updatedMetrics   shouldBe expectedUpdateResult.updatedMetrics
           refreshedMetrics should contain theSameElementsAs expectedUpdateResult.refreshedMetrics
       }
