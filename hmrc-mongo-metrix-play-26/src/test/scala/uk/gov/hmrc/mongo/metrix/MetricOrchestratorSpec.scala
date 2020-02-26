@@ -279,7 +279,7 @@ class MetricOrchestratorSpec
   }
 
   private val metricRegistry        = new MetricRegistry()
-  override protected val repository = new MongoMetricRepository(mongoComponent, throttleConfig)
+  override protected val repository = new MongoMetricRepository(mongoComponent)
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -289,8 +289,7 @@ class MetricOrchestratorSpec
   }
 
   private class SlowlyWritingMetricRepository extends MongoMetricRepository(
-      mongoComponent = mongoComponent,
-      throttleConfig = throttleConfig) {
+      mongoComponent = mongoComponent) {
     override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
       Future(Thread.sleep(200)).flatMap(_ => super.persist(calculatedMetric))
   }

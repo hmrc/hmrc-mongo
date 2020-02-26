@@ -22,7 +22,6 @@ import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptions}
 import org.mongodb.scala.model.Indexes.ascending
 import uk.gov.hmrc.mongo.MongoComponent
-import uk.gov.hmrc.mongo.throttle.{ThrottleConfig, WithThrottling}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,8 +34,7 @@ trait MetricRepository {
 
 @Singleton
 class MongoMetricRepository @Inject() (
-    mongoComponent: MongoComponent,
-    val throttleConfig: ThrottleConfig
+    mongoComponent: MongoComponent
   )(implicit ec: ExecutionContext)
     extends PlayMongoRepository[PersistedMetric](
       collectionName = "metrics",
@@ -46,8 +44,7 @@ class MongoMetricRepository @Inject() (
         IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
       )
     )
-    with MetricRepository
-    with WithThrottling {
+    with MetricRepository {
 
   override def findAll(): Future[List[PersistedMetric]] =
     collection.withReadPreference(ReadPreference.secondaryPreferred)
