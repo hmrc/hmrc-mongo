@@ -21,7 +21,6 @@ import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, TestSuite}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Configuration
 import uk.gov.hmrc.mongo.MongoComponent
-import uk.gov.hmrc.mongo.throttle.ThrottleConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -30,7 +29,6 @@ trait MongoSupport extends ScalaFutures {
   protected val databaseName: String = "test-" + this.getClass.getSimpleName
   protected val mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
 
-  protected lazy val throttleConfig: ThrottleConfig = new ThrottleConfig(Configuration(("mongodb.uri", mongoUri)))
   protected lazy val mongoComponent: MongoComponent = MongoComponent(mongoUri)
   protected lazy val mongoClient: MongoClient       = mongoComponent.client
   protected lazy val mongoDatabase: MongoDatabase   = mongoComponent.database
