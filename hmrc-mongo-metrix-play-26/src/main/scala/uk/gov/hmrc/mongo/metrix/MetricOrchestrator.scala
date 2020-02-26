@@ -25,35 +25,41 @@ import uk.gov.hmrc.mongo.lock.MongoLockService
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
-trait MetricOrchestrationResult {
-  def andLogTheResult()
-}
 
 final case class CachedMetricGauge(name: String, lookupValue: String => Int) extends Gauge[Int] {
+  private val logger = Logger(getClass())
   override def getValue: Int = {
     val value = lookupValue(name)
-    Logger.debug(s"Gauge for metric $name is reporting on value: $value")
+    logger.debug(s"Gauge for metric $name is reporting on value: $value")
     value
   }
 }
 
-final case class MetricsUpdatedAndRefreshed(updatedMetrics: Map[String, Int], refreshedMetrics: Seq[PersistedMetric])
-    extends MetricOrchestrationResult {
-  override def andLogTheResult(): Unit = {
-    Logger.info(s"Acquired the lock. Both update and refresh have been performed.")
-    Logger.debug(s"""
-         | The updated metrics coming from sources are: $updatedMetrics.
-         | Metrics refreshed on the cache are: $refreshedMetrics
-       """.stripMargin)
-  }
+trait MetricOrchestrationResult {
+  def log(): Unit
 }
 
-final case class MetricsOnlyRefreshed(refreshedMetrics: List[PersistedMetric]) extends MetricOrchestrationResult {
-  override def andLogTheResult(): Unit = {
-    Logger.info(s"Failed to acquire the lock. Therefore only refresh has been performed.")
-    Logger.debug(s"""
-         | Metrics refreshed on the cache are: $refreshedMetrics
-       """.stripMargin)
+object MetricOrchestrationResult {
+  private val logger = Logger(getClass())
+
+  final case class UpdatedAndRefreshed(updatedMetrics: Map[String, Int], refreshedMetrics: Seq[PersistedMetric])
+      extends MetricOrchestrationResult {
+    override def log(): Unit = {
+      logger.info(s"Acquired the lock. Both update and refresh have been performed.")
+      logger.debug(s"""
+           | The updated metrics coming from sources are: $updatedMetrics.
+           | Metrics refreshed on the cache are: $refreshedMetrics
+         """.stripMargin)
+    }
+  }
+
+  final case class RefreshedOnly(refreshedMetrics: List[PersistedMetric]) extends MetricOrchestrationResult {
+    override def log(): Unit = {
+      logger.info(s"Failed to acquire the lock. Therefore only refresh has been performed.")
+      logger.debug(s"""
+           | Metrics refreshed on the cache are: $refreshedMetrics
+         """.stripMargin)
+    }
   }
 }
 
@@ -124,8 +130,8 @@ class MetricOrchestrator(
       _ = ensureMetricRegistered(persistedMetrics)
     } yield {
       maybeUpdatedMetrics match {
-        case Some(updatedMetrics) => MetricsUpdatedAndRefreshed(updatedMetrics, persistedMetrics)
-        case None                 => MetricsOnlyRefreshed(persistedMetrics)
+        case Some(updatedMetrics) => MetricOrchestrationResult.UpdatedAndRefreshed(updatedMetrics, persistedMetrics)
+        case None                 => MetricOrchestrationResult.RefreshedOnly(persistedMetrics)
       }
     }
 }
