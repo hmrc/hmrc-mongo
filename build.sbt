@@ -60,6 +60,7 @@ lazy val hmrcMongoPlay27 = Project("hmrc-mongo-play-27", file("hmrc-mongo-play-2
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
+    unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-play-26/src/main/scala",
     libraryDependencies ++= AppDependencies.hmrcMongoPlay27
   ).dependsOn(hmrcMongoCommon)
 
@@ -74,7 +75,7 @@ lazy val hmrcMongoTestPlay27 = Project("hmrc-mongo-test-play-27", file("hmrc-mon
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
-    unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-test-play-27/src/main/scala",
+    unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-test-play-26/src/main/scala",
     libraryDependencies ++= AppDependencies.hmrcMongoTestPlay27
   ).dependsOn(hmrcMongoPlay27)
 
@@ -89,6 +90,7 @@ lazy val hmrcMongoMetrixPlay27 = Project("hmrc-mongo-metrix-play-27", file("hmrc
   .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
   .settings(
     commonSettings,
+    unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-metrix-play-26/src/main/scala",
     libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay27,
-    crossScalaVersions := Seq(scala2_12), // metrics-play for 2.7 only exists for 2.12+
+    crossScalaVersions := Seq(scala2_12) // metrics-play for 2.7 only exists for 2.12+
   ).dependsOn(hmrcMongoPlay27, hmrcMongoTestPlay27)

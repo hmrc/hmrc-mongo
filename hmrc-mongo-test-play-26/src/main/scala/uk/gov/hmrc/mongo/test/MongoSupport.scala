@@ -19,7 +19,6 @@ package uk.gov.hmrc.mongo.test
 import org.mongodb.scala.{Document, MongoClient, MongoDatabase, ReadPreference}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, TestSuite}
 import org.scalatest.concurrent.ScalaFutures
-import play.api.Configuration
 import uk.gov.hmrc.mongo.MongoComponent
 
 import scala.concurrent.ExecutionContext.Implicits.global
