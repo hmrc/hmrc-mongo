@@ -95,7 +95,7 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
 
       repositoryItems().size shouldBe 99
 
-      deleteAll().futureValue shouldBe 99
+      deleteAll().futureValue.getDeletedCount shouldBe 99
 
       repositoryItems().size shouldBe 0
     }
