@@ -17,9 +17,10 @@
 package uk.gov.hmrc.mongo.test
 
 import org.mongodb.scala.bson.BsonDocument
+import org.mongodb.scala.bson.collection.immutable.Document
 import org.mongodb.scala.bson.conversions.Bson
 import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.result.InsertOneResult
+import org.mongodb.scala.result.{DeleteResult, InsertOneResult}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.MongoUtils
 
@@ -65,6 +66,12 @@ trait PlayMongoRepositorySupport[A] extends MongoSupport {
   protected def insert(a: A): Future[InsertOneResult] =
     repository.collection
       .insertOne(a)
+      .toFuture
+
+  protected def deleteAll(): Future[DeleteResult] =
+    repository
+      .collection
+      .deleteMany(filter = Document())
       .toFuture
 
   protected def createCollection(): Unit =
