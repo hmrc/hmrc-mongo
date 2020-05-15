@@ -20,9 +20,10 @@ import com.mongodb.MongoQueryException
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import com.mongodb.client.model.Indexes
 import org.mongodb.scala.model.IndexModel
+import org.mongodb.scala.result.DeleteResult
 import org.scalatest.Matchers.{include, _}
 import org.scalatest.wordspec.AnyWordSpecLike
-import play.api.libs.json.{Format, Json, JsObject}
+import play.api.libs.json.{Format, JsObject, Json}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -72,6 +73,31 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
     "update notablescan when index preference to allow unindexed queries" in {
       updateIndexPreference(true).futureValue
       updateIndexPreference(false).futureValue shouldBe true
+    }
+  }
+
+  "deleteAll" should {
+    "delete all records from a collection" in {
+      val items = (1 to 99).map(index => Json.obj(s"key$index" -> index))
+
+      repository
+        .collection
+        .insertMany(items)
+        .toFuture
+        .futureValue
+
+      def repositoryItems() =
+        repository
+        .collection
+          .find()
+          .toFuture
+          .futureValue
+
+      repositoryItems().size shouldBe 99
+
+      deleteAll().futureValue.getDeletedCount shouldBe 99
+
+      repositoryItems().size shouldBe 0
     }
   }
 
