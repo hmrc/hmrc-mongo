@@ -10,18 +10,12 @@ val scala2_12 = "2.12.10"
 // TODO: restrict parallelExecution to tests only (the obvious way to do this using Test scope does not seem to work correctly)
 parallelExecution in Global := false
 
-lazy val commonResolvers = Seq(
-    Resolver.bintrayRepo("hmrc", "releases"),
-    Resolver.typesafeRepo("releases")
-)
-
 lazy val commonSettings = Seq(
   organization := "uk.gov.hmrc.mongo",
   majorVersion := 0,
   scalaVersion := scala2_12,
   crossScalaVersions := Seq(scala2_11, scala2_12),
-  makePublicallyAvailableOnBintray := true,
-  resolvers := commonResolvers
+  makePublicallyAvailableOnBintray := true
 )
 
 lazy val library = Project(name, file("."))
