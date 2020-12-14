@@ -209,7 +209,7 @@ class MetricOrchestratorSpec
         .thenReturn(Future(List(PersistedMetric("a", 1), PersistedMetric("b", 2), PersistedMetric("z", 8))))
 
       when(metricRepository.persist(any[PersistedMetric]))
-        .thenReturn(Future[Unit]())
+        .thenReturn(Future.unit)
 
       // when
       orchestrator.attemptMetricRefresh().futureValue shouldResultIn UpdatedAndRefreshed(

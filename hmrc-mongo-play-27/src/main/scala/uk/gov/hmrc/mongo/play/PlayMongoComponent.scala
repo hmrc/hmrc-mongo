@@ -20,7 +20,7 @@ import com.google.inject.{AbstractModule, Inject, Singleton}
 import com.mongodb.ConnectionString
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 import play.api.inject.ApplicationLifecycle
-import play.api.{Configuration, Environment, Logger}
+import play.api.{Configuration, Logger}
 import uk.gov.hmrc.mongo.MongoComponent
 
 import scala.concurrent.Future
@@ -28,11 +28,12 @@ import scala.concurrent.Future
 @Singleton
 class PlayMongoComponent @Inject() (
   configuration: Configuration,
-  environment: Environment,
   lifecycle: ApplicationLifecycle
 ) extends MongoComponent {
 
-  Logger.info("MongoComponent starting...")
+  private val logger = Logger(getClass)
+
+  logger.info("MongoComponent starting...")
 
   private val mongoUri =
     configuration.get[String]("mongodb.uri")
@@ -40,11 +41,11 @@ class PlayMongoComponent @Inject() (
   override val client: MongoClient     = MongoClient(uri = mongoUri)
   override val database: MongoDatabase = client.getDatabase((new ConnectionString(mongoUri)).getDatabase)
 
-  Logger.debug(s"MongoComponent: MongoConnector configuration being used: $mongoUri")
+  logger.debug(s"MongoComponent: MongoConnector configuration being used: $mongoUri")
 
   lifecycle.addStopHook { () =>
     Future.successful {
-      Logger.info("MongoComponent stops, closing connections...")
+      logger.info("MongoComponent stops, closing connections...")
       client.close()
     }
   }

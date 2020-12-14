@@ -20,15 +20,14 @@ import com.mongodb.MongoQueryException
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import com.mongodb.client.model.Indexes
 import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.result.DeleteResult
-import org.scalatest.Matchers.{include, _}
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.json.{Format, JsObject, Json}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with DefaultPlayMongoRepositorySupport[JsObject] {
+class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with DefaultPlayMongoRepositorySupport[JsObject] with Matchers {
 
   "updateIndexPreference" should {
 
