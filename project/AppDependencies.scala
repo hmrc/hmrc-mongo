@@ -14,11 +14,7 @@ object AppDependencies {
   )
 
   def mongoCommon(scalaBinaryVersionValue: String): Seq[ModuleID] = Seq(
-    "org.mongodb.scala" %% "mongo-scala-driver" % "4.0.0-rc0"
-      // mongodb has a non-existant dependency, which isn't needed, and will fail to download.
-      // this may be redundant in a future version.
-      // excludeAll("org.mongodb.scala" %% "bson-scala") not excluding for scala binary version appropriately...
-      excludeAll("org.mongodb.scala" % s"bson-scala_$scalaBinaryVersionValue"),
+    "org.mongodb.scala" %% "mongo-scala-driver" % "4.1.1",
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
   )
 
