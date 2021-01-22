@@ -5,15 +5,16 @@ val name = "hmrc-mongo"
 
 val scala2_12 = "2.12.12"
 
-// Disable multiple project tests running at the same time: https://stackoverflow.com/questions/11899723/how-to-turn-off-parallel-execution-of-tests-for-multi-project-builds
-// TODO: restrict parallelExecution to tests only (the obvious way to do this using Test scope does not seem to work correctly)
-parallelExecution in Global := false
+// Disable multiple project tests running at the same time, since notablescan flag is a global setting.
+// https://www.scala-sbt.org/1.x/docs/Parallel-Execution.html
+Global / concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.Untagged)
+
 
 lazy val commonSettings = Seq(
   organization := "uk.gov.hmrc.mongo",
   majorVersion := 0,
   scalaVersion := scala2_12,
-  makePublicallyAvailableOnBintray := true
+  makePublicallyAvailableOnBintray := true,
 )
 
 lazy val library = Project(name, file("."))

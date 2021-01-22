@@ -24,8 +24,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.json.{Format, JsObject, Json}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
-
 import scala.concurrent.ExecutionContext.Implicits.global
+import org.scalatest.{Assertion, Succeeded}
+import org.scalatest.exceptions.TestFailedException
 
 class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with DefaultPlayMongoRepositorySupport[JsObject] with Matchers {
 
@@ -43,8 +44,8 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
           .toFuture
           .failed
       } { exception =>
-        exception            shouldBe a[MongoQueryException]
-        exception.getMessage should include("No query solutions")
+        exception shouldBe a[MongoQueryException]
+        isIndexException(exception.asInstanceOf[MongoQueryException])
       }
     }
 
@@ -107,4 +108,15 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
       domainFormat   = Format.of[JsObject],
       indexes        = Seq(IndexModel(Indexes.ascending("indexed")))
     )
+
+  def isIndexException(actual: MongoQueryException): Assertion =
+    if (actual.getErrorCode != 291 &&
+        // pre mongo 4.4 we didn't have a specific error code
+        (actual.getErrorCode != 2 && !actual.getMessage.contains("No query solutions")))
+      throw new TestFailedException(
+        message = Some(s"Expected either errorCode 291 or message 'No query solutions'. Actual: $actual"),
+        cause  = None,
+        failedCodeStackDepth = 10
+      )
+    else Succeeded
 }

@@ -23,7 +23,6 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-
 trait MongoUtils {
   val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
 
