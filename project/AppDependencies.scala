@@ -4,13 +4,14 @@ object AppDependencies {
 
   private val play26Version = "2.6.25"
   private val play27Version = "2.7.4"
+  private val play28Version = "2.8.7"
 
   lazy val test: Seq[ModuleID] = Seq(
     "org.scalatest"        %% "scalatest"                % "3.1.0"        % Test,
     "org.scalacheck"       %% "scalacheck"               % "1.14.3"       % Test,
     "org.scalatestplus"    %% "scalatestplus-scalacheck" % "3.1.0.0-RC2"  % Test,
-    "com.vladsch.flexmark" % "flexmark-all"              % "0.35.10"      % Test,
-    "ch.qos.logback"       % "logback-classic"           % "1.2.3"        % Test,
+    "com.vladsch.flexmark" %  "flexmark-all"             % "0.35.10"      % Test,
+    "ch.qos.logback"       %  "logback-classic"          % "1.2.3"        % Test,
   )
 
   def mongoCommon(scalaBinaryVersionValue: String): Seq[ModuleID] = Seq(
@@ -31,6 +32,11 @@ object AppDependencies {
     "com.typesafe.play" %% "play-guice" % play27Version,
   ) ++ test
 
+  lazy val hmrcMongoPlay28: Seq[ModuleID] = Seq(
+    "com.typesafe.play" %% "play"       % play28Version,
+    "com.typesafe.play" %% "play-guice" % play28Version,
+  ) ++ test
+  
   lazy val hmrcMongoCachePlay26: Seq[ModuleID] = Seq() ++ test
 
   lazy val hmrcMongoTestPlay26: Seq[ModuleID] = Seq(
@@ -45,12 +51,23 @@ object AppDependencies {
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
   ) ++ test
 
+  lazy val hmrcMongoTestPlay28: Seq[ModuleID] = Seq(
+    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
+    "org.scalatest"         %% "scalatest"       % "3.1.0",
+    "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
+  ) ++ test
+
   lazy val hmrcMongoMetrixPlay26: Seq[ModuleID] = Seq(
     "com.kenshoo"           %% "metrics-play"    % "2.6.19_0.7.0",
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
   )
 
   lazy val hmrcMongoMetrixPlay27: Seq[ModuleID] = Seq(
+    "com.kenshoo"           %% "metrics-play"    % "2.7.3_0.8.1",
+    "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
+  )
+
+  lazy val hmrcMongoMetrixPlay28: Seq[ModuleID] = Seq(
     "com.kenshoo"           %% "metrics-play"    % "2.7.3_0.8.1",
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
   )
