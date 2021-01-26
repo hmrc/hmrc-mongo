@@ -27,24 +27,32 @@ trait MongoUtils {
   val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
 
   def ensureIndexes[A](
-      collection: MongoCollection[A],
-      indexes: Seq[IndexModel],
-      rebuildIndexes: Boolean
-      )(implicit ec: ExecutionContext
-      ): Future[Seq[String]] =
-    Future.traverse(indexes) { index =>
-      collection
-        .createIndex(index.getKeys, index.getOptions)
-        .toFuture
-        .recoverWith {
-          case IndexConflict(e) if rebuildIndexes =>
-            logger.warn("Conflicting Mongo index found. This index will be updated")
-            for {
-              _      <- collection.dropIndex(index.getOptions.getName).toFuture
-              result <- collection.createIndex(index.getKeys, index.getOptions).toFuture
-            } yield result
-        }
-    }
+    collection: MongoCollection[A],
+    indexes: Seq[IndexModel],
+    rebuildIndexes: Boolean
+  )(implicit ec: ExecutionContext
+  ): Future[Seq[String]] =
+    for {
+      currentIndices <- collection.listIndexes.toFuture.map(_.map(_("name").asString.getValue))
+      res <- Future.traverse(indexes) { index =>
+               collection
+                 .createIndex(index.getKeys, index.getOptions)
+                 .toFuture
+                 .recoverWith {
+                   case IndexConflict(e) if rebuildIndexes =>
+                     logger.warn("Conflicting Mongo index found. This index will be updated")
+                     for {
+                       _      <- collection.dropIndex(index.getOptions.getName).toFuture
+                       result <- collection.createIndex(index.getKeys, index.getOptions).toFuture
+                     } yield result
+                 }
+               }
+      indicesToDrop = if (rebuildIndexes) currentIndices.toSet.diff(res.toSet + "_id_") else Set.empty
+      _ <-  Future.traverse(indicesToDrop) { indexName =>
+             logger.warn(s"Index '$indexName' is not longer defined, removing")
+             collection.dropIndex(indexName).toFuture
+           }
+    } yield res
 
   def existsCollection[A](
       mongoComponent: MongoComponent,
