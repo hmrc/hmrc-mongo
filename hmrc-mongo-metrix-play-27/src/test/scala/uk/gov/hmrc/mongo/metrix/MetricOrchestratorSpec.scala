@@ -206,19 +206,28 @@ class MetricOrchestratorSpec
       )
 
       when(metricRepository.findAll())
-        .thenReturn(Future(List(PersistedMetric("a", 1), PersistedMetric("b", 2), PersistedMetric("z", 8))))
+        .thenReturn(
+          Future(List(PersistedMetric("a", 1), PersistedMetric("b", 2), PersistedMetric("z", 8))),
+          // result for after delete call
+          Future(List(PersistedMetric("a", 1), PersistedMetric("b", 2)))
+        )
 
       when(metricRepository.persist(any[PersistedMetric]))
         .thenReturn(Future.unit)
 
-      // when
-      orchestrator.attemptMetricRefresh().futureValue shouldResultIn UpdatedAndRefreshed(
-        acquiredMetrics,
-        persistedMetricsFrom(acquiredMetrics) :+ PersistedMetric("z", 8)
-      )
+      when(metricRepository.delete(any[String]))
+        .thenReturn(Future.unit)
 
-      verify(metricRepository).findAll()
+      // when
+      orchestrator.attemptMetricRefresh().futureValue shouldResultIn
+        UpdatedAndRefreshed(
+          acquiredMetrics,
+          List(PersistedMetric("a", 1), PersistedMetric("b", 2))
+        )
+
+      verify(metricRepository, times(2)).findAll()
       verify(metricRepository, times(2)).persist(any[PersistedMetric])
+      verify(metricRepository, times(1)).delete(any[String])
 
       metricRegistry.getGauges.get(s"a").getValue shouldBe 1
       metricRegistry.getGauges.get(s"b").getValue shouldBe 2
