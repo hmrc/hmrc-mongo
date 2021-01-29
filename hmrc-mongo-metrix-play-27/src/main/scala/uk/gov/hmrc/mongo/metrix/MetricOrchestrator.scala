@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 HM Revenue & Customs
+ * Copyright 2021 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 
 final case class CachedMetricGauge(name: String, lookupValue: String => Int) extends Gauge[Int] {
-  private val logger = Logger(getClass())
+  private val logger = Logger(getClass)
   override def getValue: Int = {
     val value = lookupValue(name)
     logger.debug(s"Gauge for metric $name is reporting on value: $value")
@@ -40,7 +40,7 @@ trait MetricOrchestrationResult {
 }
 
 object MetricOrchestrationResult {
-  private val logger = Logger(getClass())
+  private val logger = Logger(getClass)
 
   final case class UpdatedAndRefreshed(updatedMetrics: Map[String, Int], refreshedMetrics: Seq[PersistedMetric])
       extends MetricOrchestrationResult {

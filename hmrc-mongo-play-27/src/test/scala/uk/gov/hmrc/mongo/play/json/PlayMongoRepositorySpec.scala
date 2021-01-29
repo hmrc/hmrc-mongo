@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 HM Revenue & Customs
+ * Copyright 2021 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.{time => jat}
 import com.mongodb.MongoWriteException
 import org.bson.types.ObjectId
 import org.joda.{time => jot}
+import org.mongodb.scala.{Document, ReadPreference}
 import org.mongodb.scala.bson.{BsonDocument, BsonString}
 import org.mongodb.scala.model.{Filters, Updates}
 import org.scalacheck.{Arbitrary, Gen}
@@ -193,6 +194,7 @@ class PlayMongoRepositorySpec
     super.beforeAll()
     // ensure jsonSchema is defined as expected
     (for {
+       _           <- updateIndexPreference(requireIndexedQuery = false)
        collections <- mongoComponent.database.listCollections.toFuture
        collection  =  collections.find(_.get("name") == Some(BsonString(playMongoRepository.collection.namespace.getCollectionName)))
        _           =  collection.isDefined shouldBe true
@@ -202,6 +204,20 @@ class PlayMongoRepositorySpec
        _           =  Option(validator.get(f"$$jsonSchema")) shouldBe playMongoRepository.optSchema
      } yield ()
     ).futureValue
+  }
+
+  protected def updateIndexPreference(requireIndexedQuery: Boolean): Future[Boolean] = {
+    val notablescan = if (requireIndexedQuery) 1 else 0
+
+    mongoComponent.client
+      .getDatabase("admin")
+      .withReadPreference(ReadPreference.primaryPreferred())
+      .runCommand(Document(
+        "setParameter" -> 1,
+        "notablescan" -> notablescan
+      ))
+      .toFuture
+      .map(_.getBoolean("was"))
   }
 }
 
