@@ -27,13 +27,22 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.reflect.ClassTag
 
+/** Initialise a mongo repository.
+  * @param mongoComponent
+  * @param collectionName the name of the mongo collection.
+  * @param domainFormat a play Json format to map the domain to mongo entities.
+  * @param indexes indexes to ensure are created.
+  * @param optSchema optional schema to validate entities written to the collection
+  * @param replaceIndexes If true, existing indices should be removed/updated to match the provided indices.
+  *   If false, any old indices are left behind, and indices with changed definitions will throw IndexConflict exceptions.
+  */
 class PlayMongoRepository[A: ClassTag](
   mongoComponent: MongoComponent,
   val collectionName: String,
   domainFormat: Format[A],
   val indexes: Seq[IndexModel],
   val optSchema: Option[BsonDocument] = None,
-  rebuildIndexes: Boolean = false
+  replaceIndexes: Boolean = false
 )(implicit ec: ExecutionContext)
     extends MongoDatabaseCollection {
 
@@ -49,7 +58,7 @@ class PlayMongoRepository[A: ClassTag](
   def ensureIndexes: Future[Seq[String]] = {
     if (indexes.isEmpty)
       logger.info("Skipping Mongo index creation as no indexes supplied")
-    MongoUtils.ensureIndexes(collection, indexes, rebuildIndexes)
+    MongoUtils.ensureIndexes(collection, indexes, replaceIndexes)
   }
 
   def ensureSchema: Future[Unit] =

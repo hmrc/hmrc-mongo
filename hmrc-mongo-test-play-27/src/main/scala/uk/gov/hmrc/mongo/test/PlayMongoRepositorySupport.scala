@@ -87,7 +87,7 @@ trait PlayMongoRepositorySupport[A] extends MongoSupport {
       .futureValue
 
   protected def ensureIndexes(): Seq[String] =
-    MongoUtils.ensureIndexes(repository.collection, indexes, rebuildIndexes = false)
+    MongoUtils.ensureIndexes(repository.collection, indexes, replaceIndexes = false)
       .futureValue
 
   protected def ensureSchemas(): Unit =

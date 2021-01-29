@@ -34,7 +34,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class MongoCacheRepository[CacheId] @Inject() (
   mongoComponent: MongoComponent,
   collectionName: String,
-  rebuildIndexes: Boolean = true,
+  replaceIndexes: Boolean = true,
   ttl: Duration,
   timestampSupport: TimestampSupport,
   cacheIdType: CacheIdType[CacheId]
@@ -52,7 +52,7 @@ class MongoCacheRepository[CacheId] @Inject() (
             .expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
         )
       ),
-      rebuildIndexes = rebuildIndexes
+      replaceIndexes = replaceIndexes
     ) {
 
   def get[A: Reads](
