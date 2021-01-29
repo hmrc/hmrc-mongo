@@ -28,7 +28,7 @@ import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, TimestampSupp
 class SessionCacheRepository @Inject() (
   mongoComponent: MongoComponent,
   override val collectionName: String,
-  rebuildIndexes: Boolean = true,
+  replaceIndexes: Boolean = true,
   ttl: Duration,
   timestampSupport: TimestampSupport,
   sessionIdKey: String
@@ -37,7 +37,7 @@ class SessionCacheRepository @Inject() (
   val cacheRepo = new MongoCacheRepository[Request[Any]](
     mongoComponent   = mongoComponent,
     collectionName   = collectionName,
-    rebuildIndexes   = rebuildIndexes,
+    replaceIndexes   = replaceIndexes,
     ttl              = ttl,
     timestampSupport = timestampSupport,
     cacheIdType      = CacheIdType.SessionUuid(sessionIdKey)

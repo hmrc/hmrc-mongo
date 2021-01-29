@@ -29,7 +29,7 @@ trait MongoUtils {
   def ensureIndexes[A](
     collection: MongoCollection[A],
     indexes: Seq[IndexModel],
-    rebuildIndexes: Boolean
+    replaceIndexes: Boolean
   )(implicit ec: ExecutionContext
   ): Future[Seq[String]] =
     for {
@@ -39,7 +39,7 @@ trait MongoUtils {
                  .createIndex(index.getKeys, index.getOptions)
                  .toFuture
                  .recoverWith {
-                   case IndexConflict(e) if rebuildIndexes =>
+                   case IndexConflict(e) if replaceIndexes =>
                      logger.warn("Conflicting Mongo index found. This index will be updated")
                      for {
                        _      <- collection.dropIndex(index.getOptions.getName).toFuture
@@ -47,10 +47,14 @@ trait MongoUtils {
                      } yield result
                  }
                }
-      indicesToDrop = if (rebuildIndexes) currentIndices.toSet.diff(res.toSet + "_id_") else Set.empty
+      indicesToDrop = if (replaceIndexes) currentIndices.toSet.diff(res.toSet + "_id_") else Set.empty
       _ <-  Future.traverse(indicesToDrop) { indexName =>
              logger.warn(s"Index '$indexName' is not longer defined, removing")
-             collection.dropIndex(indexName).toFuture
+               collection.dropIndex(indexName).toFuture
+                 .recoverWith {
+                   // could be caused by race conditions between server instances
+                   case IndexNotFound(e) => Future.successful(())
+                 }
            }
     } yield res
 
@@ -101,8 +105,18 @@ trait MongoUtils {
     val IndexKeySpecsConflict = 86 // e.g. change of field name
     def unapply(e: MongoCommandException): Option[MongoCommandException] =
       e.getErrorCode match {
-        case IndexOptionsConflict | IndexKeySpecsConflict => Some(e)
-        case _                                            => None
+        case IndexOptionsConflict
+           | IndexKeySpecsConflict => Some(e)
+        case _                     => None
+      }
+  }
+
+  object IndexNotFound {
+    val Code = 27
+    def unapply(e: MongoCommandException): Option[MongoCommandException] =
+      e.getErrorCode match {
+        case Code => Some(e)
+        case _    => None
       }
   }
 
