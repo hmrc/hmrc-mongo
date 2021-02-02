@@ -16,8 +16,6 @@
 
 package uk.gov.hmrc.mongo.metrix
 
-import java.util.concurrent.TimeUnit
-
 import com.codahale.metrics.{Metric, MetricFilter, MetricRegistry}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside._
@@ -27,7 +25,7 @@ import uk.gov.hmrc.mongo.lock.{MongoLockRepository, MongoLockService}
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, DurationLong}
 import scala.concurrent.{ExecutionContext, Future}
 
 class MetricOrchestratorSpec
@@ -244,7 +242,11 @@ class MetricOrchestratorSpec
       }
 
       val lockService =
-        MongoLockService(repository = lockRepo, lock = "test-lock", duration = Duration(1, TimeUnit.MILLISECONDS))
+        MongoLockService(
+          lockRepository = lockRepo,
+          lockId         = "test-lock",
+          ttl            = 1.milliseconds
+        )
 
       val orchestrator = new MetricOrchestrator(
         metricRepository = mockedMetricRepository,
@@ -298,13 +300,18 @@ class MetricOrchestratorSpec
   }
 
   private class SlowlyWritingMetricRepository extends MongoMetricRepository(
-      mongoComponent = mongoComponent) {
+    mongoComponent = mongoComponent
+  ) {
     override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
       Future(Thread.sleep(200)).flatMap(_ => super.persist(calculatedMetric))
   }
 
-  private val mongoLockService: MongoLockService = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
-    .toService("test-metrics", Duration(0, TimeUnit.MICROSECONDS))
+  private val mongoLockService: MongoLockService =
+    MongoLockService(
+      lockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport),
+      lockId         = "test-metrics",
+      ttl            = 0.microseconds
+    )
 
   private def metricOrchestratorFor(
     sources: List[MetricSource],

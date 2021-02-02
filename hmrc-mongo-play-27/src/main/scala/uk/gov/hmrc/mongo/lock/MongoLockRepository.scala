@@ -41,9 +41,6 @@ trait LockRepository {
 
   def isLocked(lockId: String, owner: String): Future[Boolean]
 
-  def toService(lockId: String, ttl: Duration) =
-    MongoLockService(this, lockId, ttl)
-
   def attemptLockWithRelease[T](lockId: String, owner: String, ttl: Duration, body: => Future[T])(
     implicit ec: ExecutionContext
   ): Future[Option[T]] = {
