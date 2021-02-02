@@ -28,8 +28,9 @@ import scala.concurrent.{ExecutionContext, Future}
 
 @ImplementedBy(classOf[MongoMetricRepository])
 trait MetricRepository {
-  def persist(calculatedMetric: PersistedMetric): Future[Unit]
+  def persist(metric: PersistedMetric): Future[Unit]
   def findAll(): Future[List[PersistedMetric]]
+  def delete(metricName: String): Future[Unit]
 }
 
 @Singleton
@@ -52,13 +53,20 @@ class MongoMetricRepository @Inject() (
       .toFuture()
       .map(_.toList)
 
-  override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
+  override def persist(metric: PersistedMetric): Future[Unit] =
     collection
       .findOneAndReplace(
-        filter      = equal("name", calculatedMetric.name),
-        replacement = calculatedMetric,
+        filter      = equal("name", metric.name),
+        replacement = metric,
         options     = FindOneAndReplaceOptions().upsert(true)
       )
       .toFutureOption()
+      .map(_ => ())
+
+  override def delete(metricName: String): Future[Unit] =
+    collection
+      .deleteOne(
+        filter = equal("name", metricName)
+      ).toFuture
       .map(_ => ())
 }

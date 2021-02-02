@@ -79,20 +79,25 @@ class MetricOrchestrator(
 
   private def updateMetricRepository(
     resetToZeroFor: Option[PersistedMetric => Boolean]
-  )(implicit ec: ExecutionContext): Future[Map[String, Int]] =
+  )(implicit
+    ec: ExecutionContext
+  ): Future[Map[String, Int]] =
     for {
-      mapFromReset <- resetToZeroFor match {
-                       case Some(reset) =>
-                         metricRepository
-                           .findAll()
-                           .map(_.filter(reset).map { case PersistedMetric(name, _) => name -> 0 }.toMap)
-                       case None => Future(Map.empty[String, Int])
-                     }
-      mapFromSources <- Future.traverse(metricSources)(_.metrics)
-      mapToPersist = (mapFromReset :: mapFromSources).reduce(_ ++ _)
-      metricsToPersist = mapToPersist.map { case (name: String, value: Int) => PersistedMetric(name, value) }.toList
-      _ <- Future.traverse(metricsToPersist)(metricRepository.persist)
-    } yield mapToPersist
+      persistedMetrics  <- metricRepository.findAll().map(_.map(_.name).toSet)
+      mapFromSources    <- Future.traverse(metricSources)(_.metrics).map(_.reduce(_ ++ _))
+      metricsToPersist  =  mapFromSources
+                             .map((PersistedMetric.apply _).tupled)
+                             .map(metric =>
+                               metric.copy(count = if (persistedMetrics.contains(metric.name) &&
+                                                       resetToZeroFor.exists(_(metric)))
+                                                      0
+                                                   else metric.count
+                                          )
+                             )
+      _                 <- Future.traverse(metricsToPersist)(metricRepository.persist)
+      metricsToToDelete =  persistedMetrics.diff(metricsToPersist.map(_.name).toSet)
+      _                 <- Future.traverse(metricsToToDelete)(metricRepository.delete)
+    } yield metricsToPersist.map(m => (m.name, m.count)).toMap
 
   private def ensureMetricRegistered(persistedMetrics: List[PersistedMetric]): Unit = {
     // Register with DropWizard metric registry if not already
