@@ -115,8 +115,7 @@ class MongoLockServiceSpec
 
     "not execute the body and exit if the lock for another serverId exists" in {
       var counter = 0
-      repository
-        .toService(lockId, ttl)
+      MongoLockService(repository, lockId, ttl)
         .attemptLockWithRefreshExpiry {
           Future.successful(counter += 1)
         }
@@ -151,5 +150,5 @@ class MongoLockServiceSpec
   private val now           = Instant.now()
 
   override protected val repository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
-  private val mongoLockService    = repository.toService(lockId, ttl)
+  private val mongoLockService      = MongoLockService(repository, lockId, ttl)
 }

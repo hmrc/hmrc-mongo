@@ -38,11 +38,12 @@ trait MongoLockService {
 
 object MongoLockService {
 
-  def apply(repository: LockRepository, lock: String, duration: Duration): MongoLockService =
+  def apply(lockRepository: LockRepository, lockId: String, ttl: Duration): MongoLockService = {
+    val (lockRepository1, lockId1, ttl1) = (lockRepository, lockId, ttl)
     new MongoLockService {
-      override val lockRepository: LockRepository = repository
-      override val lockId: String                 = lock
-      override val ttl: Duration                  = duration
+      override val lockRepository: LockRepository = lockRepository1
+      override val lockId        : String         = lockId1
+      override val ttl           : Duration       = ttl1
     }
-
+  }
 }
