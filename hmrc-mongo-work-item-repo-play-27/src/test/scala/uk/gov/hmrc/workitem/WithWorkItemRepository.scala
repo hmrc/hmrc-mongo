@@ -21,10 +21,10 @@ import org.bson.types.ObjectId
 import org.joda.time.chrono.ISOChronology
 import org.joda.time.{DateTime, Duration, LocalDate}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
-import org.scalatest.{BeforeAndAfterEach, Suite}
+import org.scalatest.TestSuite
 import play.api.libs.json.Json
-import uk.gov.hmrc.mongo.MongoSpecSupport
-import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
+import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
+import scala.concurrent.ExecutionContext.Implicits.global
 
 trait TimeSource {
 
@@ -48,19 +48,19 @@ trait TimeSource {
 
 trait WithWorkItemRepositoryModule
   extends ScalaFutures
-  with MongoSpecSupport
-  with BeforeAndAfterEach
+  with DefaultPlayMongoRepositorySupport[WorkItem[ExampleItemWithModule]]
   with TimeSource {
-  this: Suite =>
+    this: TestSuite =>
 
   val appConf = ConfigFactory.load("application.test.conf")
 
   implicit val eif = uk.gov.hmrc.workitem.ExampleItemWithModule.formats
-  lazy val repo = new WorkItemModuleRepository[ExampleItemWithModule](
-    "items",
-    "testModule",
-    mongo,
-    appConf
+
+  override lazy val repository = new WorkItemModuleRepository[ExampleItemWithModule](
+    collectionName = "items",
+    moduleName     = "testModule",
+    mongoComponent = mongoComponent,
+    config         = appConf
   ) {
     override val inProgressRetryAfterProperty: String = "retryAfterSeconds"
     override lazy val inProgressRetryAfter: Duration = Duration.standardHours(1)
@@ -71,13 +71,11 @@ trait WithWorkItemRepositoryModule
 
 trait WithWorkItemRepository
   extends ScalaFutures
-  with MongoSpecSupport
-  with BeforeAndAfterEach
+  with DefaultPlayMongoRepositorySupport[WorkItem[ExampleItem]]
   with IntegrationPatience
   with TimeSource {
-  this: Suite =>
+    this: TestSuite =>
 
-  import uk.gov.hmrc.mongo.json.ReactiveMongoFormats.objectIdFormats
   implicit val eif = uk.gov.hmrc.workitem.ExampleItem.formats
 
   val appConf = ConfigFactory.load("application.test.conf")
@@ -85,9 +83,9 @@ trait WithWorkItemRepository
   def exampleItemRepository(collectionName: String) =
     new WorkItemRepository[ExampleItem, ObjectId](
       collectionName = collectionName,
-      mongo = mongo,
-      itemFormat = WorkItem.workItemMongoFormat[ExampleItem],
-      appConf
+      mongoComponent = mongoComponent,
+      itemFormat     = WorkItem.workItemMongoFormat[ExampleItem],
+      config         = appConf
     ) {
 
     override lazy val inProgressRetryAfter: Duration = Duration.standardHours(1)
@@ -106,13 +104,9 @@ trait WithWorkItemRepository
     }
   }
 
-  val collectionName = "items"
-  lazy val repo = exampleItemRepository(collectionName)
+  override lazy val collectionName = "items"
 
-  protected override def beforeEach() {
-    import scala.concurrent.ExecutionContext.Implicits.global
-    repo.removeAll().futureValue
-  }
+  override lazy val repository = exampleItemRepository(collectionName)
 
   val today = LocalDate.now(ISOChronology.getInstanceUTC)
   val yesterday = today.minusDays(1)
@@ -137,9 +131,8 @@ object ExampleItem {
 case class ExampleItemWithModule(_id: ObjectId, updatedAt: DateTime, value: String)
 
 object ExampleItemWithModule {
-
-  implicit val dateReads = ReactiveMongoFormats.dateTimeRead
-  implicit val dateWrites = ReactiveMongoFormats.dateTimeWrite
-  implicit val objectIdFormats = ReactiveMongoFormats.objectIdFormats
+  implicit val dateReads = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeRead
+  implicit val dateWrites = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeWrite
+  implicit val objectIdFormats = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats
   implicit val formats = Json.format[ExampleItemWithModule]
 }

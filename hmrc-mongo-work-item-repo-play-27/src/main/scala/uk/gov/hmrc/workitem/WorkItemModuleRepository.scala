@@ -22,7 +22,6 @@ import org.bson.types.ObjectId
 import org.joda.time.DateTime
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.MongoComponent
-import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import org.mongodb.scala.model._
 
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats.Implicits.objectIdFormats
@@ -35,14 +34,13 @@ import scala.concurrent.{ExecutionContext, Future}
   * It assumes creation of WorkItems are made through another view (e.g. a standard [[WorkItemRepository]]), it will
   * only allow interacting with the WorkItem lifecycle, and will throw runtime exceptions if `pushNew` is called.
   */
-abstract class WorkItemModuleRepository[T, ID](
+abstract class WorkItemModuleRepository[T](
   collectionName: String,
   moduleName    : String,
   mongoComponent: MongoComponent,
   config        : Config,
   replaceIndexes: Boolean = true
 )(implicit
-  tmf: Manifest[T],
   trd: Reads[T],
   ec : ExecutionContext
 ) extends WorkItemRepository[T, ObjectId](
@@ -106,8 +104,7 @@ object WorkItemModuleRepository {
   }
 
 
-  def formatsOf[T](moduleName:String)(implicit trd:Reads[T]): Format[WorkItem[T]] = {
-    implicit val objr = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdRead
+  def formatsOf[T](moduleName:String)(implicit trd: Reads[T]): Format[WorkItem[T]] = {
     val reads: Reads[WorkItem[T]] =
       ( (__ \ "_id"                                ).read[ObjectId]
       ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[DateTime]

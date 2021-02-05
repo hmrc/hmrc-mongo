@@ -40,10 +40,7 @@ abstract class WorkItemRepository[T, ID](
   config        : Config,
   replaceIndexes: Boolean = true
 )(implicit
-  idFormat: Format[ID],
-  mfItem  : Manifest[T],
-  mfID    : Manifest[ID],
-  ec      : ExecutionContext
+  ec: ExecutionContext
 ) extends PlayMongoRepository[WorkItem[T]](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
@@ -82,12 +79,10 @@ abstract class WorkItemRepository[T, ID](
 
   def metricPrefix: String = collectionName
 
-  override def metrics(implicit ec: ExecutionContext): Future[Map[String, Long]] =
+  override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] =
     Future.traverse(ProcessingStatus.processingStatuses.toList) { status =>
-      count(status).map(value => s"$metricPrefix.${status.name}" -> value)
+      count(status).map(value => s"$metricPrefix.${status.name}" -> value.toInt)
     }.map(_.toMap)
-
-  private implicit val dateFormats: Format[DateTime] = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeFormats
 
   /** Returns the timeout of any WorkItems marked as InProgress.
     * WorkItems marked as InProgress will be hidden from [[pullOutstanding]] until this window expires.
@@ -97,16 +92,16 @@ abstract class WorkItemRepository[T, ID](
   )
 
   private def newWorkItem(receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus)(item: T) = WorkItem(
-    id = new ObjectId(),
-    receivedAt = receivedAt,
-    updatedAt = now,
-    availableAt = availableAt,
-    status = initialState(item),
+    id           = new ObjectId(),
+    receivedAt   = receivedAt,
+    updatedAt    = now,
+    availableAt  = availableAt,
+    status       = initialState(item),
     failureCount = 0,
-    item = item
+    item         = item
   )
 
-  override def indexes: Seq[IndexModel] = Seq(
+  override val indexes: Seq[IndexModel] = Seq(
     IndexModel(Indexes.ascending(workItemFields.status, workItemFields.updatedAt), IndexOptions().background(true)),
     IndexModel(Indexes.ascending(workItemFields.status, workItemFields.availableAt), IndexOptions().background(true)),
     IndexModel(Indexes.ascending(workItemFields.status), IndexOptions().background(true))
@@ -138,11 +133,11 @@ abstract class WorkItemRepository[T, ID](
   }
 
   /** Creates a batch of new [[WorkItem]]s with status ToDo and availableAt equal to receivedAt */
-  def pushNew(items: Seq[T], receivedAt: DateTime)(implicit ec: ExecutionContext): Future[Seq[WorkItem[T]]] =
+  def pushNew(items: Seq[T], receivedAt: DateTime): Future[Seq[WorkItem[T]]] =
     pushNew(items, receivedAt, receivedAt, toDo _)
 
   /** Creates a batch of new [[WorkItem]]s with availableAt equal to receivedAt */
-  def pushNew(items: Seq[T], receivedAt: DateTime, initialState: T => ProcessingStatus)(implicit ec: ExecutionContext): Future[Seq[WorkItem[T]]] =
+  def pushNew(items: Seq[T], receivedAt: DateTime, initialState: T => ProcessingStatus): Future[Seq[WorkItem[T]]] =
     pushNew(items, receivedAt, receivedAt, initialState)
 
   /** Creates a batch of new [[WorkItem]]s.
@@ -151,7 +146,7 @@ abstract class WorkItemRepository[T, ID](
     * @param availableAt when to defer processing until
     * @param initialState defines the initial state of the WorkItems for the item
     */
-  def pushNew(items: Seq[T], receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus)(implicit ec: ExecutionContext): Future[Seq[WorkItem[T]]] = {
+  def pushNew(items: Seq[T], receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus): Future[Seq[WorkItem[T]]] = {
     val workItems = items.map(newWorkItem(receivedAt, availableAt, initialState))
 
     collection.insertMany(workItems).toFuture.map { result =>
@@ -178,7 +173,7 @@ abstract class WorkItemRepository[T, ID](
     * @param failedBefore it will only consider WorkItems in FailedState if they were marked as Failed before the failedBefore. This can avoid retrying a failure immediately.
     * @param availableBefore it will only consider WorkItems where the availableAt field is before the availableBefore
     */
-  def pullOutstanding(failedBefore: DateTime, availableBefore: DateTime)(implicit ec: ExecutionContext): Future[Option[WorkItem[T]]] = {
+  def pullOutstanding(failedBefore: DateTime, availableBefore: DateTime): Future[Option[WorkItem[T]]] = {
 
     def getWorkItem(idList: IdList): Future[Option[WorkItem[T]]] = {
       collection.find(
@@ -190,13 +185,13 @@ abstract class WorkItemRepository[T, ID](
     id.map(_.map(getWorkItem)).flatMap(_.getOrElse(Future.successful(None)))
   }
 
-  private def findNextItemId(failedBefore: DateTime, availableBefore: DateTime)(implicit ec: ExecutionContext) : Future[Option[IdList]] = {
+  private def findNextItemId(failedBefore: DateTime, availableBefore: DateTime): Future[Option[IdList]] = {
 
     def findNextItemIdByQuery(query: Bson): Future[Option[IdList]] =
       collection
         .findOneAndUpdate(
-          filter = query,
-          update = setStatusOperation(InProgress, None),
+          filter  = query,
+          update  = setStatusOperation(InProgress, None),
           options = FindOneAndUpdateOptions()
                       .returnDocument(ReturnDocument.AFTER)
                       .projection(BsonDocument(workItemFields.id -> 1)),
@@ -248,7 +243,8 @@ abstract class WorkItemRepository[T, ID](
     collection.updateOne(
       filter = Filters.equal(workItemFields.id, id),
       update = setStatusOperation(status, availableAt)
-    ).toFuture.map(_.getMatchedCount > 0)
+    ).toFuture
+     .map(_.getMatchedCount > 0)
 
   /** Sets the ProcessingStatus of a WorkItem to a ResultStatus.
     * It will also update the updatedAt timestamp.
@@ -261,14 +257,15 @@ abstract class WorkItemRepository[T, ID](
                  Filters.equal(workItemFields.status, InProgress)
                ),
       update = setStatusOperation(newStatus, None)
-    ).toFuture.map(_.getModifiedCount > 0)
+    ).toFuture
+     .map(_.getModifiedCount > 0)
 
   /** Sets the ProcessingStatus of a WorkItem to Cancelled.
     * @return [[StatusUpdateResult.Updated]] if the WorkItem is cancelled,
     * [[StatusUpdateResult.NotFound]] if it's not found,
     * and [[StatusUpdateResult.NotUpdated]] if it's not in a cancellable ProcessingStatus.
     */
-  def cancel(id: ID)(implicit ec: ExecutionContext): Future[StatusUpdateResult] = {
+  def cancel(id: ID): Future[StatusUpdateResult] = {
     import uk.gov.hmrc.workitem.StatusUpdateResult._
     collection.findOneAndUpdate(
       filter = Filters.and(
@@ -277,20 +274,24 @@ abstract class WorkItemRepository[T, ID](
                ),
       update  = setStatusOperation(Cancelled, None),
       options = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
-    ).toFuture.flatMap { res =>
-      Option(res) match {
-        case Some(item) => implicit val itf = itemFormat
-                           Future.successful(Updated(
-                             previousStatus = Json.toJson(item).\(workItemFields.status).as[ProcessingStatus],
-                             newStatus      = Cancelled
-                           ))
-        case None       => findById(id).map {
-                             case Some(item) => NotUpdated(item.status)
-                             case None       => NotFound
-                           }
-      }
-    }
+    ).toFuture
+     .flatMap { res =>
+       Option(res) match {
+         case Some(item) => implicit val itf = itemFormat
+                            Future.successful(Updated(
+                              previousStatus = Json.toJson(item).\(workItemFields.status).as[ProcessingStatus],
+                              newStatus      = Cancelled
+                            ))
+         case None       => findById(id).map {
+                              case Some(item) => NotUpdated(item.status)
+                              case None       => NotFound
+                            }
+       }
+     }
   }
+
+  def findById(id: ID): Future[Option[WorkItem[T]]] =
+    collection.find(Filters.equal("_id", id)).toFuture.map(_.headOption)
 
   /** Returns the number of WorkItems in the specified ProcessingStatus */
   def count(state: ProcessingStatus): Future[Long] =

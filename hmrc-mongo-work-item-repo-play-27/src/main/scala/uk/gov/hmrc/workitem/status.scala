@@ -17,7 +17,7 @@
 package uk.gov.hmrc.workitem
 
 import play.api.libs.json._
-import reactivemongo.bson._
+//import reactivemongo.bson._
 
 sealed trait ProcessingStatus {
   val name = toString.toLowerCase
@@ -49,7 +49,8 @@ object ProcessingStatus {
     override def writes(p: ProcessingStatus): JsValue = JsString(p.name)
   }
 
-  implicit val bsonReader: BSONReader[BSONString, ProcessingStatus] = new BSONReader[BSONString, ProcessingStatus] {
+  // TODO replace the following with a codex, or define a JsonFormat, and wrap with `toBson` in filters/updates?
+  /*implicit val bsonReader: BSONReader[BSONString, ProcessingStatus] = new BSONReader[BSONString, ProcessingStatus] {
     def read(bson: BSONString) = nameToStatus(bson.value)
   }
 
@@ -57,5 +58,5 @@ object ProcessingStatus {
     def write(t: ProcessingStatus) = BSONString(t.name)
   }
 
-  implicit val bsonWriter: BSONWriter[ProcessingStatus, _ <: BSONValue] = DefaultBSONHandlers.findWriter(variantBsonWriter)
+  implicit val bsonWriter: BSONWriter[ProcessingStatus, _ <: BSONValue] = DefaultBSONHandlers.findWriter(variantBsonWriter)*/
 }

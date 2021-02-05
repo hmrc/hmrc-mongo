@@ -18,26 +18,24 @@ package uk.gov.hmrc.workitem
 
 import org.bson.types.ObjectId
 import org.joda.time.DateTime
+import org.mongodb.scala.model._
+import org.bson.conversions.Bson
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpec}
 import play.api.libs.json.{JsObject, Json, Writes}
-import reactivemongo.play.json.ImplicitBSONHandlers._
-import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class WorkItemModuleRepositorySpec extends WordSpec
-                                      with Matchers
-                                      with ScalaFutures
-                                      with BeforeAndAfterEach
-                                      with IntegrationPatience
-                                      with WithWorkItemRepositoryModule {
-  implicit val formats = ExampleItemWithModule.formats
-  implicit val dateWrites: Writes[DateTime] = ReactiveMongoFormats.dateTimeWrite
+class WorkItemModuleRepositorySpec
+  extends WordSpec
+     with Matchers
+     with ScalaFutures
+     with BeforeAndAfterEach
+     with IntegrationPatience
+     with WithWorkItemRepositoryModule {
 
-  override protected def beforeEach(): Unit = {
-    repo.removeAll().futureValue
-  }
+  implicit val formats = ExampleItemWithModule.formats
+  implicit val dateWrites: Writes[DateTime] = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeWrite
 
   "WorkItemModuleRepository" should {
     "read the work item fields" in {
@@ -45,14 +43,22 @@ class WorkItemModuleRepositorySpec extends WordSpec
       val documentCreationTime = timeSource.now
       val workItemModuleCreationTime = documentCreationTime.plusHours(1)
 
-      val document = Json.obj(
-        "$set" -> Json.obj("_id" -> _id, "updatedAt" -> documentCreationTime, "value" -> "test")
-      ).deepMerge(WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime))
+      val document: Bson =
+        Updates.combine(
+          Updates.set("_id", _id),
+          Updates.set("updatedAt", documentCreationTime),
+          Updates.set("value", "test"),
+          WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
+        )
 
-      repo.collection.update[JsObject, JsObject](Json.obj("_id" -> _id), document, upsert = true).
-        futureValue.n shouldBe 1
+      repository.collection.updateMany(
+        filter  = Filters.equal("_id", _id),
+        update  = document,
+        options = UpdateOptions().upsert(true)
+      ).toFuture
+       .futureValue.getModifiedCount shouldBe 1
 
-      repo.pullOutstanding(documentCreationTime.plusHours(2), documentCreationTime.plusHours(2)).
+      repository.pullOutstanding(documentCreationTime.plusHours(2), documentCreationTime.plusHours(2)).
         futureValue shouldBe Some(WorkItem[ExampleItemWithModule](
           _id,
           workItemModuleCreationTime,
@@ -67,7 +73,7 @@ class WorkItemModuleRepositorySpec extends WordSpec
 
     "never update T" in {
       intercept[IllegalStateException] {
-        repo.pushNew(ExampleItemWithModule(new ObjectId(), timeSource.now, "test"), timeSource.now)
+        repository.pushNew(ExampleItemWithModule(new ObjectId(), timeSource.now, "test"), timeSource.now)
       }.getMessage shouldBe "The model object cannot be created via the work item module repository"
 
       intercept[IllegalStateException] {
@@ -78,7 +84,7 @@ class WorkItemModuleRepositorySpec extends WordSpec
     }
 
     "use the module name as the gauge name" in {
-      repo.metricPrefix should be ("testModule")
+      repository.metricPrefix should be ("testModule")
     }
 
     "change state successfully" in {
@@ -87,20 +93,31 @@ class WorkItemModuleRepositorySpec extends WordSpec
       val documentCreationTime = timeSource.now
       val workItemModuleCreationTime = documentCreationTime.plusHours(1)
 
-      val document = Json.obj(
-        "$set" -> Json.obj("_id" -> _id, "updatedAt" -> documentCreationTime, "value" -> "test")
-      ).deepMerge(WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime))
+      val document: Bson =
+        Updates.combine(
+          Updates.set("_id"      , _id),
+          Updates.set("updatedAt", documentCreationTime),
+          Updates.set("value"    , "test"),
+          WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
+        )
 
-      repo.collection.update[JsObject, JsObject](Json.obj("_id" -> _id), document, upsert = true).
-        futureValue.n shouldBe 1
+      repository.collection.updateOne(
+        filter  = Filters.equal("_id", _id),
+        update  = document,
+        options = UpdateOptions().upsert(true)
+      ).toFuture
+       .futureValue.getModifiedCount shouldBe 1
 
-      repo.markAs(_id, Succeeded).futureValue shouldBe true
+      repository.markAs(_id, Succeeded).futureValue shouldBe true
 
       val Some(workItem: WorkItem[ExampleItemWithModule]) =
-        repo.collection.find(Json.obj("_id" -> _id)).one[WorkItem[ExampleItemWithModule]].futureValue
+        repository.collection.find(
+          filter = Filters.equal("_id", _id)
+        ).toFuture
+         .map(_.headOption)
+         .futureValue
       workItem.id shouldBe _id
       workItem.status shouldBe Succeeded
     }
   }
-
 }

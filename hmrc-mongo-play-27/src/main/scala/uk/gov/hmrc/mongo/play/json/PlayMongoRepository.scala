@@ -39,7 +39,7 @@ import scala.reflect.ClassTag
 class PlayMongoRepository[A: ClassTag](
   mongoComponent: MongoComponent,
   val collectionName: String,
-  domainFormat: Format[A],
+  val domainFormat: Format[A],
   val indexes: Seq[IndexModel],
   val optSchema: Option[BsonDocument] = None,
   replaceIndexes: Boolean = false
