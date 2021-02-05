@@ -19,12 +19,11 @@ package uk.gov.hmrc.workitem
 import org.bson.types.ObjectId
 import org.joda.time.DateTime
 import org.mongodb.scala.model._
-import org.bson.conversions.Bson
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import play.api.libs.json.{JsObject, Json, Writes}
+import play.api.libs.json.Writes
 import uk.gov.hmrc.mongo.play.json.Codecs
 
 import scala.concurrent.ExecutionContext.Implicits.global

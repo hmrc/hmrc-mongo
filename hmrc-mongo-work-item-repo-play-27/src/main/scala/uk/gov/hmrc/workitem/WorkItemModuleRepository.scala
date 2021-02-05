@@ -97,7 +97,7 @@ object WorkItemModuleRepository {
     Updates.combine(
       Updates.setOnInsert(fieldNames.availableAt, Codecs.toBson(time)),
       Updates.set(fieldNames.updatedAt, Codecs.toBson(time)),
-      Updates.set(fieldNames.status, Codecs.toBson(ToDo)),
+      Updates.set(fieldNames.status, Codecs.toBson[ProcessingStatus](ToDo)),
       Updates.set(fieldNames.failureCount, 0)
     )
   }

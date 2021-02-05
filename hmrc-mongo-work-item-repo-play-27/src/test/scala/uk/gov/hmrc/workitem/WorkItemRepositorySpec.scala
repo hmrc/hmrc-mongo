@@ -26,7 +26,6 @@ import org.mongodb.scala.model._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import org.joda.time.DateTime
-import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 class WorkItemRepositorySpec
   extends AnyWordSpec
@@ -34,14 +33,13 @@ class WorkItemRepositorySpec
      with WithWorkItemRepository
      with LoneElement {
 
-  def createWorkItemsWith(statuses: Seq[ProcessingStatus]) = {
+  def createWorkItemsWith(statuses: Seq[ProcessingStatus]): Unit =
     Future.traverse(statuses) { status =>
       for {
         item <- repository.pushNew(item1, DateTime.now)
         _    <- repository.markAs(item.id, status)
       } yield ()
     }.futureValue
-  }
 
   "The work item repo as metrics source" should {
     "return the counts for the all processing statuses as map of metrics" in {

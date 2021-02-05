@@ -169,24 +169,23 @@ abstract class WorkItemRepository[T, ID](
           update  = setStatusOperation(InProgress, None),
           options = FindOneAndUpdateOptions()
                       .returnDocument(ReturnDocument.AFTER)
-                      //.projection(BsonDocument(workItemFields.id -> 1)),
         ).toFutureOption
 
     def todoQuery: Bson =
       Filters.and(
-        Filters.equal(workItemFields.status, Codecs.toBson(ToDo)),
+        Filters.equal(workItemFields.status, Codecs.toBson[ProcessingStatus](ToDo)),
         Filters.lt(workItemFields.availableAt, Codecs.toBson(availableBefore))
       )
 
     def failedQuery: Bson =
       Filters.or(
         Filters.and(
-          Filters.equal(workItemFields.status, Codecs.toBson(Failed)),
+          Filters.equal(workItemFields.status, Codecs.toBson[ProcessingStatus](Failed)),
           Filters.lt(workItemFields.updatedAt, Codecs.toBson(failedBefore)),
           Filters.lt(workItemFields.availableAt, Codecs.toBson(availableBefore))
         ),
         Filters.and(
-          Filters.equal(workItemFields.status, Codecs.toBson(Failed)),
+          Filters.equal(workItemFields.status, Codecs.toBson[ProcessingStatus](Failed)),
           Filters.lt(workItemFields.updatedAt, Codecs.toBson(failedBefore)),
           Filters.exists(workItemFields.availableAt, false)
         )
@@ -194,7 +193,7 @@ abstract class WorkItemRepository[T, ID](
 
     def inProgressQuery: Bson =
       Filters.and(
-        Filters.equal(workItemFields.status, Codecs.toBson(InProgress)),
+        Filters.equal(workItemFields.status, Codecs.toBson[ProcessingStatus](InProgress)),
         Filters.lt(workItemFields.updatedAt, Codecs.toBson(now.minus(inProgressRetryAfter)))
       )
 
@@ -226,7 +225,7 @@ abstract class WorkItemRepository[T, ID](
     collection.updateOne(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
-                 Filters.equal(workItemFields.status, Codecs.toBson(InProgress))
+                 Filters.equal(workItemFields.status, Codecs.toBson[ProcessingStatus](InProgress))
                ),
       update = setStatusOperation(newStatus, None)
     ).toFuture
@@ -242,15 +241,14 @@ abstract class WorkItemRepository[T, ID](
     collection.findOneAndUpdate(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
-                 Filters.in(workItemFields.status, List(ToDo, Failed, PermanentlyFailed, Ignored, Duplicate, Deferred).map(Codecs.toBson(_)): _*) // TODO we should be able to express the valid to/from states in traits of ProcessingStatus
+                 Filters.in(workItemFields.status, List(ToDo, Failed, PermanentlyFailed, Ignored, Duplicate, Deferred).map(Codecs.toBson[ProcessingStatus](_)): _*) // TODO we should be able to express the valid to/from states in traits of ProcessingStatus
                ),
       update  = setStatusOperation(Cancelled, None),
     ).toFuture
      .flatMap { res =>
        Option(res) match {
-         case Some(item) => implicit val itf = itemFormat
-                            Future.successful(Updated(
-                              previousStatus = Json.toJson(item).\(workItemFields.status).as[ProcessingStatus],
+         case Some(item) => Future.successful(Updated(
+                              previousStatus = item.status,
                               newStatus      = Cancelled
                             ))
          case None       => findById(id).map {
@@ -270,7 +268,7 @@ abstract class WorkItemRepository[T, ID](
 
   private def setStatusOperation(newStatus: ProcessingStatus, availableAt: Option[DateTime]): Bson =
     Updates.combine(
-      Updates.set(workItemFields.status, Codecs.toBson(newStatus)),
+      Updates.set(workItemFields.status, Codecs.toBson[ProcessingStatus](newStatus)),
       Updates.set(workItemFields.updatedAt, Codecs.toBson(now)),
       (availableAt.map(when => Updates.set(workItemFields.availableAt, Codecs.toBson(when))).getOrElse(BsonDocument())),
       (if (newStatus == Failed) Updates.inc(workItemFields.failureCount, 1) else BsonDocument())
