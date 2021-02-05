@@ -37,7 +37,8 @@ abstract class WorkItemRepository[T, ID](
   collectionName: String,
   mongoComponent: MongoComponent,
   itemFormat    : Format[WorkItem[T]],
-  config        : Config
+  config        : Config,
+  replaceIndexes: Boolean = true
 )(implicit
   idFormat: Format[ID],
   mfItem  : Manifest[T],
@@ -47,7 +48,8 @@ abstract class WorkItemRepository[T, ID](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
   domainFormat   = itemFormat,
-  indexes       = Seq.empty
+  indexes        = Seq.empty,
+  replaceIndexes = replaceIndexes
 ) with Operations.Cancel[ID]
   with Operations.FindById[ID, T]
   with MetricSource {

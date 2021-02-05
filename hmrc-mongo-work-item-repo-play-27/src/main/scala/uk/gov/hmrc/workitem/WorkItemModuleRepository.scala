@@ -39,7 +39,8 @@ abstract class WorkItemModuleRepository[T, ID](
   collectionName: String,
   moduleName    : String,
   mongoComponent: MongoComponent,
-  config        : Config
+  config        : Config,
+  replaceIndexes: Boolean = true
 )(implicit
   tmf: Manifest[T],
   trd: Reads[T],
@@ -48,7 +49,8 @@ abstract class WorkItemModuleRepository[T, ID](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
   itemFormat     = WorkItemModuleRepository.formatsOf[T](moduleName),
-  config         = config
+  config         = config,
+  replaceIndexes = replaceIndexes
 ) {
 
   def protectFromWrites =
