@@ -40,8 +40,9 @@ object WorkItem {
   private val dateTimeFormat = ISODateTimeFormat.dateTime.withZoneUTC
 
   implicit def workItemMongoFormat[T](implicit tFormat: Format[T]): Format[WorkItem[T]] = {
-    import uk.gov.hmrc.mongo.json.ReactiveMongoFormats._
-    mongoEntity(workItemFormat[T])
+    implicit val oif = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats
+    implicit val dtf = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeFormats
+    workItemFormat[T]
   }
 
   implicit def workItemRestFormat[T](implicit tFormat: Format[T]): Format[WorkItem[T]] = {
@@ -73,11 +74,14 @@ object WorkItem {
     workItemFormat[T]
   }
 
-  def workItemFormat[T](implicit bsonIdFormat: Format[ObjectId],
-                        dateTimeFormat: Format[DateTime],
-                        tFormat: Format[T]): Format[WorkItem[T]] = {
+  def workItemFormat[T](
+    implicit
+    objectIdFormat: Format[ObjectId],
+    dateTimeFormat: Format[DateTime],
+    tFormat       : Format[T]
+  ): Format[WorkItem[T]] = {
     val reads =
-      ( (__ \ "id"          ).read[ObjectId]
+      ( (__ \ "_id"         ).read[ObjectId]
       ~ (__ \ "receivedAt"  ).read[DateTime]
       ~ (__ \ "updatedAt"   ).read[DateTime]
       ~ ((__ \ "availableAt").read[DateTime] or (__ \ "receivedAt").read[DateTime])
@@ -87,7 +91,7 @@ object WorkItem {
       )(WorkItem.apply[T] _)
 
     val writes =
-      ( (__ \ "id"          ).write[ObjectId]
+      ( (__ \ "_id"         ).write[ObjectId]
       ~ (__ \ "receivedAt"  ).write[DateTime]
       ~ (__ \ "updatedAt"   ).write[DateTime]
       ~ (__ \ "availableAt" ).write[DateTime]

@@ -17,13 +17,15 @@
 package uk.gov.hmrc.workitem
 
 import com.typesafe.config.Config
+import org.bson.conversions.Bson
 import org.bson.types.ObjectId
 import org.joda.time.DateTime
 import play.api.libs.json._
-import reactivemongo.api.DB
-import reactivemongo.bson._
-import reactivemongo.play.json.ImplicitBSONHandlers._
-import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
+import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
+import org.mongodb.scala.model._
+
+import uk.gov.hmrc.mongo.play.json.formats.MongoFormats.Implicits.objectIdFormats
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -33,39 +35,49 @@ import scala.concurrent.{ExecutionContext, Future}
   * It assumes creation of WorkItems are made through another view (e.g. a standard [[WorkItemRepository]]), it will
   * only allow interacting with the WorkItem lifecycle, and will throw runtime exceptions if `pushNew` is called.
   */
-abstract class WorkItemModuleRepository[T](collectionName: String,
-                                           moduleName: String,
-                                           mongo: () => DB,
-                                           config: Config
-                                          )(implicit tmf: Manifest[T], trd: Reads[T])
-  extends WorkItemRepository[T, ObjectId](
-    collectionName,
-    mongo,
-    WorkItemModuleRepository.formatsOf[T](moduleName),
-    config
-  ) {
+abstract class WorkItemModuleRepository[T, ID](
+  collectionName: String,
+  moduleName    : String,
+  mongoComponent: MongoComponent,
+  config        : Config
+)(implicit
+  tmf: Manifest[T],
+  trd: Reads[T],
+  ec : ExecutionContext
+) extends WorkItemRepository[T, ObjectId](
+  collectionName = collectionName,
+  mongoComponent = mongoComponent,
+  itemFormat     = WorkItemModuleRepository.formatsOf[T](moduleName),
+  config         = config
+) {
 
-  def protectFromWrites = throw new IllegalStateException("The model object cannot be created via the work item module repository")
+  def protectFromWrites =
+    throw new IllegalStateException("The model object cannot be created via the work item module repository")
 
-  override def pushNew(item: T, receivedAt: DateTime)(implicit ec: ExecutionContext): Future[WorkItem[T]] = protectFromWrites
+  override def pushNew(item: T, receivedAt: DateTime): Future[WorkItem[T]] =
+    protectFromWrites
 
-  override def pushNew(item: T, receivedAt: DateTime, initialState: (T) => ProcessingStatus)(implicit ec: ExecutionContext): Future[WorkItem[T]] = protectFromWrites
+  override def pushNew(item: T, receivedAt: DateTime, initialState: (T) => ProcessingStatus): Future[WorkItem[T]] =
+    protectFromWrites
 
-  override def pushNew(items: Seq[T], receivedAt: DateTime)(implicit ec: ExecutionContext): Future[Seq[WorkItem[T]]] = protectFromWrites
+  override def pushNew(items: Seq[T], receivedAt: DateTime): Future[Seq[WorkItem[T]]] =
+    protectFromWrites
 
-  override def pushNew(items: Seq[T], receivedAt: DateTime, initialState: (T) => ProcessingStatus)(implicit ec: ExecutionContext): Future[Seq[WorkItem[T]]] = protectFromWrites
+  override def pushNew(items: Seq[T], receivedAt: DateTime, initialState: (T) => ProcessingStatus): Future[Seq[WorkItem[T]]] =
+    protectFromWrites
 
-  override lazy val workItemFields: WorkItemFieldNames = WorkItemModuleRepository.workItemFieldNames(moduleName)
+  override lazy val workItemFields: WorkItemFieldNames =
+    WorkItemModuleRepository.workItemFieldNames(moduleName)
 
-  override lazy val metricPrefix: String = moduleName
-
+  override lazy val metricPrefix: String =
+    moduleName
 }
 
 object WorkItemModuleRepository {
 
   import play.api.libs.functional.syntax._
 
-  implicit val dateReads: Reads[DateTime] = ReactiveMongoFormats.dateTimeRead
+  implicit val dateTimeWrites: Format[DateTime] = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeFormats
 
   private val updatedAtProperty   : String = "updatedAt"
   private val createdAtProperty   : String = "createdAt"
@@ -81,18 +93,19 @@ object WorkItemModuleRepository {
     override val id          : String = "_id"
   }
 
-  def upsertModuleQuery(moduleName: String, time: DateTime) = {
-    implicit val dateWrites: Writes[DateTime] = ReactiveMongoFormats.dateTimeWrite
-
+  def upsertModuleQuery(moduleName: String, time: DateTime): Bson = {
     val fieldNames = workItemFieldNames(moduleName)
-    Json.obj(
-      "$setOnInsert" -> Json.obj(fieldNames.availableAt -> time),
-      "$set" -> Json.obj(fieldNames.updatedAt -> time, fieldNames.status -> ToDo, fieldNames.failureCount -> 0)
+    Updates.combine(
+      Updates.setOnInsert(fieldNames.availableAt, time),
+      Updates.set(fieldNames.updatedAt, time),
+      Updates.set(fieldNames.status, ToDo),
+      Updates.set(fieldNames.failureCount, 0)
     )
   }
 
 
   def formatsOf[T](moduleName:String)(implicit trd:Reads[T]): Format[WorkItem[T]] = {
+    implicit val objr = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdRead
     val reads: Reads[WorkItem[T]] =
       ( (__ \ "_id"                                ).read[ObjectId]
       ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[DateTime]
