@@ -18,27 +18,37 @@ package uk.gov.hmrc.workitem
 
 import com.typesafe.config.Config
 import org.bson.types.ObjectId
+import org.bson.conversions.Bson
 import org.joda.time.{DateTime, Duration}
+import org.mongodb.scala.bson.BsonDocument
 import play.api.libs.json._
-import reactivemongo.api.indexes.{Index, IndexType}
-import reactivemongo.api.{DB, ReadPreference}
-import reactivemongo.play.json.ImplicitBSONHandlers.JsObjectDocumentWriter
-import uk.gov.hmrc.metrix.domain.MetricSource
-import uk.gov.hmrc.mongo.ReactiveRepository
-import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
+import uk.gov.hmrc.mongo.metrix.MetricSource
+import org.mongodb.scala.model._
+
+import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 import scala.concurrent.{ExecutionContext, Future}
 
 /** The repository to set and get the work item's for processing.
   * See [[pushNew(T,DateTime)]] for creating work items, and [[pullOutstanding]] for retrieving them.
   */
-abstract class WorkItemRepository[T, ID](collectionName: String,
-                                         mongo: () => DB,
-                                         itemFormat: Format[WorkItem[T]],
-                                         config: Config
-                                        )(implicit idFormat: Format[ID], mfItem: Manifest[T], mfID: Manifest[ID])
-  extends ReactiveRepository[WorkItem[T], ID](collectionName, mongo, itemFormat, idFormat)
-  with Operations.Cancel[ID]
+abstract class WorkItemRepository[T, ID](
+  collectionName: String,
+  mongoComponent: MongoComponent,
+  itemFormat    : Format[WorkItem[T]],
+  config        : Config
+)(implicit
+  idFormat: Format[ID],
+  mfItem  : Manifest[T],
+  mfID    : Manifest[ID],
+  ec      : ExecutionContext
+) extends PlayMongoRepository[WorkItem[T]](
+  collectionName = collectionName,
+  mongoComponent = mongoComponent,
+  domainFormat   = itemFormat,
+  indexes       = Seq.empty
+) with Operations.Cancel[ID]
   with Operations.FindById[ID, T]
   with MetricSource {
 
@@ -70,13 +80,12 @@ abstract class WorkItemRepository[T, ID](collectionName: String,
 
   def metricPrefix: String = collectionName
 
-  override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] = {
+  override def metrics(implicit ec: ExecutionContext): Future[Map[String, Long]] =
     Future.traverse(ProcessingStatus.processingStatuses.toList) { status =>
       count(status).map(value => s"$metricPrefix.${status.name}" -> value)
     }.map(_.toMap)
-  }
 
-  private implicit val dateFormats: Format[DateTime] = ReactiveMongoFormats.dateTimeFormats
+  private implicit val dateFormats: Format[DateTime] = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeFormats
 
   /** Returns the timeout of any WorkItems marked as InProgress.
     * WorkItems marked as InProgress will be hidden from [[pullOutstanding]] until this window expires.
@@ -95,39 +104,24 @@ abstract class WorkItemRepository[T, ID](collectionName: String,
     item = item
   )
 
-  override def indexes: Seq[Index] = Seq(
-    Index(
-      key = Seq(
-        workItemFields.status -> IndexType.Ascending,
-        workItemFields.updatedAt -> IndexType.Ascending
-      ),
-      unique = false,
-      background = true),
-    Index(
-      key = Seq(
-        workItemFields.status -> IndexType.Ascending,
-        workItemFields.availableAt -> IndexType.Ascending
-      ),
-      unique = false,
-      background = true),
-    Index(
-      key = Seq(workItemFields.status -> IndexType.Ascending),
-      unique = false,
-      background = true)
+  override def indexes: Seq[IndexModel] = Seq(
+    IndexModel(Indexes.ascending(workItemFields.status, workItemFields.updatedAt), IndexOptions().background(true)),
+    IndexModel(Indexes.ascending(workItemFields.status, workItemFields.availableAt), IndexOptions().background(true)),
+    IndexModel(Indexes.ascending(workItemFields.status), IndexOptions().background(true))
   )
 
   private def toDo(item: T): ProcessingStatus = ToDo
 
   /** Creates a new [[WorkItem]] with status ToDo and availableAt equal to receivedAt */
-  def pushNew(item: T, receivedAt: DateTime)(implicit ec: ExecutionContext): Future[WorkItem[T]] =
+  def pushNew(item: T, receivedAt: DateTime): Future[WorkItem[T]] =
     pushNew(item, receivedAt, receivedAt, toDo _)
 
   /** Creates a new [[WorkItem]] with availableAt equal to receivedAt */
-  def pushNew(item: T, receivedAt: DateTime, initialState: T => ProcessingStatus)(implicit ec: ExecutionContext): Future[WorkItem[T]] =
+  def pushNew(item: T, receivedAt: DateTime, initialState: T => ProcessingStatus): Future[WorkItem[T]] =
     pushNew(item, receivedAt, receivedAt, initialState)
 
   /** Creates a new [[WorkItem]] with status ToDo */
-  def pushNew(item: T, receivedAt: DateTime, availableAt: DateTime)(implicit ec: ExecutionContext): Future[WorkItem[T]] =
+  def pushNew(item: T, receivedAt: DateTime, availableAt: DateTime): Future[WorkItem[T]] =
     pushNew(item, receivedAt, availableAt, toDo _)
 
   /** Creates a new [[WorkItem]].
@@ -136,9 +130,9 @@ abstract class WorkItemRepository[T, ID](collectionName: String,
     * @param availableAt when to defer processing until
     * @param initialState defines the initial state of the WorkItem for the item
     */
-  def pushNew(item: T, receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus)(implicit ec: ExecutionContext): Future[WorkItem[T]] = {
+  def pushNew(item: T, receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus): Future[WorkItem[T]] = {
     val workItem = newWorkItem(receivedAt, availableAt, initialState)(item)
-    insert(workItem).map(_ => workItem)
+    collection.insertOne(workItem).toFuture.map(_ => workItem)
   }
 
   /** Creates a batch of new [[WorkItem]]s with status ToDo and availableAt equal to receivedAt */
@@ -158,15 +152,15 @@ abstract class WorkItemRepository[T, ID](collectionName: String,
   def pushNew(items: Seq[T], receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus)(implicit ec: ExecutionContext): Future[Seq[WorkItem[T]]] = {
     val workItems = items.map(newWorkItem(receivedAt, availableAt, initialState))
 
-    bulkInsert(workItems).map { savedCount =>
-      if (savedCount.n == workItems.size) workItems
-      else throw new RuntimeException(s"Only $savedCount items were saved")
+    collection.insertMany(workItems).toFuture.map { result =>
+      if (result.getInsertedIds.size == workItems.size) workItems
+      else throw new RuntimeException(s"Only ${result.getInsertedIds.size} items were saved")
     }
   }
 
   private case class IdList(_id : ObjectId)
   private implicit val read: Reads[IdList] = {
-    implicit val objectIdReads: Reads[ObjectId] = ReactiveMongoFormats.objectIdRead
+    implicit val objectIdReads: Reads[ObjectId] = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdRead
     Json.reads[IdList]
   }
 
@@ -185,11 +179,9 @@ abstract class WorkItemRepository[T, ID](collectionName: String,
   def pullOutstanding(failedBefore: DateTime, availableBefore: DateTime)(implicit ec: ExecutionContext): Future[Option[WorkItem[T]]] = {
 
     def getWorkItem(idList: IdList): Future[Option[WorkItem[T]]] = {
-      import ReactiveMongoFormats.objectIdWrite
       collection.find(
-        selector = Json.obj(workItemFields.id -> idList._id),
-        projection = None
-      ).one[WorkItem[T]]
+        filter = Filters.equal(workItemFields.id, idList._id)
+      ).toFuture.map(_.headOption)
     }
 
     val id = findNextItemId(failedBefore, availableBefore)
@@ -198,40 +190,51 @@ abstract class WorkItemRepository[T, ID](collectionName: String,
 
   private def findNextItemId(failedBefore: DateTime, availableBefore: DateTime)(implicit ec: ExecutionContext) : Future[Option[IdList]] = {
 
-    def findNextItemIdByQuery(query: JsObject)(implicit ec: ExecutionContext): Future[Option[IdList]] =
-      findAndUpdate(
-        query = query,
-        update = setStatusOperation(InProgress, None),
-        fetchNewObject = true,
-        fields = Some(Json.obj(workItemFields.id -> 1))
-      ).map(
-        _.value.map(Json.toJson(_).as[IdList])
+    def findNextItemIdByQuery(query: Bson): Future[Option[IdList]] =
+      collection
+        .findOneAndUpdate(
+          filter = query,
+          update = setStatusOperation(InProgress, None),
+          options = FindOneAndUpdateOptions()
+                      .returnDocument(ReturnDocument.AFTER)
+                      .projection(BsonDocument(workItemFields.id -> 1)),
+        ).toFutureOption.map { res =>
+          implicit val itf = itemFormat
+          res.map(Json.toJson(_).as[IdList])
+        }
+
+    def todoQuery: Bson =
+      Filters.and(
+        Filters.equal(workItemFields.status, ToDo),
+        Filters.lt(workItemFields.availableAt, availableBefore)
       )
 
-    def todoQuery: JsObject =
-      Json.obj(
-        workItemFields.status -> ToDo,
-        workItemFields.availableAt -> Json.obj("$lt" -> availableBefore)
+    def failedQuery: Bson =
+      Filters.or(
+        Filters.and(
+          Filters.equal(workItemFields.status, Failed),
+          Filters.lt(workItemFields.updatedAt, failedBefore),
+          Filters.lt(workItemFields.availableAt, availableBefore)
+        ),
+        Filters.and(
+          Filters.equal(workItemFields.status, Failed),
+          Filters.lt(workItemFields.updatedAt, failedBefore),
+          Filters.exists(workItemFields.availableAt, false)
+        )
       )
 
-    def failedQuery: JsObject =
-      Json.obj("$or" -> Seq(
-        Json.obj(workItemFields.status -> Failed, workItemFields.updatedAt -> Json.obj("$lt" -> failedBefore), workItemFields.availableAt -> Json.obj("$lt" -> availableBefore)),
-        Json.obj(workItemFields.status -> Failed, workItemFields.updatedAt -> Json.obj("$lt" -> failedBefore), workItemFields.availableAt -> Json.obj("$exists" -> false))
-      ))
-
-
-    def inProgressQuery: JsObject =
-      Json.obj(
-        workItemFields.status -> InProgress,
-        workItemFields.updatedAt -> Json.obj("$lt" -> now.minus(inProgressRetryAfter))
+    def inProgressQuery: Bson =
+      Filters.and(
+        Filters.equal(workItemFields.status, InProgress),
+        Filters.lt(workItemFields.updatedAt, now.minus(inProgressRetryAfter))
       )
 
     findNextItemIdByQuery(todoQuery).flatMap {
-      case None => findNextItemIdByQuery(failedQuery).flatMap {
-        case None => findNextItemIdByQuery(inProgressQuery)
-        case item => Future.successful(item)
-      }
+      case None => findNextItemIdByQuery(failedQuery)
+                     .flatMap {
+                       case None => findNextItemIdByQuery(inProgressQuery)
+                       case item => Future.successful(item)
+                     }
       case item => Future.successful(item)
     }
   }
@@ -239,21 +242,24 @@ abstract class WorkItemRepository[T, ID](collectionName: String,
   /** Sets the ProcessingStatus of a WorkItem.
     * It will also update the updatedAt timestamp.
     */
-  def markAs(id: ID, status: ProcessingStatus, availableAt: Option[DateTime] = None)(implicit ec: ExecutionContext): Future[Boolean] =
-    collection.update(
-      selector = Json.obj(workItemFields.id -> id),
+  def markAs(id: ID, status: ProcessingStatus, availableAt: Option[DateTime] = None): Future[Boolean] =
+    collection.updateOne(
+      filter = Filters.equal(workItemFields.id, id),
       update = setStatusOperation(status, availableAt)
-    ).map(_.n > 0)
+    ).toFuture.map(_.getMatchedCount > 0)
 
   /** Sets the ProcessingStatus of a WorkItem to a ResultStatus.
     * It will also update the updatedAt timestamp.
     * It will return false if the WorkItem is not InProgress.
     */
-  def complete(id: ID, newStatus: ProcessingStatus with ResultStatus)(implicit ec: ExecutionContext): Future[Boolean] =
-    collection.update(
-      selector = Json.obj(workItemFields.id -> id, workItemFields.status -> InProgress),
+  def complete(id: ID, newStatus: ProcessingStatus with ResultStatus): Future[Boolean] =
+    collection.updateOne(
+      filter = Filters.and(
+                 Filters.equal(workItemFields.id, id),
+                 Filters.equal(workItemFields.status, InProgress)
+               ),
       update = setStatusOperation(newStatus, None)
-    ).map(_.nModified > 0)
+    ).toFuture.map(_.getModifiedCount > 0)
 
   /** Sets the ProcessingStatus of a WorkItem to Cancelled.
     * @return [[StatusUpdateResult.Updated]] if the WorkItem is cancelled,
@@ -262,51 +268,45 @@ abstract class WorkItemRepository[T, ID](collectionName: String,
     */
   def cancel(id: ID)(implicit ec: ExecutionContext): Future[StatusUpdateResult] = {
     import uk.gov.hmrc.workitem.StatusUpdateResult._
-    findAndUpdate(
-      query = Json.obj(
-        workItemFields.id -> id,
-        workItemFields.status -> Json.obj("$in" -> List(ToDo, Failed, PermanentlyFailed, Ignored, Duplicate, Deferred)) // TODO we should be able to express the valid to/from states in traits of ProcessingStatus
-      ),
-      update = setStatusOperation(Cancelled, None),
-      fetchNewObject = false
-    ).flatMap { res =>
-      res.value match {
-        case Some(item) => Future.successful(Updated(
-          previousStatus = Json.toJson(item).\(workItemFields.status).as[ProcessingStatus],
-          newStatus = Cancelled
-        ))
-        case None => findById(id).map {
-          case Some(item) => NotUpdated(item.status)
-          case None => NotFound
-        }
+    collection.findOneAndUpdate(
+      filter = Filters.and(
+                 Filters.equal(workItemFields.id, id),
+                 Filters.in(workItemFields.status, List(ToDo, Failed, PermanentlyFailed, Ignored, Duplicate, Deferred)) // TODO we should be able to express the valid to/from states in traits of ProcessingStatus
+               ),
+      update  = setStatusOperation(Cancelled, None),
+      options = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
+    ).toFuture.flatMap { res =>
+      Option(res) match {
+        case Some(item) => implicit val itf = itemFormat
+                           Future.successful(Updated(
+                             previousStatus = Json.toJson(item).\(workItemFields.status).as[ProcessingStatus],
+                             newStatus      = Cancelled
+                           ))
+        case None       => findById(id).map {
+                             case Some(item) => NotUpdated(item.status)
+                             case None       => NotFound
+                           }
       }
     }
   }
 
   /** Returns the number of WorkItems in the specified ProcessingStatus */
-  def count(state: ProcessingStatus)(implicit ec: ExecutionContext): Future[Int] =
-    count(Json.obj(workItemFields.status -> state.name), ReadPreference.secondaryPreferred)
+  def count(state: ProcessingStatus): Future[Long] =
+    collection.countDocuments(filter = Filters.equal(workItemFields.status, state.name)).toFuture
 
-  private def setStatusOperation(newStatus: ProcessingStatus, availableAt: Option[DateTime]): JsObject = {
-    val fields = Json.obj(
-      workItemFields.status -> newStatus,
-      workItemFields.updatedAt -> now
-    ) ++ availableAt.map(when => Json.obj(workItemFields.availableAt -> when)).getOrElse(Json.obj())
-
-    val ifFailed =
-      if (newStatus == Failed)
-        Json.obj("$inc" -> Json.obj(workItemFields.failureCount -> 1))
-      else Json.obj()
-
-    Json.obj("$set" -> fields) ++ ifFailed
-  }
-
+  private def setStatusOperation(newStatus: ProcessingStatus, availableAt: Option[DateTime]): Bson =
+    Updates.combine(
+      Updates.set(workItemFields.status, newStatus),
+      Updates.set(workItemFields.updatedAt, now),
+      (availableAt.map(when => Updates.set(workItemFields.availableAt, when)).getOrElse(BsonDocument())),
+      (if (newStatus == Failed) Updates.inc(workItemFields.failureCount, 1) else BsonDocument())
+    )
 }
 object Operations {
   trait Cancel[ID] {
-    def cancel(id: ID)(implicit ec: ExecutionContext): Future[StatusUpdateResult]
+    def cancel(id: ID): Future[StatusUpdateResult]
   }
   trait FindById[ID, T] {
-    def findById(id: ID, readPreference : reactivemongo.api.ReadPreference)(implicit ec: ExecutionContext): Future[Option[WorkItem[T]]]
+    def findById(id: ID): Future[Option[WorkItem[T]]]
   }
 }
