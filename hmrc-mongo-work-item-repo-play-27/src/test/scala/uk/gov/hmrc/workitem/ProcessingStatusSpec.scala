@@ -16,11 +16,11 @@
 
 package uk.gov.hmrc.workitem
 
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.{JsError, JsString, Json}
-import reactivemongo.bson.{BSONValue, BSON, BSONString}
 
-class ProcessingStatusSpec extends WordSpec with Matchers {
+class ProcessingStatusSpec extends AnyWordSpec with Matchers {
   "reading processing status from JSON" should {
     "handle ToDo" in {
       Json.parse("\"todo\"").as[ProcessingStatus] should be(ToDo)
@@ -76,7 +76,7 @@ class ProcessingStatusSpec extends WordSpec with Matchers {
       Json.toJson(Cancelled) should be (JsString("cancelled"))
     }
   }
-  "reading processing status from BSON" should {
+  /*"reading processing status from BSON" should {
     "handle ToDo" in {
       BSONString("todo").as[ProcessingStatus] should be(ToDo)
     }
@@ -130,5 +130,5 @@ class ProcessingStatusSpec extends WordSpec with Matchers {
     "handle Cancelled" in {
       BSON.write(Cancelled) should be (BSONString("cancelled"))
     }
-  }
+  }*/
 }

@@ -23,6 +23,7 @@ import org.joda.time.DateTime
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.MongoComponent
 import org.mongodb.scala.model._
+import uk.gov.hmrc.mongo.play.json.Codecs // TODO can remove Codecs.toJson when switch from Joda to Javatime
 
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats.Implicits.objectIdFormats
 
@@ -48,6 +49,7 @@ abstract class WorkItemModuleRepository[T](
   mongoComponent = mongoComponent,
   itemFormat     = WorkItemModuleRepository.formatsOf[T](moduleName),
   config         = config,
+  workItemFields = WorkItemModuleRepository.workItemFieldNames(moduleName),
   replaceIndexes = replaceIndexes
 ) {
 
@@ -65,9 +67,6 @@ abstract class WorkItemModuleRepository[T](
 
   override def pushNew(items: Seq[T], receivedAt: DateTime, initialState: (T) => ProcessingStatus): Future[Seq[WorkItem[T]]] =
     protectFromWrites
-
-  override lazy val workItemFields: WorkItemFieldNames =
-    WorkItemModuleRepository.workItemFieldNames(moduleName)
 
   override lazy val metricPrefix: String =
     moduleName
@@ -96,9 +95,9 @@ object WorkItemModuleRepository {
   def upsertModuleQuery(moduleName: String, time: DateTime): Bson = {
     val fieldNames = workItemFieldNames(moduleName)
     Updates.combine(
-      Updates.setOnInsert(fieldNames.availableAt, time),
-      Updates.set(fieldNames.updatedAt, time),
-      Updates.set(fieldNames.status, ToDo),
+      Updates.setOnInsert(fieldNames.availableAt, Codecs.toBson(time)),
+      Updates.set(fieldNames.updatedAt, Codecs.toBson(time)),
+      Updates.set(fieldNames.status, Codecs.toBson(ToDo)),
       Updates.set(fieldNames.failureCount, 0)
     )
   }

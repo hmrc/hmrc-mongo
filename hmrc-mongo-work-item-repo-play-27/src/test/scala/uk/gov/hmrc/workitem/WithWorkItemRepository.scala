@@ -85,7 +85,15 @@ trait WithWorkItemRepository
       collectionName = collectionName,
       mongoComponent = mongoComponent,
       itemFormat     = WorkItem.workItemMongoFormat[ExampleItem],
-      config         = appConf
+      config         = appConf,
+      workItemFields = new WorkItemFieldNames {
+                         val receivedAt   = "receivedAt"
+                         val updatedAt    = "updatedAt"
+                         val availableAt  = "availableAt"
+                         val status       = "status"
+                         val id           = "_id"
+                         val failureCount = "failureCount"
+                       }
     ) {
 
     override lazy val inProgressRetryAfter: Duration = Duration.standardHours(1)
@@ -93,15 +101,6 @@ trait WithWorkItemRepository
     def inProgressRetryAfterProperty: String = "retryAfterSeconds"
 
     def now: DateTime = timeSource.now
-
-    def workItemFields: WorkItemFieldNames = new WorkItemFieldNames {
-      val receivedAt = "receivedAt"
-      val updatedAt = "updatedAt"
-      val availableAt = "availableAt"
-      val status = "status"
-      val id = "_id"
-      val failureCount = "failureCount"
-    }
   }
 
   override lazy val collectionName = "items"

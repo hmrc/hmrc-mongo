@@ -16,6 +16,20 @@
 
 package uk.gov.hmrc.workitem
 
+  /** Customisable names of the internal fields.
+    * e.g.
+    * {{{
+    * new WorkItemFieldNames {
+    * val receivedAt   = "receivedAt"
+    * val updatedAt    = "updatedAt"
+    * val availableAt  = "receivedAt"
+    * val status       = "status"
+    * val id           = "_id"
+    * val failureCount = "failureCount"
+    * }
+    * }}}
+    */
+
 trait WorkItemFieldNames  {
   val receivedAt, availableAt, updatedAt, status, id, failureCount: String
 }

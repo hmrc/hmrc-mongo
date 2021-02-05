@@ -17,7 +17,9 @@
 package uk.gov.hmrc.workitem
 
 import org.bson.types.ObjectId
-import org.scalatest.{LoneElement, Matchers, WordSpec}
+import org.scalatest.LoneElement
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
 import org.mongodb.scala.model._
 
@@ -26,10 +28,11 @@ import scala.concurrent.Future
 import org.joda.time.DateTime
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
-class WorkItemRepositorySpec extends WordSpec
-  with Matchers
-  with WithWorkItemRepository
-  with LoneElement {
+class WorkItemRepositorySpec
+  extends AnyWordSpec
+     with Matchers
+     with WithWorkItemRepository
+     with LoneElement {
 
   def createWorkItemsWith(statuses: Seq[ProcessingStatus]) = {
     Future.traverse(statuses) { status =>
@@ -363,7 +366,6 @@ class WorkItemRepositorySpec extends WordSpec
         'failureCount (1)
       )
     }
-
   }
 
   "Cancelling a notification" should {

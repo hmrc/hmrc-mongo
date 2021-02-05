@@ -21,13 +21,16 @@ import org.joda.time.DateTime
 import org.mongodb.scala.model._
 import org.bson.conversions.Bson
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
-import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpec}
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.{JsObject, Json, Writes}
+import uk.gov.hmrc.mongo.play.json.Codecs
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class WorkItemModuleRepositorySpec
-  extends WordSpec
+  extends AnyWordSpec
      with Matchers
      with ScalaFutures
      with BeforeAndAfterEach
@@ -43,35 +46,33 @@ class WorkItemModuleRepositorySpec
       val documentCreationTime = timeSource.now
       val workItemModuleCreationTime = documentCreationTime.plusHours(1)
 
-      val document: Bson =
-        Updates.combine(
-          Updates.set("_id", _id),
-          Updates.set("updatedAt", documentCreationTime),
-          Updates.set("value", "test"),
-          WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
-        )
-
-      repository.collection.updateMany(
+      repository.collection.updateOne(
         filter  = Filters.equal("_id", _id),
-        update  = document,
+        update  = Updates.combine(
+                    Updates.set("_id", _id),
+                    Updates.set("updatedAt", Codecs.toBson(documentCreationTime)), // why updatedt? its covered by upsertModuleQuery
+                    Updates.set("value", "test"),
+                    WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
+                  ),
         options = UpdateOptions().upsert(true)
       ).toFuture
-       .futureValue.getModifiedCount shouldBe 1
+       .map(res => Some(res.getUpsertedId).isDefined shouldBe true)
+       .futureValue
 
       repository.pullOutstanding(documentCreationTime.plusHours(2), documentCreationTime.plusHours(2)).
         futureValue shouldBe Some(WorkItem[ExampleItemWithModule](
-          _id,
-          workItemModuleCreationTime,
-          timeSource.now,
-          workItemModuleCreationTime,
-          InProgress,
-          0,
-          ExampleItemWithModule(_id, documentCreationTime, "test")
+          id           = _id,
+          receivedAt   = workItemModuleCreationTime,
+          updatedAt    = timeSource.now,
+          availableAt  = workItemModuleCreationTime,
+          status       = InProgress,
+          failureCount = 0,
+          item         = ExampleItemWithModule(_id, documentCreationTime, "test")
         )
       )
     }
 
-    "never update T" in {
+   "never update T" in {
       intercept[IllegalStateException] {
         repository.pushNew(ExampleItemWithModule(new ObjectId(), timeSource.now, "test"), timeSource.now)
       }.getMessage shouldBe "The model object cannot be created via the work item module repository"
@@ -88,25 +89,22 @@ class WorkItemModuleRepositorySpec
     }
 
     "change state successfully" in {
-      implicit val fmt = WorkItemModuleRepository.formatsOf[ExampleItemWithModule]("testModule")
       val _id = new ObjectId()
       val documentCreationTime = timeSource.now
       val workItemModuleCreationTime = documentCreationTime.plusHours(1)
 
-      val document: Bson =
-        Updates.combine(
-          Updates.set("_id"      , _id),
-          Updates.set("updatedAt", documentCreationTime),
-          Updates.set("value"    , "test"),
-          WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
-        )
-
       repository.collection.updateOne(
         filter  = Filters.equal("_id", _id),
-        update  = document,
+        update  = Updates.combine(
+                    Updates.set("_id"      , _id),
+                    Updates.set("updatedAt", Codecs.toBson(documentCreationTime)),
+                    Updates.set("value"    , "test"),
+                    WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
+                  ),
         options = UpdateOptions().upsert(true)
       ).toFuture
-       .futureValue.getModifiedCount shouldBe 1
+       .map(res => Some(res.getUpsertedId).isDefined shouldBe true)
+       .futureValue
 
       repository.markAs(_id, Succeeded).futureValue shouldBe true
 

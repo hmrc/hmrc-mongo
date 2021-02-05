@@ -27,6 +27,7 @@ import org.mongodb.scala.model._
 
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
+import uk.gov.hmrc.mongo.play.json.Codecs // TODO can remove Codecs.toJson when switch from Joda to Javatime
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -38,6 +39,7 @@ abstract class WorkItemRepository[T, ID](
   mongoComponent: MongoComponent,
   itemFormat    : Format[WorkItem[T]],
   config        : Config,
+  val workItemFields: WorkItemFieldNames,
   replaceIndexes: Boolean = true
 )(implicit
   ec: ExecutionContext
@@ -45,7 +47,11 @@ abstract class WorkItemRepository[T, ID](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
   domainFormat   = itemFormat,
-  indexes        = Seq.empty,
+  indexes        = Seq(
+                     IndexModel(Indexes.ascending(workItemFields.status, workItemFields.updatedAt), IndexOptions().background(true)),
+                     IndexModel(Indexes.ascending(workItemFields.status, workItemFields.availableAt), IndexOptions().background(true)),
+                     IndexModel(Indexes.ascending(workItemFields.status), IndexOptions().background(true))
+                   ),
   replaceIndexes = replaceIndexes
 ) with Operations.Cancel[ID]
   with Operations.FindById[ID, T]
@@ -56,20 +62,6 @@ abstract class WorkItemRepository[T, ID](
     */
   def now: DateTime
 
-  /** Returns customisable names of the internal fields.
-    * e.g.
-    * {{{
-    * new WorkItemFieldNames {
-    * val receivedAt   = "receivedAt"
-    * val updatedAt    = "updatedAt"
-    * val availableAt  = "receivedAt"
-    * val status       = "status"
-    * val id           = "_id"
-    * val failureCount = "failureCount"
-    * }
-    * }}}
-    */
-  def workItemFields: WorkItemFieldNames
 
   /** Returns the property key which defines the millis in Long format, for the [[inProgressRetryAfter]]
     * to be looked up in the [[config]].
@@ -83,6 +75,8 @@ abstract class WorkItemRepository[T, ID](
     Future.traverse(ProcessingStatus.processingStatuses.toList) { status =>
       count(status).map(value => s"$metricPrefix.${status.name}" -> value.toInt)
     }.map(_.toMap)
+
+  private implicit val dateFormats: Format[DateTime] = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeFormats
 
   /** Returns the timeout of any WorkItems marked as InProgress.
     * WorkItems marked as InProgress will be hidden from [[pullOutstanding]] until this window expires.
@@ -99,12 +93,6 @@ abstract class WorkItemRepository[T, ID](
     status       = initialState(item),
     failureCount = 0,
     item         = item
-  )
-
-  override val indexes: Seq[IndexModel] = Seq(
-    IndexModel(Indexes.ascending(workItemFields.status, workItemFields.updatedAt), IndexOptions().background(true)),
-    IndexModel(Indexes.ascending(workItemFields.status, workItemFields.availableAt), IndexOptions().background(true)),
-    IndexModel(Indexes.ascending(workItemFields.status), IndexOptions().background(true))
   )
 
   private def toDo(item: T): ProcessingStatus = ToDo
@@ -174,62 +162,46 @@ abstract class WorkItemRepository[T, ID](
     * @param availableBefore it will only consider WorkItems where the availableAt field is before the availableBefore
     */
   def pullOutstanding(failedBefore: DateTime, availableBefore: DateTime): Future[Option[WorkItem[T]]] = {
-
-    def getWorkItem(idList: IdList): Future[Option[WorkItem[T]]] = {
-      collection.find(
-        filter = Filters.equal(workItemFields.id, idList._id)
-      ).toFuture.map(_.headOption)
-    }
-
-    val id = findNextItemId(failedBefore, availableBefore)
-    id.map(_.map(getWorkItem)).flatMap(_.getOrElse(Future.successful(None)))
-  }
-
-  private def findNextItemId(failedBefore: DateTime, availableBefore: DateTime): Future[Option[IdList]] = {
-
-    def findNextItemIdByQuery(query: Bson): Future[Option[IdList]] =
+    def findNextItemByQuery(query: Bson): Future[Option[WorkItem[T]]] =
       collection
         .findOneAndUpdate(
           filter  = query,
           update  = setStatusOperation(InProgress, None),
           options = FindOneAndUpdateOptions()
                       .returnDocument(ReturnDocument.AFTER)
-                      .projection(BsonDocument(workItemFields.id -> 1)),
-        ).toFutureOption.map { res =>
-          implicit val itf = itemFormat
-          res.map(Json.toJson(_).as[IdList])
-        }
+                      //.projection(BsonDocument(workItemFields.id -> 1)),
+        ).toFutureOption
 
     def todoQuery: Bson =
       Filters.and(
-        Filters.equal(workItemFields.status, ToDo),
-        Filters.lt(workItemFields.availableAt, availableBefore)
+        Filters.equal(workItemFields.status, Codecs.toBson(ToDo)),
+        Filters.lt(workItemFields.availableAt, Codecs.toBson(availableBefore))
       )
 
     def failedQuery: Bson =
       Filters.or(
         Filters.and(
-          Filters.equal(workItemFields.status, Failed),
-          Filters.lt(workItemFields.updatedAt, failedBefore),
-          Filters.lt(workItemFields.availableAt, availableBefore)
+          Filters.equal(workItemFields.status, Codecs.toBson(Failed)),
+          Filters.lt(workItemFields.updatedAt, Codecs.toBson(failedBefore)),
+          Filters.lt(workItemFields.availableAt, Codecs.toBson(availableBefore))
         ),
         Filters.and(
-          Filters.equal(workItemFields.status, Failed),
-          Filters.lt(workItemFields.updatedAt, failedBefore),
+          Filters.equal(workItemFields.status, Codecs.toBson(Failed)),
+          Filters.lt(workItemFields.updatedAt, Codecs.toBson(failedBefore)),
           Filters.exists(workItemFields.availableAt, false)
         )
       )
 
     def inProgressQuery: Bson =
       Filters.and(
-        Filters.equal(workItemFields.status, InProgress),
-        Filters.lt(workItemFields.updatedAt, now.minus(inProgressRetryAfter))
+        Filters.equal(workItemFields.status, Codecs.toBson(InProgress)),
+        Filters.lt(workItemFields.updatedAt, Codecs.toBson(now.minus(inProgressRetryAfter)))
       )
 
-    findNextItemIdByQuery(todoQuery).flatMap {
-      case None => findNextItemIdByQuery(failedQuery)
+    findNextItemByQuery(todoQuery).flatMap {
+      case None => findNextItemByQuery(failedQuery)
                      .flatMap {
-                       case None => findNextItemIdByQuery(inProgressQuery)
+                       case None => findNextItemByQuery(inProgressQuery)
                        case item => Future.successful(item)
                      }
       case item => Future.successful(item)
@@ -254,7 +226,7 @@ abstract class WorkItemRepository[T, ID](
     collection.updateOne(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
-                 Filters.equal(workItemFields.status, InProgress)
+                 Filters.equal(workItemFields.status, Codecs.toBson(InProgress))
                ),
       update = setStatusOperation(newStatus, None)
     ).toFuture
@@ -270,10 +242,9 @@ abstract class WorkItemRepository[T, ID](
     collection.findOneAndUpdate(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
-                 Filters.in(workItemFields.status, List(ToDo, Failed, PermanentlyFailed, Ignored, Duplicate, Deferred)) // TODO we should be able to express the valid to/from states in traits of ProcessingStatus
+                 Filters.in(workItemFields.status, List(ToDo, Failed, PermanentlyFailed, Ignored, Duplicate, Deferred).map(Codecs.toBson(_)): _*) // TODO we should be able to express the valid to/from states in traits of ProcessingStatus
                ),
       update  = setStatusOperation(Cancelled, None),
-      options = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
     ).toFuture
      .flatMap { res =>
        Option(res) match {
@@ -299,9 +270,9 @@ abstract class WorkItemRepository[T, ID](
 
   private def setStatusOperation(newStatus: ProcessingStatus, availableAt: Option[DateTime]): Bson =
     Updates.combine(
-      Updates.set(workItemFields.status, newStatus),
-      Updates.set(workItemFields.updatedAt, now),
-      (availableAt.map(when => Updates.set(workItemFields.availableAt, when)).getOrElse(BsonDocument())),
+      Updates.set(workItemFields.status, Codecs.toBson(newStatus)),
+      Updates.set(workItemFields.updatedAt, Codecs.toBson(now)),
+      (availableAt.map(when => Updates.set(workItemFields.availableAt, Codecs.toBson(when))).getOrElse(BsonDocument())),
       (if (newStatus == Failed) Updates.inc(workItemFields.failureCount, 1) else BsonDocument())
     )
 }
