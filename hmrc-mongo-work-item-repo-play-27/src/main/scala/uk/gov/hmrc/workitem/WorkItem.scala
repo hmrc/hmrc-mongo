@@ -20,19 +20,19 @@ import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import reactivemongo.bson.BSONObjectID
+import org.bson.types.ObjectId
 import scala.util.{Success => TrySuccess, Failure => TryFailure}
 
 import scala.util.Try
 
 case class WorkItem[T](
-  id: BSONObjectID,
-  receivedAt: DateTime,
-  updatedAt: DateTime,
-  availableAt: DateTime,
-  status: ProcessingStatus,
+  id          : ObjectId,
+  receivedAt  : DateTime,
+  updatedAt   : DateTime,
+  availableAt : DateTime,
+  status      : ProcessingStatus,
   failureCount: Int,
-  item: T
+  item        : T
 )
 
 object WorkItem {
@@ -62,39 +62,39 @@ object WorkItem {
       def writes(dateTime: DateTime): JsValue = JsString(dateTimeFormat.print(dateTime))
     }
 
-    implicit val bsonIdFormat: Format[BSONObjectID] = Format(
-      Reads.StringReads.map(stringObjectId => BSONObjectID.parse(stringObjectId) match {
-        case TrySuccess(bsonObjectID) => bsonObjectID
-        case TryFailure(exception)    => throw new RuntimeException(s"'$stringObjectId' is not a valid BSONObjectID: $exception")
+    implicit val bsonIdFormat: Format[ObjectId] = Format(
+      Reads.StringReads.map(stringObjectId => Try(new ObjectId(stringObjectId)) match {
+        case TrySuccess(objectId)  => objectId
+        case TryFailure(exception) => throw new RuntimeException(s"'$stringObjectId' is not a valid ObjectId: $exception")
       }),
-      Writes(id => JsString(id.stringify))
+      Writes(id => JsString(id.toString))
     )
 
     workItemFormat[T]
   }
 
-  def workItemFormat[T](implicit bsonIdFormat: Format[BSONObjectID],
+  def workItemFormat[T](implicit bsonIdFormat: Format[ObjectId],
                         dateTimeFormat: Format[DateTime],
                         tFormat: Format[T]): Format[WorkItem[T]] = {
-    val reads = (
-      (__ \ "id").read[BSONObjectID] and
-      (__ \ "receivedAt").read[DateTime] and
-      (__ \ "updatedAt").read[DateTime] and
-      ((__ \ "availableAt").read[DateTime] or (__ \ "receivedAt").read[DateTime]) and
-      (__ \ "status").read[ProcessingStatus] and
-      (__ \ "failureCount").read[Int] and
-      (__ \ "item").read[T]
-    )(WorkItem.apply[T] _)
+    val reads =
+      ( (__ \ "id"          ).read[ObjectId]
+      ~ (__ \ "receivedAt"  ).read[DateTime]
+      ~ (__ \ "updatedAt"   ).read[DateTime]
+      ~ ((__ \ "availableAt").read[DateTime] or (__ \ "receivedAt").read[DateTime])
+      ~ (__ \ "status"      ).read[ProcessingStatus]
+      ~ (__ \ "failureCount").read[Int]
+      ~ (__ \ "item"        ).read[T]
+      )(WorkItem.apply[T] _)
 
-    val writes = (
-      (__ \ "id").write[BSONObjectID] and
-      (__ \ "receivedAt").write[DateTime] and
-      (__ \ "updatedAt").write[DateTime] and
-      (__ \ "availableAt").write[DateTime] and
-      (__ \ "status").write[ProcessingStatus] and
-      (__ \ "failureCount").write[Int] and
-      (__ \ "item").write[T]
-    )(unlift(WorkItem.unapply[T]))
+    val writes =
+      ( (__ \ "id"          ).write[ObjectId]
+      ~ (__ \ "receivedAt"  ).write[DateTime]
+      ~ (__ \ "updatedAt"   ).write[DateTime]
+      ~ (__ \ "availableAt" ).write[DateTime]
+      ~ (__ \ "status"      ).write[ProcessingStatus]
+      ~ (__ \ "failureCount").write[Int]
+      ~ (__ \ "item"        ).write[T]
+      )(unlift(WorkItem.unapply[T]))
 
     Format(reads, writes)
   }

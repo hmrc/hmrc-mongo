@@ -16,11 +16,11 @@
 
 package uk.gov.hmrc.workitem
 
+import org.bson.types.ObjectId
 import org.joda.time.DateTime
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.{BeforeAndAfterEach, Matchers, WordSpec}
 import play.api.libs.json.{JsObject, Json, Writes}
-import reactivemongo.bson.BSONObjectID
 import reactivemongo.play.json.ImplicitBSONHandlers._
 import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
 
@@ -41,7 +41,7 @@ class WorkItemModuleRepositorySpec extends WordSpec
 
   "WorkItemModuleRepository" should {
     "read the work item fields" in {
-      val _id = BSONObjectID.generate
+      val _id = new ObjectId()
       val documentCreationTime = timeSource.now
       val workItemModuleCreationTime = documentCreationTime.plusHours(1)
 
@@ -67,12 +67,12 @@ class WorkItemModuleRepositorySpec extends WordSpec
 
     "never update T" in {
       intercept[IllegalStateException] {
-        repo.pushNew(ExampleItemWithModule(BSONObjectID.generate, timeSource.now, "test"), timeSource.now)
+        repo.pushNew(ExampleItemWithModule(new ObjectId(), timeSource.now, "test"), timeSource.now)
       }.getMessage shouldBe "The model object cannot be created via the work item module repository"
 
       intercept[IllegalStateException] {
-        val m = ExampleItemWithModule(BSONObjectID.generate, timeSource.now, "test")
-        WorkItemModuleRepository.formatsOf[ExampleItemWithModule]("testModule").writes(WorkItem(BSONObjectID.generate, timeSource.now, timeSource.now, timeSource.now, ToDo, 0, m))
+        val m = ExampleItemWithModule(new ObjectId(), timeSource.now, "test")
+        WorkItemModuleRepository.formatsOf[ExampleItemWithModule]("testModule").writes(WorkItem(new ObjectId(), timeSource.now, timeSource.now, timeSource.now, ToDo, 0, m))
       }.getMessage shouldBe "A work item module is not supposed to be written"
 
     }
@@ -83,7 +83,7 @@ class WorkItemModuleRepositorySpec extends WordSpec
 
     "change state successfully" in {
       implicit val fmt = WorkItemModuleRepository.formatsOf[ExampleItemWithModule]("testModule")
-      val _id = BSONObjectID.generate
+      val _id = new ObjectId()
       val documentCreationTime = timeSource.now
       val workItemModuleCreationTime = documentCreationTime.plusHours(1)
 

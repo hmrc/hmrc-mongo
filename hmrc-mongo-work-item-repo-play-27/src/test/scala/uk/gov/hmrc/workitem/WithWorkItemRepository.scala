@@ -17,12 +17,12 @@
 package uk.gov.hmrc.workitem
 
 import com.typesafe.config.ConfigFactory
+import org.bson.types.ObjectId
 import org.joda.time.chrono.ISOChronology
 import org.joda.time.{DateTime, Duration, LocalDate}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.{BeforeAndAfterEach, Suite}
 import play.api.libs.json.Json
-import reactivemongo.bson.BSONObjectID
 import uk.gov.hmrc.mongo.MongoSpecSupport
 import uk.gov.hmrc.mongo.json.ReactiveMongoFormats
 
@@ -83,7 +83,7 @@ trait WithWorkItemRepository
   val appConf = ConfigFactory.load("application.test.conf")
 
   def exampleItemRepository(collectionName: String) =
-    new WorkItemRepository[ExampleItem, BSONObjectID](
+    new WorkItemRepository[ExampleItem, ObjectId](
       collectionName = collectionName,
       mongo = mongo,
       itemFormat = WorkItem.workItemMongoFormat[ExampleItem],
@@ -134,7 +134,7 @@ object ExampleItem {
 }
 
 
-case class ExampleItemWithModule(_id: BSONObjectID, updatedAt: DateTime, value: String)
+case class ExampleItemWithModule(_id: ObjectId, updatedAt: DateTime, value: String)
 
 object ExampleItemWithModule {
 

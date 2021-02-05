@@ -17,11 +17,11 @@
 package uk.gov.hmrc.workitem
 
 import com.typesafe.config.Config
+import org.bson.types.ObjectId
 import org.joda.time.{DateTime, Duration}
 import play.api.libs.json._
 import reactivemongo.api.indexes.{Index, IndexType}
 import reactivemongo.api.{DB, ReadPreference}
-import reactivemongo.bson.BSONObjectID
 import reactivemongo.play.json.ImplicitBSONHandlers.JsObjectDocumentWriter
 import uk.gov.hmrc.metrix.domain.MetricSource
 import uk.gov.hmrc.mongo.ReactiveRepository
@@ -86,7 +86,7 @@ abstract class WorkItemRepository[T, ID](collectionName: String,
   )
 
   private def newWorkItem(receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus)(item: T) = WorkItem(
-    id = BSONObjectID.generate,
+    id = new ObjectId(),
     receivedAt = receivedAt,
     updatedAt = now,
     availableAt = availableAt,
@@ -164,9 +164,9 @@ abstract class WorkItemRepository[T, ID](collectionName: String,
     }
   }
 
-  private case class IdList(_id : BSONObjectID)
+  private case class IdList(_id : ObjectId)
   private implicit val read: Reads[IdList] = {
-    implicit val objectIdReads: Reads[BSONObjectID] = ReactiveMongoFormats.objectIdRead
+    implicit val objectIdReads: Reads[ObjectId] = ReactiveMongoFormats.objectIdRead
     Json.reads[IdList]
   }
 

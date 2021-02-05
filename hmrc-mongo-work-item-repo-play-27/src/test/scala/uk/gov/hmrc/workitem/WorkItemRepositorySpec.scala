@@ -16,9 +16,9 @@
 
 package uk.gov.hmrc.workitem
 
+import org.bson.types.ObjectId
 import org.scalatest.{LoneElement, Matchers, WordSpec}
 import play.api.libs.json.Json
-import reactivemongo.bson.BSONObjectID
 import uk.gov.hmrc.time.DateTimeUtils
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -110,7 +110,7 @@ class WorkItemRepositorySpec extends WordSpec
     }
 
     "return false trying to mark a non-existent item as done" in {
-      repo.markAs(BSONObjectID.generate, Succeeded).futureValue should be(false)
+      repo.markAs(new ObjectId(), Succeeded).futureValue should be(false)
       repo.findAll().futureValue should be(empty)
     }
 
@@ -195,7 +195,7 @@ class WorkItemRepositorySpec extends WordSpec
     }
 
     "not complete a item if it cannot be found" in {
-      repo.complete(BSONObjectID.generate, Succeeded).futureValue should be(false)
+      repo.complete(new ObjectId(), Succeeded).futureValue should be(false)
     }
 
     "be able to save a single item in a custom initial status" in {
@@ -391,7 +391,7 @@ class WorkItemRepositorySpec extends WordSpec
     }
 
     "not work if it is missing" in {
-      repo.cancel(BSONObjectID.generate).futureValue should be(StatusUpdateResult.NotFound)
+      repo.cancel(new ObjectId()).futureValue should be(StatusUpdateResult.NotFound)
     }
   }
 }

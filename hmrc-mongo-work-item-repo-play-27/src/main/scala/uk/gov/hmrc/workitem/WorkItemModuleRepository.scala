@@ -17,6 +17,7 @@
 package uk.gov.hmrc.workitem
 
 import com.typesafe.config.Config
+import org.bson.types.ObjectId
 import org.joda.time.DateTime
 import play.api.libs.json._
 import reactivemongo.api.DB
@@ -37,7 +38,7 @@ abstract class WorkItemModuleRepository[T](collectionName: String,
                                            mongo: () => DB,
                                            config: Config
                                           )(implicit tmf: Manifest[T], trd: Reads[T])
-  extends WorkItemRepository[T, BSONObjectID](
+  extends WorkItemRepository[T, ObjectId](
     collectionName,
     mongo,
     WorkItemModuleRepository.formatsOf[T](moduleName),
@@ -93,11 +94,11 @@ object WorkItemModuleRepository {
 
   def formatsOf[T](moduleName:String)(implicit trd:Reads[T]): Format[WorkItem[T]] = {
     val reads: Reads[WorkItem[T]] =
-      ( (__ \ "_id").read[BSONObjectID]
-      ~ (__ \ moduleName \ s"$createdAtProperty").read[DateTime]
-      ~ (__ \ moduleName \ s"$updatedAtProperty").read[DateTime]
-      ~ (__ \ moduleName \ s"$createdAtProperty").read[DateTime]
-      ~ (__ \ moduleName \ s"$statusProperty").read[ProcessingStatus]
+      ( (__ \ "_id"                                ).read[ObjectId]
+      ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[DateTime]
+      ~ (__ \ moduleName \ s"$updatedAtProperty"   ).read[DateTime]
+      ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[DateTime]
+      ~ (__ \ moduleName \ s"$statusProperty"      ).read[ProcessingStatus]
       ~ (__ \ moduleName \ s"$failureCountProperty").read[Int].orElse(Reads.pure(0))
       ~ __.read[T]
       )(WorkItem.apply[T] _)

@@ -7,7 +7,7 @@
 See Scaladoc for [WorkItemRepository](../master/src/main/scala/uk/gov/hmrc/workitem/WorkItemRepository.scala)
 
 Typically you will use `uk.gov.hmrc.workitem.WorkItemRepository` to create and retrieve `WorkItem`s for processing.
-It is parameterised by the Id representation (typically `BSONObjectID` or `String`) and your PAYLOAD representation.
+It is parameterised by the Id representation (typically `ObjectId` or `String`) and your PAYLOAD representation.
 
 It is an abstract class, so you will have to extend it to define the following:
 
@@ -21,7 +21,7 @@ e.g.
 
 ```scala
 @Singleton
-class GithubRequestsQueueRepository @Inject()(configuration: Configuration, reactiveMongoComponent: ReactiveMongoComponent) extends WorkItemRepository[MyWorkItem, BSONObjectID](
+class GithubRequestsQueueRepository @Inject()(configuration: Configuration, reactiveMongoComponent: ReactiveMongoComponent) extends WorkItemRepository[MyWorkItem, ObjectId](
   collectionName = "myWorkItems",
   mongo          = reactiveMongoComponent.mongoConnector.db,
   itemFormat     = MyWorkItem.mongoFormats,
