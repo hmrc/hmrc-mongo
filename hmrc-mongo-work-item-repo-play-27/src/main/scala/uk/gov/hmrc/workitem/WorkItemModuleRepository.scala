@@ -97,13 +97,14 @@ object WorkItemModuleRepository {
     Updates.combine(
       Updates.setOnInsert(fieldNames.availableAt, Codecs.toBson(time)),
       Updates.set(fieldNames.updatedAt, Codecs.toBson(time)),
-      Updates.set(fieldNames.status, Codecs.toBson[ProcessingStatus](ToDo)),
+      Updates.set(fieldNames.status, ProcessingStatus.toBson(ProcessingStatus.ToDo)),
       Updates.set(fieldNames.failureCount, 0)
     )
   }
 
 
   def formatsOf[T](moduleName:String)(implicit trd: Reads[T]): Format[WorkItem[T]] = {
+    implicit val psf = ProcessingStatus.format
     val reads: Reads[WorkItem[T]] =
       ( (__ \ "_id"                                ).read[ObjectId]
       ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[DateTime]

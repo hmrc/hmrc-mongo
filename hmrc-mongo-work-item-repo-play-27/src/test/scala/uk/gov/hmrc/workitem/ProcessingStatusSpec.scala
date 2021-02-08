@@ -16,12 +16,17 @@
 
 package uk.gov.hmrc.workitem
 
+import org.bson.BsonString
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.{JsError, JsString, Json}
+import uk.gov.hmrc.mongo.play.json.Codecs
 
 class ProcessingStatusSpec extends AnyWordSpec with Matchers {
+  import ProcessingStatus._
+
   "reading processing status from JSON" should {
+    implicit val psf = ProcessingStatus.format
     "handle ToDo" in {
       Json.parse("\"todo\"").as[ProcessingStatus] should be(ToDo)
     }
@@ -50,7 +55,9 @@ class ProcessingStatusSpec extends AnyWordSpec with Matchers {
       Json.parse("\"In Progress\"").validate[ProcessingStatus] should be(a[JsError])
     }
   }
+
   "writing processing status to JSON" should {
+    implicit val psf = ProcessingStatus.format
     "handle ToDo" in {
       Json.toJson(ToDo) should be (JsString("todo"))
     }
@@ -76,59 +83,40 @@ class ProcessingStatusSpec extends AnyWordSpec with Matchers {
       Json.toJson(Cancelled) should be (JsString("cancelled"))
     }
   }
-  /*"reading processing status from BSON" should {
-    "handle ToDo" in {
-      BSONString("todo").as[ProcessingStatus] should be(ToDo)
-    }
-    "handle InProgress" in {
-      BSONString("in-progress").as[ProcessingStatus] should be(InProgress)
-    }
-    "handle Succeeded" in {
-      BSONString("succeeded").as[ProcessingStatus] should be(Succeeded)
-    }
-    "handle Failed" in {
-      BSONString("failed").as[ProcessingStatus] should be(Failed)
-    }
-    "handle PermanentlyFailed" in {
-      BSONString("permanently-failed").as[ProcessingStatus] should be(PermanentlyFailed)
-    }
-    "handle Ignored" in {
-      BSONString("ignored").as[ProcessingStatus] should be(Ignored)
-    }
-    "handle Duplicate" in {
-      BSONString("duplicate").as[ProcessingStatus] should be(Duplicate)
-    }
-    "handle Cancelled" in {
-      BSONString("cancelled").as[ProcessingStatus] should be(Cancelled)
-    }
-    "error reading other values" in {
-      an [Exception] should be thrownBy BSONString("In Progress").as[ProcessingStatus]
-    }
-  }
+
   "writing processing status to BSON" should {
     "handle ToDo" in {
-      BSON.write(ToDo) should be (BSONString("todo"))
+      ProcessingStatus.toBson(ToDo) shouldBe new BsonString("todo")
     }
     "handle InProgress" in {
-      BSON.write(InProgress) should be (BSONString("in-progress"))
+      ProcessingStatus.toBson(InProgress) shouldBe new BsonString("in-progress")
     }
     "handle Succeeded" in {
-      BSON.write(Succeeded) should be (BSONString("succeeded"))
+      ProcessingStatus.toBson(Succeeded) shouldBe new BsonString("succeeded")
     }
     "handle Failed" in {
-      BSON.write(Failed) should be (BSONString("failed"))
+      ProcessingStatus.toBson(Failed) shouldBe new BsonString("failed")
     }
     "handle PermanentlyFailed" in {
-      BSON.write(PermanentlyFailed) should be (BSONString("permanently-failed"))
+      ProcessingStatus.toBson(PermanentlyFailed) shouldBe new BsonString("permanently-failed")
     }
     "handle Ignored" in {
-      BSON.write(Ignored) should be (BSONString("ignored"))
+      ProcessingStatus.toBson(Ignored) shouldBe new BsonString("ignored")
     }
     "handle Duplicate" in {
-      BSON.write(Duplicate) should be (BSONString("duplicate"))
+      ProcessingStatus.toBson(Duplicate) shouldBe new BsonString("duplicate")
     }
     "handle Cancelled" in {
-      BSON.write(Cancelled) should be (BSONString("cancelled"))
+      ProcessingStatus.toBson(Cancelled) shouldBe new BsonString("cancelled")
     }
-  }*/
+  }
+
+  "ProcessingStatus.toBson" should {
+    "be compatible with toJson" in {
+      implicit val psf = ProcessingStatus.format
+      ProcessingStatus.values.map { status =>
+        ProcessingStatus.toBson(status) shouldBe Codecs.toBson[ProcessingStatus](status)
+      }
+    }
+  }
 }

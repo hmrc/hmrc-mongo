@@ -59,10 +59,8 @@ trait Codecs {
 
     override def decode(reader: BsonReader, decoderContext: DecoderContext): A = {
       val bs: BsonValue =
-        bsonTypeCodecMap
-          .get(reader.getCurrentBsonType)
+        bsonValueCodec
           .decode(reader, decoderContext)
-          .asInstanceOf[BsonValue]
 
       val json = bsonToJson(bs)
 

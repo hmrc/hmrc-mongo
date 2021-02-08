@@ -64,7 +64,7 @@ class WorkItemModuleRepositorySpec
           receivedAt   = workItemModuleCreationTime,
           updatedAt    = timeSource.now,
           availableAt  = workItemModuleCreationTime,
-          status       = InProgress,
+          status       = ProcessingStatus.InProgress,
           failureCount = 0,
           item         = ExampleItemWithModule(_id, documentCreationTime, "test")
         )
@@ -78,7 +78,17 @@ class WorkItemModuleRepositorySpec
 
       intercept[IllegalStateException] {
         val m = ExampleItemWithModule(new ObjectId(), timeSource.now, "test")
-        WorkItemModuleRepository.formatsOf[ExampleItemWithModule]("testModule").writes(WorkItem(new ObjectId(), timeSource.now, timeSource.now, timeSource.now, ToDo, 0, m))
+        WorkItemModuleRepository.formatsOf[ExampleItemWithModule]("testModule").writes(
+          WorkItem(
+            id           = new ObjectId(),
+            receivedAt   = timeSource.now,
+            updatedAt    = timeSource.now,
+            availableAt  = timeSource.now,
+            status       = ProcessingStatus.ToDo,
+            failureCount = 0,
+            item         = m
+          )
+        )
       }.getMessage shouldBe "A work item module is not supposed to be written"
 
     }
@@ -105,7 +115,7 @@ class WorkItemModuleRepositorySpec
        .map(res => Some(res.getUpsertedId).isDefined shouldBe true)
        .futureValue
 
-      repository.markAs(_id, Succeeded).futureValue shouldBe true
+      repository.markAs(_id, ProcessingStatus.Succeeded).futureValue shouldBe true
 
       val Some(workItem: WorkItem[ExampleItemWithModule]) =
         repository.collection.find(
@@ -114,7 +124,7 @@ class WorkItemModuleRepositorySpec
          .map(_.headOption)
          .futureValue
       workItem.id shouldBe _id
-      workItem.status shouldBe Succeeded
+      workItem.status shouldBe ProcessingStatus.Succeeded
     }
   }
 }
