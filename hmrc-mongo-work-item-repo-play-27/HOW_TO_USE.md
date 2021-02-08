@@ -21,24 +21,25 @@ e.g.
 
 ```scala
 @Singleton
-class GithubRequestsQueueRepository @Inject()(configuration: Configuration, reactiveMongoComponent: ReactiveMongoComponent) extends WorkItemRepository[MyWorkItem, ObjectId](
+class GithubRequestsQueueRepository @Inject()(
+  configuration : Configuration,
+  mongoComponent: MongoComponent
+) extends WorkItemRepository[MyWorkItem, ObjectId](
   collectionName = "myWorkItems",
-  mongo          = reactiveMongoComponent.mongoConnector.db,
+  mongoComponent = mongoComponent,
   itemFormat     = MyWorkItem.mongoFormats,
-  config         = configuration.underlying
+  config         = configuration.underlying,
+  workItemFields = new WorkItemFieldNames {
+                     val receivedAt   = "receivedAt"
+                     val updatedAt    = "updatedAt"
+                     val availableAt  = "receivedAt"
+                     val status       = "status"
+                     val id           = "_id"
+                     val failureCount = "failureCount"
+                   }
 ) {
   override def now: DateTime =
     DateTime.now
-
-  override lazy val workItemFields: WorkItemFieldNames =
-    new WorkItemFieldNames {
-      val receivedAt   = "receivedAt"
-      val updatedAt    = "updatedAt"
-      val availableAt  = "receivedAt"
-      val status       = "status"
-      val id           = "_id"
-      val failureCount = "failureCount"
-    }
 
   override val inProgressRetryAfterProperty: String =
     "queue.retryAfter"
