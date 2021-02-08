@@ -32,14 +32,14 @@ object AppDependencies {
   ) ++ test
 
   lazy val hmrcMongoTestPlay27: Seq[ModuleID] = Seq(
-    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
     "org.scalatest"         %% "scalatest"       % "3.1.0",
+    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
   ) ++ test
 
   lazy val hmrcMongoTestPlay28: Seq[ModuleID] = Seq(
-    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
     "org.scalatest"         %% "scalatest"       % "3.1.0",
+    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
   ) ++ test
 
@@ -51,23 +51,5 @@ object AppDependencies {
   lazy val hmrcMongoMetrixPlay28: Seq[ModuleID] = Seq(
     "com.kenshoo"           %% "metrics-play"    % "2.7.3_0.8.1",
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
-  )
-
-  lazy val hmrcMongoWorkItemRepoPlay27: Seq[ModuleID] = Seq(
-    "io.dropwizard.metrics" %  "metrics-graphite"   % "3.2.5",
-    "com.typesafe.play"     %% "play"               % play27Version,
-    "com.kenshoo"           %% "metrics-play"       % "2.6.19_0.7.0",
-    "org.pegdown"           %  "pegdown"            % "1.6.0"           % Test,
-    "org.scalatest"         %% "scalatest"          % "3.0.5"           % Test,
-    "com.typesafe.play"     %% "play-test"          % play27Version     % Test,
-  )
-
-  lazy val hmrcMongoWorkItemRepoPlay28: Seq[ModuleID] = Seq(
-    "io.dropwizard.metrics" %  "metrics-graphite"   % "3.2.5",
-    // "com.typesafe.play"     %% "play"               % play27Version,
-    // "com.kenshoo"           %% "metrics-play"       % "2.6.19_0.7.0",
-    "org.pegdown"           %  "pegdown"            % "1.6.0"           % Test,
-    "org.scalatest"         %% "scalatest"          % "3.0.5"           % Test
-    // "com.typesafe.play"     %% "play-test"          % play27Version     % Test,
   )
 }

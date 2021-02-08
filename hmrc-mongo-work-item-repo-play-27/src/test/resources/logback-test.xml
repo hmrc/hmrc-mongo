@@ -1,25 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>%date{ISO8601} level=[%level] logger=[%logger] thread=[%thread] rid=[%X{X-Request-ID}] user=[%X{Authorization}] message=[%message] %replace(exception=[%xException]){'^exception=\[\]$',''}%n</pattern>
-        </encoder>
-    </appender>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+      <pattern>%date %highlight([%-5level]) [%logger{35}] [%thread] %msg%n</pattern>
+    </encoder>
+  </appender>
 
-    <logger name="uk.gov" level="DEBUG"/>
+  <logger name="uk.gov" level="DEBUG"/>
 
-    <logger name="application" level="ERROR"/>
-    <logger name="reactivemongo.io.netty" level="INFO"/>
-    <logger name="reactivemongo.core.actors" level="ERROR"/>
-    <logger name="reactivemongo.core.netty" level="ERROR"/>
-    <logger name="reactivemongo.core.nodeset" level="ERROR"/>
-    <logger name="reactivemongo.core" level="INFO"/>
-    <logger name="reactivemongo.api.Driver" level="ERROR"/>
-    <logger name="reactivemongo.api.commands" level="WARN"/>
-    <logger name="reactivemongo.api" level="INFO"/>
+  <logger name="org.mongodb.driver" level="INFO"/>
 
-    <root level="INFO">
-        <appender-ref ref="STDOUT"/>
-    </root>
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
 </configuration>

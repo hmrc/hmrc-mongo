@@ -18,7 +18,7 @@ lazy val commonSettings = Seq(
 )
 
 lazy val library = Project(name, file("."))
-  .enablePlugins(SbtAutoBuildPlugin, SbtGitVersioning, SbtArtifactory)
+  .enablePlugins(SbtAutoBuildPlugin, SbtGitVersioning)
   .settings(
     commonSettings,
     publish := {},
@@ -37,21 +37,21 @@ lazy val library = Project(name, file("."))
   )
 
 lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"))
-  .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .enablePlugins(SbtAutoBuildPlugin)
   .settings(
     commonSettings,
     libraryDependencies ++= AppDependencies.mongoCommon(scalaBinaryVersion.value)
   )
 
 lazy val hmrcMongoPlay27 = Project("hmrc-mongo-play-27", file("hmrc-mongo-play-27"))
-  .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .enablePlugins(SbtAutoBuildPlugin)
   .settings(
     commonSettings,
     libraryDependencies ++= AppDependencies.hmrcMongoPlay27
   ).dependsOn(hmrcMongoCommon)
 
 lazy val hmrcMongoPlay28 = Project("hmrc-mongo-play-28", file("hmrc-mongo-play-28"))
-  .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .enablePlugins(SbtAutoBuildPlugin)
   .settings(
     commonSettings,
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-play-27/src/main/scala",
@@ -59,14 +59,14 @@ lazy val hmrcMongoPlay28 = Project("hmrc-mongo-play-28", file("hmrc-mongo-play-2
   ).dependsOn(hmrcMongoCommon)
 
 lazy val hmrcMongoTestPlay27 = Project("hmrc-mongo-test-play-27", file("hmrc-mongo-test-play-27"))
-  .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .enablePlugins(SbtAutoBuildPlugin)
   .settings(
     commonSettings,
     libraryDependencies ++= AppDependencies.hmrcMongoTestPlay27
   ).dependsOn(hmrcMongoPlay27)
 
 lazy val hmrcMongoTestPlay28 = Project("hmrc-mongo-test-play-28", file("hmrc-mongo-test-play-28"))
-  .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .enablePlugins(SbtAutoBuildPlugin)
   .settings(
     commonSettings,
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-test-play-27/src/main/scala",
@@ -74,14 +74,14 @@ lazy val hmrcMongoTestPlay28 = Project("hmrc-mongo-test-play-28", file("hmrc-mon
   ).dependsOn(hmrcMongoPlay28)
 
 lazy val hmrcMongoMetrixPlay27 = Project("hmrc-mongo-metrix-play-27", file("hmrc-mongo-metrix-play-27"))
-  .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .enablePlugins(SbtAutoBuildPlugin)
   .settings(
     commonSettings,
     libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay27,
   ).dependsOn(hmrcMongoPlay27, hmrcMongoTestPlay27)
 
 lazy val hmrcMongoMetrixPlay28 = Project("hmrc-mongo-metrix-play-28", file("hmrc-mongo-metrix-play-28"))
-  .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .enablePlugins(SbtAutoBuildPlugin)
   .settings(
     commonSettings,
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-metrix-play-27/src/main/scala",
@@ -89,16 +89,14 @@ lazy val hmrcMongoMetrixPlay28 = Project("hmrc-mongo-metrix-play-28", file("hmrc
   ).dependsOn(hmrcMongoPlay28, hmrcMongoTestPlay28)
 
   lazy val hmrcMongoWorkItemRepoPlay27 = Project("hmrc-mongo-work-item-repo-play-27", file("hmrc-mongo-work-item-repo-play-27"))
-  .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .enablePlugins(SbtAutoBuildPlugin)
   .settings(
-    commonSettings,
-    libraryDependencies ++= AppDependencies.hmrcMongoWorkItemRepoPlay27,
+    commonSettings
   ).dependsOn(hmrcMongoMetrixPlay27)
 
 lazy val hmrcMongoWorkItemRepoPlay28 = Project("hmrc-mongo-work-item-repo-play-28", file("hmrc-mongo-work-item-repo-play-28"))
-  .enablePlugins(SbtAutoBuildPlugin, SbtArtifactory)
+  .enablePlugins(SbtAutoBuildPlugin)
   .settings(
     commonSettings,
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-work-item-repo-play-27/src/main/scala",
-    libraryDependencies ++= AppDependencies.hmrcMongoWorkItemRepoPlay28,
   ).dependsOn(hmrcMongoMetrixPlay28)
