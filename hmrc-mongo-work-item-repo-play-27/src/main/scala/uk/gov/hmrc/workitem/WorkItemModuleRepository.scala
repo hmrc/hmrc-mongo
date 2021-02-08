@@ -19,11 +19,10 @@ package uk.gov.hmrc.workitem
 import com.typesafe.config.Config
 import org.bson.conversions.Bson
 import org.bson.types.ObjectId
-import org.joda.time.DateTime
+import org.mongodb.scala.model._
+import java.time.Instant
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.MongoComponent
-import org.mongodb.scala.model._
-import uk.gov.hmrc.mongo.play.json.Codecs // TODO can remove Codecs.toJson when switch from Joda to Javatime
 
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats.Implicits.objectIdFormats
 
@@ -56,16 +55,16 @@ abstract class WorkItemModuleRepository[T](
   def protectFromWrites =
     throw new IllegalStateException("The model object cannot be created via the work item module repository")
 
-  override def pushNew(item: T, receivedAt: DateTime): Future[WorkItem[T]] =
+  override def pushNew(item: T, receivedAt: Instant): Future[WorkItem[T]] =
     protectFromWrites
 
-  override def pushNew(item: T, receivedAt: DateTime, initialState: (T) => ProcessingStatus): Future[WorkItem[T]] =
+  override def pushNew(item: T, receivedAt: Instant, initialState: (T) => ProcessingStatus): Future[WorkItem[T]] =
     protectFromWrites
 
-  override def pushNew(items: Seq[T], receivedAt: DateTime): Future[Seq[WorkItem[T]]] =
+  override def pushNew(items: Seq[T], receivedAt: Instant): Future[Seq[WorkItem[T]]] =
     protectFromWrites
 
-  override def pushNew(items: Seq[T], receivedAt: DateTime, initialState: (T) => ProcessingStatus): Future[Seq[WorkItem[T]]] =
+  override def pushNew(items: Seq[T], receivedAt: Instant, initialState: (T) => ProcessingStatus): Future[Seq[WorkItem[T]]] =
     protectFromWrites
 
   override lazy val metricPrefix: String =
@@ -75,8 +74,6 @@ abstract class WorkItemModuleRepository[T](
 object WorkItemModuleRepository {
 
   import play.api.libs.functional.syntax._
-
-  implicit val dateTimeWrites: Format[DateTime] = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeFormats
 
   private val updatedAtProperty   : String = "updatedAt"
   private val createdAtProperty   : String = "createdAt"
@@ -92,11 +89,11 @@ object WorkItemModuleRepository {
     override val id          : String = "_id"
   }
 
-  def upsertModuleQuery(moduleName: String, time: DateTime): Bson = {
+  def upsertModuleQuery(moduleName: String, time: Instant): Bson = {
     val fieldNames = workItemFieldNames(moduleName)
     Updates.combine(
-      Updates.setOnInsert(fieldNames.availableAt, Codecs.toBson(time)),
-      Updates.set(fieldNames.updatedAt, Codecs.toBson(time)),
+      Updates.setOnInsert(fieldNames.availableAt, time),
+      Updates.set(fieldNames.updatedAt, time),
       Updates.set(fieldNames.status, ProcessingStatus.toBson(ProcessingStatus.ToDo)),
       Updates.set(fieldNames.failureCount, 0)
     )
@@ -104,12 +101,13 @@ object WorkItemModuleRepository {
 
 
   def formatsOf[T](moduleName:String)(implicit trd: Reads[T]): Format[WorkItem[T]] = {
+    implicit val instf : Reads[Instant] = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantReads
     implicit val psf = ProcessingStatus.format
     val reads: Reads[WorkItem[T]] =
       ( (__ \ "_id"                                ).read[ObjectId]
-      ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[DateTime]
-      ~ (__ \ moduleName \ s"$updatedAtProperty"   ).read[DateTime]
-      ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[DateTime]
+      ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[Instant]
+      ~ (__ \ moduleName \ s"$updatedAtProperty"   ).read[Instant]
+      ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[Instant]
       ~ (__ \ moduleName \ s"$statusProperty"      ).read[ProcessingStatus]
       ~ (__ \ moduleName \ s"$failureCountProperty").read[Int].orElse(Reads.pure(0))
       ~ __.read[T]

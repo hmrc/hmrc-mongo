@@ -16,20 +16,19 @@
 
 package uk.gov.hmrc.workitem
 
-import org.joda.time.DateTime
-import org.joda.time.format.ISODateTimeFormat
+import java.time.Instant
+
+import org.bson.types.ObjectId
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import org.bson.types.ObjectId
-import scala.util.{Success => TrySuccess, Failure => TryFailure}
 
 import scala.util.Try
 
 case class WorkItem[T](
   id          : ObjectId,
-  receivedAt  : DateTime,
-  updatedAt   : DateTime,
-  availableAt : DateTime,
+  receivedAt  : Instant,
+  updatedAt   : Instant,
+  availableAt : Instant,
   status      : ProcessingStatus,
   failureCount: Int,
   item        : T
@@ -37,55 +36,68 @@ case class WorkItem[T](
 
 object WorkItem {
 
-  private val dateTimeFormat = ISODateTimeFormat.dateTime.withZoneUTC
+  implicit def workItemMongoFormat[T](implicit tFormat: Format[T]): Format[WorkItem[T]] =
+    workItemFormat[T](
+      objectIdFormat = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats,
+      instantFormat  = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormats,
+      tFormat        = tFormat
+    )
 
-  implicit def workItemMongoFormat[T](implicit tFormat: Format[T]): Format[WorkItem[T]] = {
-    implicit val oif = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats
-    implicit val dtf = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeFormats
-    workItemFormat[T]
-  }
 
-  implicit def workItemRestFormat[T](implicit tFormat: Format[T]): Format[WorkItem[T]] = {
-    implicit val dateTimeRead: Reads[DateTime] = new Reads[DateTime] {
-      override def reads(json: JsValue): JsResult[DateTime] = {
+  private val restInstantReads: Reads[Instant] =
+    new Reads[Instant] {
+      override def reads(json: JsValue): JsResult[Instant] = {
         json match {
-          case JsString(s) => Try {
-            JsSuccess(dateTimeFormat.parseDateTime(s))
-          }.getOrElse {
-            JsError(s"Could not parse $s as a DateTime with format ${dateTimeFormat.toString}")
-          }
+          case JsString(s) => Try(Instant.parse(s))
+                                .fold(
+                                  _ => JsError(s"Could not parse $s as an ISO Instant"),
+                                  JsSuccess.apply(_)
+                                )
           case _ => JsError(s"Expected value to be a string, was actually $json")
         }
       }
     }
 
-    implicit val dateTimeWrite: Writes[DateTime] = new Writes[DateTime] {
-      def writes(dateTime: DateTime): JsValue = JsString(dateTimeFormat.print(dateTime))
+  private val restInstantWrites: Writes[Instant] =
+    new Writes[Instant] {
+      private val restDateTimeFormat =
+        // preserving millis which Instant.toString doesn't when 000
+        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").withZone(java.time.ZoneOffset.UTC)
+
+      def writes(instant: Instant): JsValue =
+       JsString(restDateTimeFormat.format(instant))
     }
 
-    implicit val bsonIdFormat: Format[ObjectId] = Format(
-      Reads.StringReads.map(stringObjectId => Try(new ObjectId(stringObjectId)) match {
-        case TrySuccess(objectId)  => objectId
-        case TryFailure(exception) => throw new RuntimeException(s"'$stringObjectId' is not a valid ObjectId: $exception")
-      }),
+  private val restObjectIdFormat: Format[ObjectId] =
+    Format(
+      Reads.StringReads.map(stringObjectId =>
+        Try(new ObjectId(stringObjectId))
+          .fold(
+            exception => throw new RuntimeException(s"'$stringObjectId' is not a valid ObjectId: $exception"),
+            identity
+          )),
       Writes(id => JsString(id.toString))
     )
 
-    workItemFormat[T]
-  }
+  implicit def workItemRestFormat[T](implicit tFormat: Format[T]): Format[WorkItem[T]] =
+    workItemFormat[T](
+      objectIdFormat = restObjectIdFormat,
+      instantFormat  = Format(restInstantReads, restInstantWrites),
+      tFormat        = tFormat
+    )
 
   def workItemFormat[T](
     implicit
     objectIdFormat: Format[ObjectId],
-    dateTimeFormat: Format[DateTime],
+    instantFormat : Format[Instant],
     tFormat       : Format[T]
   ): Format[WorkItem[T]] = {
     implicit val psf = ProcessingStatus.format
     val reads =
       ( (__ \ "_id"         ).read[ObjectId]
-      ~ (__ \ "receivedAt"  ).read[DateTime]
-      ~ (__ \ "updatedAt"   ).read[DateTime]
-      ~ ((__ \ "availableAt").read[DateTime] or (__ \ "receivedAt").read[DateTime])
+      ~ (__ \ "receivedAt"  ).read[Instant]
+      ~ (__ \ "updatedAt"   ).read[Instant]
+      ~ ((__ \ "availableAt").read[Instant] or (__ \ "receivedAt").read[Instant])
       ~ (__ \ "status"      ).read[ProcessingStatus]
       ~ (__ \ "failureCount").read[Int]
       ~ (__ \ "item"        ).read[T]
@@ -93,9 +105,9 @@ object WorkItem {
 
     val writes =
       ( (__ \ "_id"         ).write[ObjectId]
-      ~ (__ \ "receivedAt"  ).write[DateTime]
-      ~ (__ \ "updatedAt"   ).write[DateTime]
-      ~ (__ \ "availableAt" ).write[DateTime]
+      ~ (__ \ "receivedAt"  ).write[Instant]
+      ~ (__ \ "updatedAt"   ).write[Instant]
+      ~ (__ \ "availableAt" ).write[Instant]
       ~ (__ \ "status"      ).write[ProcessingStatus]
       ~ (__ \ "failureCount").write[Int]
       ~ (__ \ "item"        ).write[T]

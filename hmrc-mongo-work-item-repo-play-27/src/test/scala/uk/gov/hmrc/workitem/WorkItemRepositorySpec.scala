@@ -16,16 +16,18 @@
 
 package uk.gov.hmrc.workitem
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
 import org.bson.types.ObjectId
+import org.mongodb.scala.model._
 import org.scalatest.LoneElement
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Json
-import org.mongodb.scala.model._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import org.joda.time.DateTime
 
 class WorkItemRepositorySpec
   extends AnyWordSpec
@@ -36,7 +38,7 @@ class WorkItemRepositorySpec
   def createWorkItemsWith(statuses: Seq[ProcessingStatus]): Unit =
     Future.traverse(statuses) { status =>
       for {
-        item <- repository.pushNew(item1, DateTime.now)
+        item <- repository.pushNew(item1, Instant.now())
         _    <- repository.markAs(item.id, status)
       } yield ()
     }.futureValue
@@ -120,12 +122,18 @@ class WorkItemRepositorySpec
     "never pull a permanently failed notification" in {
       repository.pushNew(item1, timeSource.now).futureValue
       repository.markAs(findAll().futureValue.loneElement.id, ProcessingStatus.PermanentlyFailed).futureValue should be(true)
-      repository.pullOutstanding(failedBefore = timeSource.now.plusDays(60), availableBefore = timeSource.now.plusDays(60)).futureValue should be(None)
+      repository.pullOutstanding(
+        failedBefore    = timeSource.now.plus(60, ChronoUnit.DAYS),
+        availableBefore = timeSource.now.plus(60, ChronoUnit.DAYS)
+      ).futureValue should be(None)
     }
 
     "pull nothing when there are no notifications which were received before the requested time" in {
       repository.pushNew(item1, timeSource.now).futureValue
-      repository.pullOutstanding(failedBefore = timeSource.now, availableBefore = timeSource.now.minusDays(60)).futureValue should be(None)
+      repository.pullOutstanding(
+        failedBefore    = timeSource.now,
+        availableBefore = timeSource.now.minus(60, ChronoUnit.DAYS)
+      ).futureValue should be(None)
     }
 
     "pull timed out Failed items" in {
@@ -141,7 +149,7 @@ class WorkItemRepositorySpec
     "pull timed out In progress items" in {
       repository.pushNew(item1, timeSource.now).futureValue
       repository.markAs(findAll().futureValue.loneElement.id, ProcessingStatus.InProgress).futureValue should be(true)
-      timeSource.advance(repository.inProgressRetryAfter.plus(1))
+      timeSource.advance(repository.inProgressRetryAfter.plus(1, ChronoUnit.MILLIS))
       repository.pullOutstanding(failedBefore = timeSource.now, availableBefore = timeSource.now).futureValue.get should have(
         'item (item1),
         'status (ProcessingStatus.InProgress),
@@ -243,21 +251,50 @@ class WorkItemRepositorySpec
     }
 
     "create an item with a specified time for future processing" in {
-      repository.pushNew(item = item1, receivedAt = timeSource.now, availableAt = timeSource.now.plusDays(10)).futureValue
-      repository.pullOutstanding(failedBefore = timeSource.now.plusDays(1), availableBefore = timeSource.now.plusDays(10)).futureValue should be(None)
-      repository.pullOutstanding(failedBefore = timeSource.now.plusDays(1), availableBefore = timeSource.now.plusDays(11)).futureValue.get.item should be(item1)
+      repository.pushNew(
+        item        = item1,
+        receivedAt  = timeSource.now,
+        availableAt = timeSource.now.plus(10, ChronoUnit.DAYS)
+      ).futureValue
+
+      repository.pullOutstanding(
+        failedBefore    = timeSource.now.plus(1, ChronoUnit.DAYS),
+        availableBefore = timeSource.now.plus(10, ChronoUnit.DAYS)
+      ).futureValue should be(None)
+
+      repository.pullOutstanding(
+        failedBefore    = timeSource.now.plus(1, ChronoUnit.DAYS),
+        availableBefore = timeSource.now.plus(11, ChronoUnit.DAYS)
+      ).futureValue.get.item should be(item1)
     }
 
     "mark an item ToDo with a specified time for future processing" in {
       repository.pushNew(item1, timeSource.now).futureValue
-      repository.markAs(findAll().futureValue.loneElement.id, ProcessingStatus.ToDo, availableAt = Some(timeSource.now.plusDays(10))).futureValue should be(true)
-      repository.pullOutstanding(failedBefore = timeSource.now.plusDays(1), availableBefore = timeSource.now.plusDays(1)).futureValue should be(None)
+      repository.markAs(
+        findAll().futureValue.loneElement.id,
+        ProcessingStatus.ToDo,
+        availableAt = Some(timeSource.now.plus(10, ChronoUnit.DAYS))
+      ).futureValue should be(true)
+
+      repository.pullOutstanding(
+        failedBefore    = timeSource.now.plus(1, ChronoUnit.DAYS),
+        availableBefore = timeSource.now.plus(1, ChronoUnit.DAYS)
+      ).futureValue should be(None)
     }
 
     "pull an item deferred for future processing as ToDo" in {
       repository.pushNew(item1, timeSource.now).futureValue
-      repository.markAs(findAll().futureValue.loneElement.id, ProcessingStatus.ToDo, availableAt = Some(timeSource.now.plusDays(1))).futureValue should be(true)
-      repository.pullOutstanding(failedBefore = timeSource.now.plusDays(1), availableBefore = timeSource.now.plusDays(10)).futureValue.get should have(
+
+      repository.markAs(
+        findAll().futureValue.loneElement.id,
+        ProcessingStatus.ToDo,
+        availableAt = Some(timeSource.now.plus(1, ChronoUnit.DAYS))
+      ).futureValue should be(true)
+
+      repository.pullOutstanding(
+        failedBefore    = timeSource.now.plus(1, ChronoUnit.DAYS),
+        availableBefore = timeSource.now.plus(10, ChronoUnit.DAYS)
+      ).futureValue.get should have(
         'item (item1),
         'status (ProcessingStatus.InProgress),
         'failureCount (0)
@@ -266,9 +303,21 @@ class WorkItemRepositorySpec
 
     "pull an item deferred for future processing as Failed" in {
       repository.pushNew(item1, timeSource.now).futureValue
-      repository.markAs(findAll().futureValue.loneElement.id, ProcessingStatus.Failed, availableAt = Some(timeSource.now.plusDays(2))).futureValue should be(true)
-      repository.pullOutstanding(failedBefore = timeSource.now.plusDays(1), availableBefore = timeSource.now.plusDays(1)).futureValue should be(None)
-      repository.pullOutstanding(failedBefore = timeSource.now.plusDays(1), availableBefore = timeSource.now.plusDays(3)).futureValue.get should have(
+      repository.markAs(
+        findAll().futureValue.loneElement.id,
+        ProcessingStatus.Failed,
+        availableAt = Some(timeSource.now.plus(2, ChronoUnit.DAYS))
+      ).futureValue should be(true)
+
+      repository.pullOutstanding(
+        failedBefore    = timeSource.now.plus(1, ChronoUnit.DAYS),
+        availableBefore = timeSource.now.plus(1, ChronoUnit.DAYS)
+      ).futureValue should be(None)
+
+      repository.pullOutstanding(
+        failedBefore    = timeSource.now.plus(1, ChronoUnit.DAYS),
+        availableBefore = timeSource.now.plus(3, ChronoUnit.DAYS)
+      ).futureValue.get should have(
         'item (item1),
         'status (ProcessingStatus.InProgress),
         'failureCount (1)
@@ -279,7 +328,11 @@ class WorkItemRepositorySpec
 
       val insertRecord: WorkItem[ExampleItem] = repository.pushNew(item1, timeSource.now).futureValue
 
-      repository.markAs(insertRecord.id, ProcessingStatus.Failed, availableAt = Some(timeSource.now.plusDays(2))).futureValue should be(true)
+      repository.markAs(
+        insertRecord.id,
+        ProcessingStatus.Failed,
+        availableAt = Some(timeSource.now.plus(2, ChronoUnit.DAYS))
+      ).futureValue should be(true)
 
       repository.collection.findOneAndUpdate(
         filter = Filters.equal("_id", insertRecord.id),
@@ -287,7 +340,10 @@ class WorkItemRepositorySpec
         options = FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER)
       ).toFuture.futureValue
 
-      repository.pullOutstanding(failedBefore = timeSource.now.plusDays(1), availableBefore = timeSource.now.plusDays(3)).futureValue.get should have(
+      repository.pullOutstanding(
+        failedBefore    = timeSource.now.plus(1, ChronoUnit.DAYS),
+        availableBefore = timeSource.now.plus(3, ChronoUnit.DAYS)
+      ).futureValue.get should have(
         'item (item1),
         'status (ProcessingStatus.InProgress),
         'failureCount (1)
@@ -331,14 +387,23 @@ class WorkItemRepositorySpec
       val inProgressRecord: WorkItem[ExampleItem] = repository.pushNew(item1, timeSource.now).futureValue
       repository.markAs(inProgressRecord.id, ProcessingStatus.InProgress).futureValue should be(true)
 
-      val failedRecord: WorkItem[ExampleItem] = repository.pushNew(item2, timeSource.now.plusDays(1)).futureValue
+      val failedRecord: WorkItem[ExampleItem] = repository.pushNew(
+        item2,
+        timeSource.now.plus(1, ChronoUnit.DAYS)
+      ).futureValue
       repository.markAs(failedRecord.id, ProcessingStatus.Failed).futureValue should be(true)
 
-      val todoRecord: WorkItem[ExampleItem] = repository.pushNew(item3, timeSource.now.plusDays(1)).futureValue
+      val todoRecord: WorkItem[ExampleItem] = repository.pushNew(
+        item3,
+        timeSource.now.plus(1, ChronoUnit.DAYS)
+      ).futureValue
       repository.markAs(todoRecord.id, ProcessingStatus.ToDo).futureValue should be(true)
 
-      timeSource.advance(repository.inProgressRetryAfter.plus(1))
-      val result = repository.pullOutstanding(failedBefore = timeSource.now.plusDays(1), availableBefore = timeSource.now.plusDays(10)).futureValue.get
+      timeSource.advance(repository.inProgressRetryAfter.plus(1, ChronoUnit.MILLIS))
+      val result = repository.pullOutstanding(
+        failedBefore    = timeSource.now.plus(1, ChronoUnit.DAYS),
+        availableBefore = timeSource.now.plus(10, ChronoUnit.DAYS)
+      ).futureValue.get
       result should have(
         'item (item3),
         'status (ProcessingStatus.InProgress),
@@ -350,14 +415,20 @@ class WorkItemRepositorySpec
       val inProgressRecord: WorkItem[ExampleItem] = repository.pushNew(item1, timeSource.now).futureValue
       repository.markAs(inProgressRecord.id, ProcessingStatus.InProgress).futureValue should be(true)
 
-      val failedRecord: WorkItem[ExampleItem] = repository.pushNew(item2, timeSource.now.plusDays(2)).futureValue
+      val failedRecord: WorkItem[ExampleItem] = repository.pushNew(
+        item2,
+        timeSource.now.plus(2, ChronoUnit.DAYS)
+      ).futureValue
       repository.markAs(failedRecord.id, ProcessingStatus.Failed).futureValue should be(true)
 
       val anotherInProgressRecord: WorkItem[ExampleItem] = repository.pushNew(item3, timeSource.now).futureValue
       repository.markAs(anotherInProgressRecord.id, ProcessingStatus.InProgress).futureValue should be(true)
 
-      timeSource.advance(repository.inProgressRetryAfter.plus(1))
-      val result = repository.pullOutstanding(failedBefore = timeSource.now, availableBefore = timeSource.now.plusDays(3)).futureValue.get
+      timeSource.advance(repository.inProgressRetryAfter.plus(1, ChronoUnit.MILLIS))
+      val result = repository.pullOutstanding(
+        failedBefore    = timeSource.now,
+        availableBefore = timeSource.now.plus(3, ChronoUnit.DAYS)
+      ).futureValue.get
       result should have(
         'item (item2),
         'status (ProcessingStatus.InProgress),
