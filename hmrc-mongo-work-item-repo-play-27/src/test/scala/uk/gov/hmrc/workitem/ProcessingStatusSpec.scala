@@ -23,6 +23,8 @@ import play.api.libs.json.{JsError, JsString, Json}
 import uk.gov.hmrc.mongo.play.json.Codecs
 
 class ProcessingStatusSpec extends AnyWordSpec with Matchers {
+  import ProcessingStatus._
+
   "reading processing status from JSON" should {
     implicit val psf = ProcessingStatus.format
     "handle ToDo" in {
@@ -112,7 +114,7 @@ class ProcessingStatusSpec extends AnyWordSpec with Matchers {
   "ProcessingStatus.toBson" should {
     "be compatible with toJson" in {
       implicit val psf = ProcessingStatus.format
-      ProcessingStatus.processingStatuses.map { status =>
+      ProcessingStatus.values.map { status =>
         ProcessingStatus.toBson(status) shouldBe Codecs.toBson[ProcessingStatus](status)
       }
     }

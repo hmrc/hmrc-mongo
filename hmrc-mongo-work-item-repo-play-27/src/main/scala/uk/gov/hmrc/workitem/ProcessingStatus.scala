@@ -26,20 +26,20 @@ sealed trait ProcessingStatus {
 
 sealed trait ResultStatus extends ProcessingStatus
 
-case object ToDo              extends ProcessingStatus { override val name = "todo"               }
-case object InProgress        extends ProcessingStatus { override val name = "in-progress"        }
-case object Succeeded         extends ResultStatus     { override val name = "succeeded"          }
-case object Deferred          extends ResultStatus     { override val name = "deferred"           }
-case object Failed            extends ResultStatus     { override val name = "failed"             }
-case object PermanentlyFailed extends ResultStatus     { override val name = "permanently-failed" }
-case object Ignored           extends ResultStatus     { override val name = "ignored"            }
-case object Duplicate         extends ResultStatus     { override val name = "duplicate"          }
-case object Cancelled         extends ResultStatus     { override val name = "cancelled"          }
-
 object ProcessingStatus {
   outer =>
 
-  val processingStatuses: Set[ProcessingStatus] =
+  case object ToDo              extends ProcessingStatus { override val name = "todo"               }
+  case object InProgress        extends ProcessingStatus { override val name = "in-progress"        }
+  case object Succeeded         extends ResultStatus     { override val name = "succeeded"          }
+  case object Deferred          extends ResultStatus     { override val name = "deferred"           }
+  case object Failed            extends ResultStatus     { override val name = "failed"             }
+  case object PermanentlyFailed extends ResultStatus     { override val name = "permanently-failed" }
+  case object Ignored           extends ResultStatus     { override val name = "ignored"            }
+  case object Duplicate         extends ResultStatus     { override val name = "duplicate"          }
+  case object Cancelled         extends ResultStatus     { override val name = "cancelled"          }
+
+  val values: Set[ProcessingStatus] =
     Set(
       ToDo,
       InProgress,
@@ -52,8 +52,18 @@ object ProcessingStatus {
       Cancelled
     )
 
+  val cancellable: Set[ProcessingStatus] =
+    Set(
+      ToDo,
+      Failed,
+      PermanentlyFailed,
+      Ignored,
+      Duplicate,
+      Deferred
+    )
+
   private val nameToStatus: Map[String, ProcessingStatus] =
-    processingStatuses.map(s => (s.name, s)).toMap
+    values.map(s => (s.name, s)).toMap
 
   val reads: Reads[ProcessingStatus] =
     Reads[ProcessingStatus] { json =>

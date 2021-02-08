@@ -72,7 +72,7 @@ abstract class WorkItemRepository[T, ID](
   def metricPrefix: String = collectionName
 
   override def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]] =
-    Future.traverse(ProcessingStatus.processingStatuses.toList) { status =>
+    Future.traverse(ProcessingStatus.values.toList) { status =>
       count(status).map(value => s"$metricPrefix.${status.name}" -> value.toInt)
     }.map(_.toMap)
 
@@ -95,7 +95,7 @@ abstract class WorkItemRepository[T, ID](
     item         = item
   )
 
-  private def toDo(item: T): ProcessingStatus = ToDo
+  private def toDo(item: T): ProcessingStatus = ProcessingStatus.ToDo
 
   /** Creates a new [[WorkItem]] with status ToDo and availableAt equal to receivedAt */
   def pushNew(item: T, receivedAt: DateTime): Future[WorkItem[T]] =
@@ -160,26 +160,26 @@ abstract class WorkItemRepository[T, ID](
       collection
         .findOneAndUpdate(
           filter  = query,
-          update  = setStatusOperation(InProgress, None),
+          update  = setStatusOperation(ProcessingStatus.InProgress, None),
           options = FindOneAndUpdateOptions()
                       .returnDocument(ReturnDocument.AFTER)
         ).toFutureOption
 
     def todoQuery: Bson =
       Filters.and(
-        Filters.equal(workItemFields.status, ProcessingStatus.toBson(ToDo)),
+        Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.ToDo)),
         Filters.lt(workItemFields.availableAt, Codecs.toBson(availableBefore))
       )
 
     def failedQuery: Bson =
       Filters.or(
         Filters.and(
-          Filters.equal(workItemFields.status, ProcessingStatus.toBson(Failed)),
+          Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.Failed)),
           Filters.lt(workItemFields.updatedAt, Codecs.toBson(failedBefore)),
           Filters.lt(workItemFields.availableAt, Codecs.toBson(availableBefore))
         ),
         Filters.and(
-          Filters.equal(workItemFields.status, ProcessingStatus.toBson(Failed)),
+          Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.Failed)),
           Filters.lt(workItemFields.updatedAt, Codecs.toBson(failedBefore)),
           Filters.exists(workItemFields.availableAt, false)
         )
@@ -187,7 +187,7 @@ abstract class WorkItemRepository[T, ID](
 
     def inProgressQuery: Bson =
       Filters.and(
-        Filters.equal(workItemFields.status, ProcessingStatus.toBson(InProgress)),
+        Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.InProgress)),
         Filters.lt(workItemFields.updatedAt, Codecs.toBson(now.minus(inProgressRetryAfter)))
       )
 
@@ -219,7 +219,7 @@ abstract class WorkItemRepository[T, ID](
     collection.updateOne(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
-                 Filters.equal(workItemFields.status, ProcessingStatus.toBson(InProgress))
+                 Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.InProgress))
                ),
       update = setStatusOperation(newStatus, None)
     ).toFuture
@@ -235,15 +235,17 @@ abstract class WorkItemRepository[T, ID](
     collection.findOneAndUpdate(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
-                 Filters.in(workItemFields.status, List(ToDo, Failed, PermanentlyFailed, Ignored, Duplicate, Deferred).map(ProcessingStatus.toBson): _*) // TODO we should be able to express the valid to/from states in traits of ProcessingStatus
+                 Filters.in(workItemFields.status,
+                   ProcessingStatus.cancellable.toSeq.map(ProcessingStatus.toBson): _*
+                )
                ),
-      update  = setStatusOperation(Cancelled, None),
+      update  = setStatusOperation(ProcessingStatus.Cancelled, None),
     ).toFuture
      .flatMap { res =>
        Option(res) match {
          case Some(item) => Future.successful(Updated(
                               previousStatus = item.status,
-                              newStatus      = Cancelled
+                              newStatus      = ProcessingStatus.Cancelled
                             ))
          case None       => findById(id).map {
                               case Some(item) => NotUpdated(item.status)
@@ -265,7 +267,7 @@ abstract class WorkItemRepository[T, ID](
       Updates.set(workItemFields.status, ProcessingStatus.toBson(newStatus)),
       Updates.set(workItemFields.updatedAt, Codecs.toBson(now)),
       (availableAt.map(when => Updates.set(workItemFields.availableAt, Codecs.toBson(when))).getOrElse(BsonDocument())),
-      (if (newStatus == Failed) Updates.inc(workItemFields.failureCount, 1) else BsonDocument())
+      (if (newStatus == ProcessingStatus.Failed) Updates.inc(workItemFields.failureCount, 1) else BsonDocument())
     )
 }
 object Operations {
