@@ -32,14 +32,14 @@ object AppDependencies {
   ) ++ test
 
   lazy val hmrcMongoTestPlay27: Seq[ModuleID] = Seq(
-    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
     "org.scalatest"         %% "scalatest"       % "3.1.0",
+    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
   ) ++ test
 
   lazy val hmrcMongoTestPlay28: Seq[ModuleID] = Seq(
-    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
     "org.scalatest"         %% "scalatest"       % "3.1.0",
+    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
   ) ++ test
 

@@ -39,7 +39,7 @@ import scala.reflect.ClassTag
 class PlayMongoRepository[A: ClassTag](
   mongoComponent: MongoComponent,
   val collectionName: String,
-  domainFormat: Format[A],
+  val domainFormat: Format[A],
   val indexes: Seq[IndexModel],
   val optSchema: Option[BsonDocument] = None,
   replaceIndexes: Boolean = false
@@ -51,6 +51,7 @@ class PlayMongoRepository[A: ClassTag](
   val collection: MongoCollection[A] =
     CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat)
 
+  // TODO if client provide indexes empty, and then override indexes, it will be null here....
   Await.result(ensureIndexes, 5.seconds)
 
   Await.result(ensureSchema, 5.seconds)
