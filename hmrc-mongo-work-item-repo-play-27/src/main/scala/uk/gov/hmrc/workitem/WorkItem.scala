@@ -80,6 +80,7 @@ object WorkItem {
     dateTimeFormat: Format[DateTime],
     tFormat       : Format[T]
   ): Format[WorkItem[T]] = {
+    implicit val psf = ProcessingStatus.format
     val reads =
       ( (__ \ "_id"         ).read[ObjectId]
       ~ (__ \ "receivedAt"  ).read[DateTime]
