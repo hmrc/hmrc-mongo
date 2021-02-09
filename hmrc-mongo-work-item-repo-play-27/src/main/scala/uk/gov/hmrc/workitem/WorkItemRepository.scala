@@ -19,7 +19,7 @@ package uk.gov.hmrc.workitem
 import com.typesafe.config.Config
 import org.bson.types.ObjectId
 import org.bson.conversions.Bson
-import org.joda.time.{DateTime, Duration}
+import java.time.{Duration, Instant}
 import org.mongodb.scala.bson.BsonDocument
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.metrix.MetricSource
@@ -27,7 +27,6 @@ import org.mongodb.scala.model._
 
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
-import uk.gov.hmrc.mongo.play.json.Codecs // TODO can remove Codecs.toJson when switch from Joda to Javatime
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -60,7 +59,7 @@ abstract class WorkItemRepository[T, ID](
   /** Returns the current date time for setting the updatedAt field.
     * abstract to allow for test friendly implementations.
     */
-  def now: DateTime
+  def now(): Instant
 
 
   /** Returns the property key which defines the millis in Long format, for the [[inProgressRetryAfter]]
@@ -76,37 +75,39 @@ abstract class WorkItemRepository[T, ID](
       count(status).map(value => s"$metricPrefix.${status.name}" -> value.toInt)
     }.map(_.toMap)
 
-  private implicit val dateFormats: Format[DateTime] = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeFormats
-
   /** Returns the timeout of any WorkItems marked as InProgress.
     * WorkItems marked as InProgress will be hidden from [[pullOutstanding]] until this window expires.
     */
-  lazy val inProgressRetryAfter: Duration = Duration.millis(
-    config.getLong(inProgressRetryAfterProperty)
-  )
+  lazy val inProgressRetryAfter: Duration =
+    Duration.ofMillis(config.getLong(inProgressRetryAfterProperty))
 
-  private def newWorkItem(receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus)(item: T) = WorkItem(
-    id           = new ObjectId(),
-    receivedAt   = receivedAt,
-    updatedAt    = now,
-    availableAt  = availableAt,
-    status       = initialState(item),
-    failureCount = 0,
-    item         = item
-  )
+  private def newWorkItem(
+    receivedAt  : Instant,
+    availableAt : Instant,
+    initialState: T => ProcessingStatus
+  )(item: T) =
+    WorkItem(
+      id           = new ObjectId(),
+      receivedAt   = receivedAt,
+      updatedAt    = now,
+      availableAt  = availableAt,
+      status       = initialState(item),
+      failureCount = 0,
+      item         = item
+    )
 
   private def toDo(item: T): ProcessingStatus = ProcessingStatus.ToDo
 
   /** Creates a new [[WorkItem]] with status ToDo and availableAt equal to receivedAt */
-  def pushNew(item: T, receivedAt: DateTime): Future[WorkItem[T]] =
+  def pushNew(item: T, receivedAt: Instant): Future[WorkItem[T]] =
     pushNew(item, receivedAt, receivedAt, toDo _)
 
   /** Creates a new [[WorkItem]] with availableAt equal to receivedAt */
-  def pushNew(item: T, receivedAt: DateTime, initialState: T => ProcessingStatus): Future[WorkItem[T]] =
+  def pushNew(item: T, receivedAt: Instant, initialState: T => ProcessingStatus): Future[WorkItem[T]] =
     pushNew(item, receivedAt, receivedAt, initialState)
 
   /** Creates a new [[WorkItem]] with status ToDo */
-  def pushNew(item: T, receivedAt: DateTime, availableAt: DateTime): Future[WorkItem[T]] =
+  def pushNew(item: T, receivedAt: Instant, availableAt: Instant): Future[WorkItem[T]] =
     pushNew(item, receivedAt, availableAt, toDo _)
 
   /** Creates a new [[WorkItem]].
@@ -115,17 +116,17 @@ abstract class WorkItemRepository[T, ID](
     * @param availableAt when to defer processing until
     * @param initialState defines the initial state of the WorkItem for the item
     */
-  def pushNew(item: T, receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus): Future[WorkItem[T]] = {
+  def pushNew(item: T, receivedAt: Instant, availableAt: Instant, initialState: T => ProcessingStatus): Future[WorkItem[T]] = {
     val workItem = newWorkItem(receivedAt, availableAt, initialState)(item)
     collection.insertOne(workItem).toFuture.map(_ => workItem)
   }
 
   /** Creates a batch of new [[WorkItem]]s with status ToDo and availableAt equal to receivedAt */
-  def pushNew(items: Seq[T], receivedAt: DateTime): Future[Seq[WorkItem[T]]] =
+  def pushNew(items: Seq[T], receivedAt: Instant): Future[Seq[WorkItem[T]]] =
     pushNew(items, receivedAt, receivedAt, toDo _)
 
   /** Creates a batch of new [[WorkItem]]s with availableAt equal to receivedAt */
-  def pushNew(items: Seq[T], receivedAt: DateTime, initialState: T => ProcessingStatus): Future[Seq[WorkItem[T]]] =
+  def pushNew(items: Seq[T], receivedAt: Instant, initialState: T => ProcessingStatus): Future[Seq[WorkItem[T]]] =
     pushNew(items, receivedAt, receivedAt, initialState)
 
   /** Creates a batch of new [[WorkItem]]s.
@@ -134,7 +135,7 @@ abstract class WorkItemRepository[T, ID](
     * @param availableAt when to defer processing until
     * @param initialState defines the initial state of the WorkItems for the item
     */
-  def pushNew(items: Seq[T], receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus): Future[Seq[WorkItem[T]]] = {
+  def pushNew(items: Seq[T], receivedAt: Instant, availableAt: Instant, initialState: T => ProcessingStatus): Future[Seq[WorkItem[T]]] = {
     val workItems = items.map(newWorkItem(receivedAt, availableAt, initialState))
 
     collection.insertMany(workItems).toFuture.map { result =>
@@ -155,7 +156,7 @@ abstract class WorkItemRepository[T, ID](
     * @param failedBefore it will only consider WorkItems in FailedState if they were marked as Failed before the failedBefore. This can avoid retrying a failure immediately.
     * @param availableBefore it will only consider WorkItems where the availableAt field is before the availableBefore
     */
-  def pullOutstanding(failedBefore: DateTime, availableBefore: DateTime): Future[Option[WorkItem[T]]] = {
+  def pullOutstanding(failedBefore: Instant, availableBefore: Instant): Future[Option[WorkItem[T]]] = {
     def findNextItemByQuery(query: Bson): Future[Option[WorkItem[T]]] =
       collection
         .findOneAndUpdate(
@@ -168,19 +169,19 @@ abstract class WorkItemRepository[T, ID](
     def todoQuery: Bson =
       Filters.and(
         Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.ToDo)),
-        Filters.lt(workItemFields.availableAt, Codecs.toBson(availableBefore))
+        Filters.lt(workItemFields.availableAt, availableBefore)
       )
 
     def failedQuery: Bson =
       Filters.or(
         Filters.and(
           Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.Failed)),
-          Filters.lt(workItemFields.updatedAt, Codecs.toBson(failedBefore)),
-          Filters.lt(workItemFields.availableAt, Codecs.toBson(availableBefore))
+          Filters.lt(workItemFields.updatedAt, failedBefore),
+          Filters.lt(workItemFields.availableAt, availableBefore)
         ),
         Filters.and(
           Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.Failed)),
-          Filters.lt(workItemFields.updatedAt, Codecs.toBson(failedBefore)),
+          Filters.lt(workItemFields.updatedAt, failedBefore),
           Filters.exists(workItemFields.availableAt, false)
         )
       )
@@ -188,7 +189,7 @@ abstract class WorkItemRepository[T, ID](
     def inProgressQuery: Bson =
       Filters.and(
         Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.InProgress)),
-        Filters.lt(workItemFields.updatedAt, Codecs.toBson(now.minus(inProgressRetryAfter)))
+        Filters.lt(workItemFields.updatedAt, now.minus(inProgressRetryAfter))
       )
 
     findNextItemByQuery(todoQuery).flatMap {
@@ -204,7 +205,7 @@ abstract class WorkItemRepository[T, ID](
   /** Sets the ProcessingStatus of a WorkItem.
     * It will also update the updatedAt timestamp.
     */
-  def markAs(id: ID, status: ProcessingStatus, availableAt: Option[DateTime] = None): Future[Boolean] =
+  def markAs(id: ID, status: ProcessingStatus, availableAt: Option[Instant] = None): Future[Boolean] =
     collection.updateOne(
       filter = Filters.equal(workItemFields.id, id),
       update = setStatusOperation(status, availableAt)
@@ -262,11 +263,11 @@ abstract class WorkItemRepository[T, ID](
   def count(state: ProcessingStatus): Future[Long] =
     collection.countDocuments(filter = Filters.equal(workItemFields.status, state.name)).toFuture
 
-  private def setStatusOperation(newStatus: ProcessingStatus, availableAt: Option[DateTime]): Bson =
+  private def setStatusOperation(newStatus: ProcessingStatus, availableAt: Option[Instant]): Bson =
     Updates.combine(
       Updates.set(workItemFields.status, ProcessingStatus.toBson(newStatus)),
-      Updates.set(workItemFields.updatedAt, Codecs.toBson(now)),
-      (availableAt.map(when => Updates.set(workItemFields.availableAt, Codecs.toBson(when))).getOrElse(BsonDocument())),
+      Updates.set(workItemFields.updatedAt, now),
+      (availableAt.map(when => Updates.set(workItemFields.availableAt, when)).getOrElse(BsonDocument())),
       (if (newStatus == ProcessingStatus.Failed) Updates.inc(workItemFields.failureCount, 1) else BsonDocument())
     )
 }

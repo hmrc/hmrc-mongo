@@ -16,15 +16,14 @@
 
 package uk.gov.hmrc.workitem
 
+import java.time.temporal.ChronoUnit
+
 import org.bson.types.ObjectId
-import org.joda.time.DateTime
 import org.mongodb.scala.model._
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import play.api.libs.json.Writes
-import uk.gov.hmrc.mongo.play.json.Codecs
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -37,19 +36,18 @@ class WorkItemModuleRepositorySpec
      with WithWorkItemRepositoryModule {
 
   implicit val formats = ExampleItemWithModule.formats
-  implicit val dateWrites: Writes[DateTime] = uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats.dateTimeWrite
 
   "WorkItemModuleRepository" should {
     "read the work item fields" in {
       val _id = new ObjectId()
       val documentCreationTime = timeSource.now
-      val workItemModuleCreationTime = documentCreationTime.plusHours(1)
+      val workItemModuleCreationTime = documentCreationTime.plus(1, ChronoUnit.HOURS)
 
       repository.collection.updateOne(
         filter  = Filters.equal("_id", _id),
         update  = Updates.combine(
                     Updates.set("_id", _id),
-                    Updates.set("updatedAt", Codecs.toBson(documentCreationTime)), // why updatedt? its covered by upsertModuleQuery
+                    Updates.set("updatedAt", documentCreationTime), // why updatedt? its covered by upsertModuleQuery
                     Updates.set("value", "test"),
                     WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
                   ),
@@ -58,7 +56,7 @@ class WorkItemModuleRepositorySpec
        .map(res => Some(res.getUpsertedId).isDefined shouldBe true)
        .futureValue
 
-      repository.pullOutstanding(documentCreationTime.plusHours(2), documentCreationTime.plusHours(2)).
+      repository.pullOutstanding(documentCreationTime.plus(2, ChronoUnit.HOURS), documentCreationTime.plus(2, ChronoUnit.HOURS)).
         futureValue shouldBe Some(WorkItem[ExampleItemWithModule](
           id           = _id,
           receivedAt   = workItemModuleCreationTime,
@@ -90,7 +88,6 @@ class WorkItemModuleRepositorySpec
           )
         )
       }.getMessage shouldBe "A work item module is not supposed to be written"
-
     }
 
     "use the module name as the gauge name" in {
@@ -100,13 +97,13 @@ class WorkItemModuleRepositorySpec
     "change state successfully" in {
       val _id = new ObjectId()
       val documentCreationTime = timeSource.now
-      val workItemModuleCreationTime = documentCreationTime.plusHours(1)
+      val workItemModuleCreationTime = documentCreationTime.plus(1, ChronoUnit.HOURS)
 
       repository.collection.updateOne(
         filter  = Filters.equal("_id", _id),
         update  = Updates.combine(
                     Updates.set("_id"      , _id),
-                    Updates.set("updatedAt", Codecs.toBson(documentCreationTime)),
+                    Updates.set("updatedAt", documentCreationTime),
                     Updates.set("value"    , "test"),
                     WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
                   ),

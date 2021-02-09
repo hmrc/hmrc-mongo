@@ -68,7 +68,7 @@ trait MongoFormats {
     * This is deprecated since an explicit Format, mapping id to `_id` is preferred.
     * Also any queries on id would still need to use the underlying '_id' name.
     */
-  @deprecated("Map entity `id` directly to `_id`, rather than using JSON automated macro.")
+  @deprecated("Map entity `id` directly to `_id`, rather than using JSON automated macro.", "0.35.0")
   def mongoEntity[A](baseFormat: Format[A]): Format[A] = {
     val publicIdPath: JsPath  = __ \ '_id
     val privateIdPath: JsPath = __ \ 'id

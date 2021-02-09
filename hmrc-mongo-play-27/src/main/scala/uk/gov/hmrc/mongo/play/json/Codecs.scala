@@ -17,7 +17,7 @@
 package uk.gov.hmrc.mongo.play.json
 
 import org.bson._
-import org.bson.codecs.{BsonTypeCodecMap, Codec, DecoderContext, EncoderContext}
+import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.json.{JsonMode, JsonReader, JsonWriter, JsonWriterSettings}
 import org.bson.types.Decimal128
 import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
@@ -34,8 +34,6 @@ trait Codecs {
 
   private val bsonDocumentCodec = DEFAULT_CODEC_REGISTRY.get(classOf[BsonDocument])
   private val bsonValueCodec    = DEFAULT_CODEC_REGISTRY.get(classOf[BsonValue])
-  private val bsonTypeCodecMap =
-    new BsonTypeCodecMap(org.bson.codecs.BsonValueCodecProvider.getBsonTypeClassMap, DEFAULT_CODEC_REGISTRY)
 
   /** @param legacyNumbers `true` will preserve the Number modifications which occured with simple-reactivemongo when storing
     * extremely large and small numbers.
