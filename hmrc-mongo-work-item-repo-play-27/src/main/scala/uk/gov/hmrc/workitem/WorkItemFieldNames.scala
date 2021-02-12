@@ -30,6 +30,7 @@ package uk.gov.hmrc.workitem
     * }}}
     */
 
+    // TODO case-class...
 trait WorkItemFieldNames  {
   val receivedAt, availableAt, updatedAt, status, id, failureCount: String
 }

@@ -44,7 +44,7 @@ object WorkItem {
     )
 
 
-  private val restInstantReads: Reads[Instant] =
+  private lazy val restInstantReads: Reads[Instant] =
     new Reads[Instant] {
       override def reads(json: JsValue): JsResult[Instant] = {
         json match {
@@ -58,7 +58,7 @@ object WorkItem {
       }
     }
 
-  private val restInstantWrites: Writes[Instant] =
+  private lazy val restInstantWrites: Writes[Instant] =
     new Writes[Instant] {
       private val restDateTimeFormat =
         // preserving millis which Instant.toString doesn't when 000
@@ -68,7 +68,7 @@ object WorkItem {
        JsString(restDateTimeFormat.format(instant))
     }
 
-  private val restObjectIdFormat: Format[ObjectId] =
+  private lazy val restObjectIdFormat: Format[ObjectId] =
     Format(
       Reads.StringReads.map(stringObjectId =>
         Try(new ObjectId(stringObjectId))

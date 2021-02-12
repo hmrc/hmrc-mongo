@@ -83,7 +83,7 @@ class WorkItemRepositorySpec
     "be able to save and reload a bulk set of items" in {
       val items = Seq(item1, item2, item3, item4, item5, item6)
 
-      val returnedItems = repository.pushNew(items, timeSource.now).futureValue
+      val returnedItems = repository.pushNewBatch(items, timeSource.now).futureValue
       val savedItems = findAll().futureValue
 
       every(savedItems) should have(
@@ -230,7 +230,7 @@ class WorkItemRepositorySpec
         case i if i.id == "id1" => ProcessingStatus.Deferred
         case _ => ProcessingStatus.ToDo
       }
-      val returnedItems = repository.pushNew(Seq(item1, item2), timeSource.now, maybeDefer _).futureValue
+      val returnedItems = repository.pushNewBatch(Seq(item1, item2), timeSource.now, maybeDefer _).futureValue
       exactly(1, returnedItems) should have(
         'item (item1),
         'status (ProcessingStatus.Deferred),
@@ -253,7 +253,6 @@ class WorkItemRepositorySpec
     "create an item with a specified time for future processing" in {
       repository.pushNew(
         item        = item1,
-        receivedAt  = timeSource.now,
         availableAt = timeSource.now.plus(10, ChronoUnit.DAYS)
       ).futureValue
 
@@ -371,7 +370,7 @@ class WorkItemRepositorySpec
     }
 
     "count the number of items in a specific state" in {
-      repository.pushNew(allItems, timeSource.now).futureValue
+      repository.pushNewBatch(allItems, timeSource.now).futureValue
 
       repository.count(ProcessingStatus.ToDo             ).futureValue shouldBe 6
       repository.count(ProcessingStatus.InProgress       ).futureValue shouldBe 0

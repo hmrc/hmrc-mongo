@@ -47,9 +47,9 @@ class GithubRequestsQueueRepository @Inject()(
 
 ### Using WorkItemModuleRepository
 
-- `pushNew(item: T, receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus): Future[WorkItem[T]]`
+- `pushNew(item: T, availableAt: DateTime, initialState: T => ProcessingStatus): Future[WorkItem[T]]`
 
-You can push new WorkItems into the queue with `pushNew`. This function is overloaded to allow bulk creation. You can explicitly set the initial status, else it will default to `ToDo`. You can also explicitly set the `availableAt`, otherwise it be available for processing at the same time as `receivedAt`.
+You can push new WorkItems into the queue with `pushNew`. You can use `pushNewBatch` for bulk creation. You can explicitly set the initial status, else it will default to `ToDo`. You can also explicitly set the `availableAt`, otherwise it be available for processing immediately.
 
 - `pullOutstanding(failedBefore: DateTime, availableBefore: DateTime): Future[Option[WorkItem[T]]]`
 

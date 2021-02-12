@@ -55,16 +55,10 @@ abstract class WorkItemModuleRepository[T](
   def protectFromWrites =
     throw new IllegalStateException("The model object cannot be created via the work item module repository")
 
-  override def pushNew(item: T, receivedAt: Instant): Future[WorkItem[T]] =
+  override def pushNew(item: T, availableAt: Instant, initialState: T => ProcessingStatus): Future[WorkItem[T]] =
     protectFromWrites
 
-  override def pushNew(item: T, receivedAt: Instant, initialState: (T) => ProcessingStatus): Future[WorkItem[T]] =
-    protectFromWrites
-
-  override def pushNew(items: Seq[T], receivedAt: Instant): Future[Seq[WorkItem[T]]] =
-    protectFromWrites
-
-  override def pushNew(items: Seq[T], receivedAt: Instant, initialState: (T) => ProcessingStatus): Future[Seq[WorkItem[T]]] =
+  override def pushNewBatch(items: Seq[T], availableAt: Instant, initialState: T => ProcessingStatus): Future[Seq[WorkItem[T]]] =
     protectFromWrites
 
   override lazy val metricPrefix: String =
