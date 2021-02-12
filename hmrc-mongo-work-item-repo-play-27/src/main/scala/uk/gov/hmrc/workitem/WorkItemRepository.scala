@@ -14,11 +14,6 @@
  * limitations under the License.
  */
 
-/*
-TODO:
-* `complete` marks with `ResultStatus` - should it delete the entry?: https://github.com/hmrc/bank-account-reputation-dispatcher/blob/master/app/uk/gov/hmrc/bars/dispatcher/repositories/AssessRequestsQueueRepository.scala#L54-L58
-*/
-
 package uk.gov.hmrc.workitem
 
 import org.bson.types.ObjectId
@@ -35,7 +30,7 @@ import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import scala.concurrent.{ExecutionContext, Future}
 
 /** The repository to set and get the work item's for processing.
-  * See [[pushNew(T,DateTime)]] for creating work items, and [[pullOutstanding]] for retrieving them.
+  * See [[pushNew]] for creating work items, and [[pullOutstanding]] for retrieving them.
   *
   * The `itemFormat` and `workItemFields` parameters should align - consider using `WorkItem.formatForFields(workItemFields)` to create the itemFormat.
   */
@@ -127,7 +122,7 @@ abstract class WorkItemRepository[T, ID](
   }
 
   /** Returns a WorkItem to be processed, if available.
-    * The item will be atomically set to [[InProgress]], so it will not be picked up by other calls to pullOutstanding until
+    * The item will be atomically set to [[ProcessingStatus.InProgress]], so it will not be picked up by other calls to pullOutstanding until
     * it's status has been explicitly marked as Failed or ToDo, or it's progress status has timed out (set by [[inProgressRetryAfter]]).
     *
     * A WorkItem will be considered for processing in the following order:

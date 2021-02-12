@@ -48,7 +48,6 @@ abstract class WorkItemModuleRepository[T](
   workItemFields = WorkItemModuleRepository.workItemFieldNames(moduleName),
   replaceIndexes = replaceIndexes
 ) {
-  // TODO move to a trait to stop calling these functions
   private def protectFromWrites =
     throw new IllegalStateException("The model object cannot be created via the work item module repository")
 

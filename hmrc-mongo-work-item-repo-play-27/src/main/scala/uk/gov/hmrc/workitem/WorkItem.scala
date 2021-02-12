@@ -25,8 +25,7 @@ import play.api.libs.json._
 import scala.util.Try
 
 
-/** Defines the internal fields for [[WorkItem]], allowing customisation.
-  */
+/** Defines the internal fields for [[WorkItem]], allowing customisation. */
 case class WorkItemFieldNames(
   id          : String,
   receivedAt  : String,
@@ -62,6 +61,9 @@ case class WorkItem[T](
 
 object WorkItem {
 
+  /** Creates json format for [[WorkItem]] for serialising in Mongo.
+    * It requires [[WorkItemFieldNames]] which should keep it aligned with queries.
+    */
   def formatForFields[T](
     fieldNames: WorkItemFieldNames
   )(implicit
@@ -122,7 +124,8 @@ object WorkItem {
       Writes(id => JsString(id.toString))
     )
 
-  implicit def workItemRestFormat[T](implicit tFormat: Format[T]): Format[WorkItem[T]] = {
+  /** Creates a json format for [[WorkItem]] appropriate for serialising through a REST endpoint. */
+  def workItemRestFormat[T](implicit tFormat: Format[T]): Format[WorkItem[T]] = {
     implicit val objectIdFormat = restObjectIdFormat
     implicit val instantFormat  = Format(restInstantReads, restInstantWrites)
     implicit val psf            = ProcessingStatus.format
