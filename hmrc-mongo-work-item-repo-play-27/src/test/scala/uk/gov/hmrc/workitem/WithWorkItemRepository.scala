@@ -64,7 +64,6 @@ trait WithWorkItemRepositoryModule
     config         = appConf
   ) {
     override val inProgressRetryAfterProperty: String = "retryAfterSeconds"
-    override lazy val inProgressRetryAfter: Duration = Duration.ofHours(1)
 
     override def now(): Instant = timeSource.now
   }
