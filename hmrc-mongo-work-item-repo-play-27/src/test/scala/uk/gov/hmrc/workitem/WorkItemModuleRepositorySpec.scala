@@ -47,7 +47,7 @@ class WorkItemModuleRepositorySpec
         filter  = Filters.equal("_id", _id),
         update  = Updates.combine(
                     Updates.set("_id", _id),
-                    Updates.set("updatedAt", documentCreationTime), // why updatedt? its covered by upsertModuleQuery
+                    Updates.set("updatedAt", documentCreationTime), // this is different from testModule.updatedAt as updated by upsertModuleQuery
                     Updates.set("value", "test"),
                     WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
                   ),

@@ -23,8 +23,8 @@ import org.mongodb.scala.model._
 import java.time.Instant
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.MongoComponent
-
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats.Implicits.objectIdFormats
+import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.Implicits.jatInstantFormats
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -32,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * to interact with those lifecycles.
   * It will namespace the lifecycle fields with the provided moduleName.
   * It assumes creation of WorkItems are made through another view (e.g. a standard [[WorkItemRepository]]), it will
-  * only allow interacting with the WorkItem lifecycle, and will throw runtime exceptions if `pushNew` is called.
+  * only allow interacting with the WorkItem lifecycle, and will throw runtime exceptions if `pushNew` or `pushNewBatch` are called.
   */
 abstract class WorkItemModuleRepository[T](
   collectionName: String,
@@ -51,8 +51,8 @@ abstract class WorkItemModuleRepository[T](
   workItemFields = WorkItemModuleRepository.workItemFieldNames(moduleName),
   replaceIndexes = replaceIndexes
 ) {
-
-  def protectFromWrites =
+  // TODO move to a trait to stop calling these functions
+  private def protectFromWrites =
     throw new IllegalStateException("The model object cannot be created via the work item module repository")
 
   override def pushNew(item: T, availableAt: Instant, initialState: T => ProcessingStatus): Future[WorkItem[T]] =
@@ -66,21 +66,16 @@ abstract class WorkItemModuleRepository[T](
 }
 
 object WorkItemModuleRepository {
-
-  import play.api.libs.functional.syntax._
-
-  private val updatedAtProperty   : String = "updatedAt"
-  private val createdAtProperty   : String = "createdAt"
-  private val failureCountProperty: String = "failureCount"
-  private val statusProperty      : String = "status"
-
-  def workItemFieldNames(moduleName: String) = new WorkItemFieldNames {
-    override val availableAt : String = s"$moduleName.$createdAtProperty"
-    override val updatedAt   : String = s"$moduleName.$updatedAtProperty"
-    override val failureCount: String = s"$moduleName.$failureCountProperty"
-    override val status      : String = s"$moduleName.$statusProperty"
-    override val receivedAt  : String = availableAt
-    override val id          : String = "_id"
+  def workItemFieldNames(moduleName: String) = {
+    val availableAt = s"$moduleName.createdAt"
+    WorkItemFieldNames(
+      id           = "_id",
+      receivedAt   = availableAt,
+      updatedAt    = s"$moduleName.updatedAt",
+      availableAt  = availableAt,
+      status       = s"$moduleName.status",
+      failureCount = s"$moduleName.failureCount"
+    )
   }
 
   def upsertModuleQuery(moduleName: String, time: Instant): Bson = {
@@ -93,17 +88,23 @@ object WorkItemModuleRepository {
     )
   }
 
+  def formatsOf[T](moduleName: String)(implicit trd: Reads[T]): Format[WorkItem[T]] = {
+    import play.api.libs.functional.syntax._
 
-  def formatsOf[T](moduleName:String)(implicit trd: Reads[T]): Format[WorkItem[T]] = {
-    implicit val instf : Reads[Instant] = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantReads
+    val fieldNames = workItemFieldNames(moduleName)
+
+    def asPath(fieldName: String): JsPath =
+      fieldName.split("\\.").foldLeft[JsPath](__)(_ \ _)
+
     implicit val psf = ProcessingStatus.format
+
     val reads: Reads[WorkItem[T]] =
-      ( (__ \ "_id"                                ).read[ObjectId]
-      ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[Instant]
-      ~ (__ \ moduleName \ s"$updatedAtProperty"   ).read[Instant]
-      ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[Instant]
-      ~ (__ \ moduleName \ s"$statusProperty"      ).read[ProcessingStatus]
-      ~ (__ \ moduleName \ s"$failureCountProperty").read[Int].orElse(Reads.pure(0))
+      ( asPath(fieldNames.id          ).read[ObjectId]
+      ~ asPath(fieldNames.receivedAt  ).read[Instant]
+      ~ asPath(fieldNames.updatedAt   ).read[Instant]
+      ~ asPath(fieldNames.availableAt ).read[Instant]
+      ~ asPath(fieldNames.status      ).read[ProcessingStatus]
+      ~ asPath(fieldNames.failureCount).read[Int].orElse(Reads.pure(0))
       ~ __.read[T]
       )(WorkItem.apply[T] _)
 
