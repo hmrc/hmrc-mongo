@@ -16,7 +16,6 @@
 
 package uk.gov.hmrc.workitem
 
-import com.typesafe.config.Config
 import org.bson.conversions.Bson
 import org.bson.types.ObjectId
 import org.mongodb.scala.model._
@@ -38,7 +37,6 @@ abstract class WorkItemModuleRepository[T](
   collectionName: String,
   moduleName    : String,
   mongoComponent: MongoComponent,
-  config        : Config,
   replaceIndexes: Boolean = true
 )(implicit
   trd: Reads[T],
@@ -47,7 +45,6 @@ abstract class WorkItemModuleRepository[T](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
   itemFormat     = WorkItemModuleRepository.formatsOf[T](moduleName),
-  config         = config,
   workItemFields = WorkItemModuleRepository.workItemFieldNames(moduleName),
   replaceIndexes = replaceIndexes
 ) {
@@ -74,7 +71,8 @@ object WorkItemModuleRepository {
       updatedAt    = s"$moduleName.updatedAt",
       availableAt  = availableAt,
       status       = s"$moduleName.status",
-      failureCount = s"$moduleName.failureCount"
+      failureCount = s"$moduleName.failureCount",
+      item         = ""
     )
   }
 
@@ -89,29 +87,14 @@ object WorkItemModuleRepository {
   }
 
   def formatsOf[T](moduleName: String)(implicit trd: Reads[T]): Format[WorkItem[T]] = {
-    import play.api.libs.functional.syntax._
 
-    val fieldNames = workItemFieldNames(moduleName)
-
-    def asPath(fieldName: String): JsPath =
-      fieldName.split("\\.").foldLeft[JsPath](__)(_ \ _)
-
-    implicit val psf = ProcessingStatus.format
-
-    val reads: Reads[WorkItem[T]] =
-      ( asPath(fieldNames.id          ).read[ObjectId]
-      ~ asPath(fieldNames.receivedAt  ).read[Instant]
-      ~ asPath(fieldNames.updatedAt   ).read[Instant]
-      ~ asPath(fieldNames.availableAt ).read[Instant]
-      ~ asPath(fieldNames.status      ).read[ProcessingStatus]
-      ~ asPath(fieldNames.failureCount).read[Int].orElse(Reads.pure(0))
-      ~ __.read[T]
-      )(WorkItem.apply[T] _)
-
-    val writes: Writes[WorkItem[T]] = new Writes[WorkItem[T]] {
-      override def writes(o: WorkItem[T]): JsValue = throw new IllegalStateException("A work item module is not supposed to be written")
+    val writes: Writes[T] = new Writes[T] {
+      override def writes(o: T): JsValue =
+        throw new IllegalStateException("A work item module is not supposed to be written")
     }
 
-    Format(reads, writes)
+    implicit val format: Format[T] = Format(trd, writes)
+
+    WorkItem.formatForFields[T](workItemFieldNames(moduleName))
   }
 }

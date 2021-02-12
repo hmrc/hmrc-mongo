@@ -56,8 +56,10 @@ class WorkItemModuleRepositorySpec
        .map(res => Some(res.getUpsertedId).isDefined shouldBe true)
        .futureValue
 
-      repository.pullOutstanding(documentCreationTime.plus(2, ChronoUnit.HOURS), documentCreationTime.plus(2, ChronoUnit.HOURS)).
-        futureValue shouldBe Some(WorkItem[ExampleItemWithModule](
+      repository.pullOutstanding(
+        failedBefore    = documentCreationTime.plus(2, ChronoUnit.HOURS),
+        availableBefore = documentCreationTime.plus(2, ChronoUnit.HOURS)
+      ).futureValue shouldBe Some(WorkItem[ExampleItemWithModule](
           id           = _id,
           receivedAt   = workItemModuleCreationTime,
           updatedAt    = timeSource.now,

@@ -21,7 +21,6 @@ TODO:
 
 package uk.gov.hmrc.workitem
 
-import com.typesafe.config.Config
 import org.bson.types.ObjectId
 import org.bson.conversions.Bson
 import java.time.{Duration, Instant}
@@ -37,12 +36,13 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** The repository to set and get the work item's for processing.
   * See [[pushNew(T,DateTime)]] for creating work items, and [[pullOutstanding]] for retrieving them.
+  *
+  * The `itemFormat` and `workItemFields` parameters should align - consider using `WorkItem.formatForFields(workItemFields)` to create the itemFormat.
   */
 abstract class WorkItemRepository[T, ID](
   collectionName: String,
   mongoComponent: MongoComponent,
   itemFormat    : Format[WorkItem[T]],
-  config        : Config,
   val workItemFields: WorkItemFieldNames,
   replaceIndexes: Boolean = true
 )(implicit
@@ -61,17 +61,15 @@ abstract class WorkItemRepository[T, ID](
   with Operations.FindById[ID, T]
   with MetricSource {
 
+  /** Returns the timeout of any WorkItems marked as InProgress.
+    * WorkItems marked as InProgress will be hidden from [[pullOutstanding]] until this window expires.
+    */
+  def inProgressRetryAfter: Duration
+
   /** Returns the current date time for setting the updatedAt field.
     * abstract to allow for test friendly implementations.
     */
   def now(): Instant
-
-
-  /** Returns the property key which defines the duration in Duration format, for the [[inProgressRetryAfter]]
-    * to be looked up in the [[config]].
-    */
-  def inProgressRetryAfterProperty: String
-
 
   def metricPrefix: String = collectionName
 
@@ -79,12 +77,6 @@ abstract class WorkItemRepository[T, ID](
     Future.traverse(ProcessingStatus.values.toList) { status =>
       count(status).map(value => s"$metricPrefix.${status.name}" -> value.toInt)
     }.map(_.toMap)
-
-  /** Returns the timeout of any WorkItems marked as InProgress.
-    * WorkItems marked as InProgress will be hidden from [[pullOutstanding]] until this window expires.
-    */
-  lazy val inProgressRetryAfter: Duration =
-    config.getDuration(inProgressRetryAfterProperty)
 
   private def newWorkItem(
     availableAt : Instant,
@@ -261,6 +253,7 @@ abstract class WorkItemRepository[T, ID](
       (if (newStatus == ProcessingStatus.Failed) Updates.inc(workItemFields.failureCount, 1) else BsonDocument())
     )
 }
+
 object Operations {
   trait Cancel[ID] {
     def cancel(id: ID): Future[StatusUpdateResult]
