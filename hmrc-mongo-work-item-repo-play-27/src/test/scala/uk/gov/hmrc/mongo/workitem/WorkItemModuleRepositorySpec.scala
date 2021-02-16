@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.workitem
+package uk.gov.hmrc.mongo.workitem
 
 import java.time.temporal.ChronoUnit
 
@@ -24,6 +24,7 @@ import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import play.api.libs.json.Reads
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -78,7 +79,13 @@ class WorkItemModuleRepositorySpec
 
       intercept[IllegalStateException] {
         val m = ExampleItemWithModule(new ObjectId(), timeSource.now, "test")
-        WorkItemModuleRepository.formatsOf[ExampleItemWithModule]("testModule").writes(
+        val writes =
+          WorkItem.formatForFields[ExampleItemWithModule](
+            fieldNames = WorkItemModuleRepository.workItemFields("testModule")
+          )(
+            tFormat    = WorkItemModuleRepository.readonlyFormat[ExampleItemWithModule](implicitly[Reads[ExampleItemWithModule]])
+          )
+        writes.writes(
           WorkItem(
             id           = new ObjectId(),
             receivedAt   = timeSource.now,

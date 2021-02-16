@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.workitem
+package uk.gov.hmrc.mongo.workitem
 
 import java.time.Instant
 
@@ -23,10 +23,12 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
 import scala.util.Try
+import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
+import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
 
 /** Defines the internal fields for [[WorkItem]], allowing customisation. */
-case class WorkItemFieldNames(
+case class WorkItemFields(
   id          : String,
   receivedAt  : String,
   updatedAt   : String,
@@ -36,9 +38,9 @@ case class WorkItemFieldNames(
   item        : String
 )
 
-object WorkItemFieldNames {
+object WorkItemFields {
   lazy val default =
-    WorkItemFieldNames(
+    WorkItemFields(
       id           = "_id",
       receivedAt   = "receivedAt",
       updatedAt    = "updatedAt",
@@ -62,14 +64,12 @@ case class WorkItem[T](
 object WorkItem {
 
   /** Creates json format for [[WorkItem]] for serialising in Mongo.
-    * It requires [[WorkItemFieldNames]] which should keep it aligned with queries.
+    * It requires [[WorkItemFields]] which should keep it aligned with queries.
     */
   def formatForFields[T](
-    fieldNames: WorkItemFieldNames
+    fieldNames: WorkItemFields
   )(implicit
-    objectIdFormat: Format[ObjectId],
-    instantFormat : Format[Instant],
-    tFormat       : Format[T]
+    tFormat : Format[T]
   ): Format[WorkItem[T]] = {
     import play.api.libs.functional.syntax._
 
@@ -77,7 +77,9 @@ object WorkItem {
       if (fieldName.isEmpty) __
       else fieldName.split("\\.").foldLeft[JsPath](__)(_ \ _)
 
-    implicit val psf = ProcessingStatus.format
+    implicit val psf      = ProcessingStatus.format
+    implicit val oif      = MongoFormats.objectIdFormats
+    implicit val instantF = MongoJavatimeFormats.instantFormats
 
     ( asPath(fieldNames.id          ).format[ObjectId]
     ~ asPath(fieldNames.receivedAt  ).format[Instant]

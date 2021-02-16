@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.workitem
+package uk.gov.hmrc.mongo.workitem
 
 import org.bson.{BsonString, BsonValue}
 import play.api.libs.json._
