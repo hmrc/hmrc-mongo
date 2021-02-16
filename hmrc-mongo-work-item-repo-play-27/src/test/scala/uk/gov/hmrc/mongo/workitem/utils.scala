@@ -95,11 +95,10 @@ trait WithWorkItemRepository
         item         = "item"
       )
 
-    new WorkItemRepository[ExampleItem, ObjectId](
+    new WorkItemRepository[ExampleItem](
       collectionName = collectionName,
       mongoComponent = mongoComponent,
       itemFormat     = ExampleItem.formats,
-      idFormat       = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats,
       instantFormat  = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormats,
       workItemFields = workItemFields
     ) {

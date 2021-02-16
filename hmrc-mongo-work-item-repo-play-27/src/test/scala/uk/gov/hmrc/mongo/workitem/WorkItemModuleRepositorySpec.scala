@@ -83,7 +83,6 @@ class WorkItemModuleRepositorySpec
           WorkItem.formatForFields[ExampleItemWithModule](
             fieldNames = WorkItemModuleRepository.workItemFields("testModule")
           )(
-            objectIdFormat = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats,
             instantFormat  = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormats,
             tFormat        = WorkItemModuleRepository.readonlyFormat[ExampleItemWithModule](implicitly[Reads[ExampleItemWithModule]])
           )

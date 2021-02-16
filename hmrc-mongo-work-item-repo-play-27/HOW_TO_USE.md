@@ -24,10 +24,10 @@ e.g.
 class GithubRequestsQueueRepository @Inject()(
   configuration : Configuration,
   mongoComponent: MongoComponent
-) extends WorkItemRepository[MyWorkItem, ObjectId](
+) extends WorkItemRepository[MyWorkItem](
   collectionName = "myWorkItems",
   mongoComponent = mongoComponent,
-  itemFormat     = WorkItem.formatForFields(WorkItemFields.default),
+  itemFormat     = MyWorkItem.mongoFormat,
   workItemFields = WorkItemFields.default
 ) {
   override def now: DateTime =

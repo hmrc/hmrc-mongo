@@ -23,6 +23,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
 import scala.util.Try
+import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
 
 
 /** Defines the internal fields for [[WorkItem]], allowing customisation. */
@@ -67,7 +68,6 @@ object WorkItem {
   def formatForFields[T](
     fieldNames: WorkItemFields
   )(implicit
-    objectIdFormat: Format[ObjectId],
     instantFormat : Format[Instant],
     tFormat       : Format[T]
   ): Format[WorkItem[T]] = {
@@ -78,6 +78,7 @@ object WorkItem {
       else fieldName.split("\\.").foldLeft[JsPath](__)(_ \ _)
 
     implicit val psf = ProcessingStatus.format
+    implicit val of  = MongoFormats.objectIdFormats
 
     ( asPath(fieldNames.id          ).format[ObjectId]
     ~ asPath(fieldNames.receivedAt  ).format[Instant]

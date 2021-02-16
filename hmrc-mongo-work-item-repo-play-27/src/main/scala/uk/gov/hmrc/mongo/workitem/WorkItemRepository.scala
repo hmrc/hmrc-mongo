@@ -31,14 +31,11 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** The repository to set and get the work item's for processing.
   * See [[pushNew]] for creating work items, and [[pullOutstanding]] for retrieving them.
-  *
-  * The `itemFormat` and `workItemFields` parameters should align - consider using `WorkItem.formatForFields(workItemFields)` to create the itemFormat.
   */
-abstract class WorkItemRepository[T, ID](
+abstract class WorkItemRepository[T](
   collectionName: String,
   mongoComponent: MongoComponent,
   itemFormat    : Format[T],
-  idFormat      : Format[ObjectId], // TODO we have a mismatch of ID and ObjectId...
   instantFormat : Format[Instant],
   val workItemFields: WorkItemFields,
   replaceIndexes: Boolean = true
@@ -48,7 +45,6 @@ abstract class WorkItemRepository[T, ID](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
   domainFormat   = {implicit val itemF    = itemFormat
-                    implicit val idF      = idFormat
                     implicit val instantF = instantFormat
                     WorkItem.formatForFields[T](workItemFields)
                    },
@@ -58,8 +54,8 @@ abstract class WorkItemRepository[T, ID](
                      IndexModel(Indexes.ascending(workItemFields.status), IndexOptions().background(true))
                    ),
   replaceIndexes = replaceIndexes
-) with Operations.Cancel[ID]
-  with Operations.FindById[ID, T]
+) with Operations.Cancel
+  with Operations.FindById[T]
   with MetricSource {
 
   /** Returns the timeout of any WorkItems marked as InProgress.
@@ -188,7 +184,7 @@ abstract class WorkItemRepository[T, ID](
   /** Sets the ProcessingStatus of a WorkItem.
     * It will also update the updatedAt timestamp.
     */
-  def markAs(id: ID, status: ProcessingStatus, availableAt: Option[Instant] = None): Future[Boolean] =
+  def markAs(id: ObjectId, status: ProcessingStatus, availableAt: Option[Instant] = None): Future[Boolean] =
     collection.updateOne(
       filter = Filters.equal(workItemFields.id, id),
       update = setStatusOperation(status, availableAt)
@@ -199,7 +195,7 @@ abstract class WorkItemRepository[T, ID](
     * It will also update the updatedAt timestamp.
     * It will return false if the WorkItem is not InProgress.
     */
-  def complete(id: ID, newStatus: ResultStatus): Future[Boolean] =
+  def complete(id: ObjectId, newStatus: ResultStatus): Future[Boolean] =
     collection.updateOne(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
@@ -212,7 +208,7 @@ abstract class WorkItemRepository[T, ID](
   /** Deletes the WorkItem.
     * It will return false if the WorkItem is not InProgress.
     */
-  def completeAndDelete(id: ID): Future[Boolean] =
+  def completeAndDelete(id: ObjectId): Future[Boolean] =
     collection.deleteOne(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
@@ -226,7 +222,7 @@ abstract class WorkItemRepository[T, ID](
     * [[StatusUpdateResult.NotFound]] if it's not found,
     * and [[StatusUpdateResult.NotUpdated]] if it's not in a cancellable ProcessingStatus.
     */
-  def cancel(id: ID): Future[StatusUpdateResult] =
+  def cancel(id: ObjectId): Future[StatusUpdateResult] =
     collection.findOneAndUpdate(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
@@ -251,7 +247,7 @@ abstract class WorkItemRepository[T, ID](
        }
      }
 
-  def findById(id: ID): Future[Option[WorkItem[T]]] =
+  def findById(id: ObjectId): Future[Option[WorkItem[T]]] =
     collection.find(Filters.equal("_id", id)).toFuture.map(_.headOption)
 
   /** Returns the number of WorkItems in the specified ProcessingStatus */
@@ -268,10 +264,10 @@ abstract class WorkItemRepository[T, ID](
 }
 
 object Operations {
-  trait Cancel[ID] {
-    def cancel(id: ID): Future[StatusUpdateResult]
+  trait Cancel {
+    def cancel(id: ObjectId): Future[StatusUpdateResult]
   }
-  trait FindById[ID, T] {
-    def findById(id: ID): Future[Option[WorkItem[T]]]
+  trait FindById[T] {
+    def findById(id: ObjectId): Future[Option[WorkItem[T]]]
   }
 }

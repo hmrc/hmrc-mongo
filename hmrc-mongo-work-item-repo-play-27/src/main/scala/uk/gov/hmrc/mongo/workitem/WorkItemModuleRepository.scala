@@ -17,7 +17,6 @@
 package uk.gov.hmrc.mongo.workitem
 
 import org.bson.conversions.Bson
-import org.bson.types.ObjectId
 import org.mongodb.scala.model._
 import java.time.Instant
 import play.api.libs.json._
@@ -39,11 +38,10 @@ abstract class WorkItemModuleRepository[T](
 )(implicit
   trd: Reads[T],
   ec : ExecutionContext
-) extends WorkItemRepository[T, ObjectId](
+) extends WorkItemRepository[T](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
   itemFormat     = WorkItemModuleRepository.readonlyFormat[T](trd),
-  idFormat       = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats,
   instantFormat  = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormats,
   workItemFields = WorkItemModuleRepository.workItemFields(moduleName),
   replaceIndexes = replaceIndexes
