@@ -83,13 +83,9 @@ trait WithWorkItemRepository
   with TimeSource {
     this: TestSuite =>
 
-  import uk.gov.hmrc.mongo.play.json.formats.MongoFormats.Implicits.objectIdFormats
-  import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.Implicits.jatInstantFormats
-  implicit val eif = ExampleItem.formats
-
   def exampleItemRepository(collectionName: String) = {
     val workItemFields =
-      WorkItemFieldNames(
+      WorkItemFields(
         id           = "_id",
         receivedAt   = "receivedAt",
         updatedAt    = "updatedAt",
@@ -102,7 +98,9 @@ trait WithWorkItemRepository
     new WorkItemRepository[ExampleItem, ObjectId](
       collectionName = collectionName,
       mongoComponent = mongoComponent,
-      itemFormat     = WorkItem.formatForFields[ExampleItem](workItemFields),
+      itemFormat     = ExampleItem.formats,
+      idFormat       = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats,
+      instantFormat  = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormats,
       workItemFields = workItemFields
     ) {
       override lazy val inProgressRetryAfter: Duration =

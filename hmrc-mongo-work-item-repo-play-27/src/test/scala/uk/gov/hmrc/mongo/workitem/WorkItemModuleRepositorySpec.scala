@@ -24,6 +24,7 @@ import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import play.api.libs.json.Reads
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -78,7 +79,15 @@ class WorkItemModuleRepositorySpec
 
       intercept[IllegalStateException] {
         val m = ExampleItemWithModule(new ObjectId(), timeSource.now, "test")
-        WorkItemModuleRepository.formatsOf[ExampleItemWithModule]("testModule").writes(
+        val writes =
+          WorkItem.formatForFields[ExampleItemWithModule](
+            fieldNames = WorkItemModuleRepository.workItemFields("testModule")
+          )(
+            objectIdFormat = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats,
+            instantFormat  = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormats,
+            tFormat        = WorkItemModuleRepository.readonlyFormat[ExampleItemWithModule](implicitly[Reads[ExampleItemWithModule]])
+          )
+        writes.writes(
           WorkItem(
             id           = new ObjectId(),
             receivedAt   = timeSource.now,

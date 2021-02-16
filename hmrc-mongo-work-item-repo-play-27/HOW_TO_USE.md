@@ -27,8 +27,8 @@ class GithubRequestsQueueRepository @Inject()(
 ) extends WorkItemRepository[MyWorkItem, ObjectId](
   collectionName = "myWorkItems",
   mongoComponent = mongoComponent,
-  itemFormat     = WorkItem.formatForFields(WorkItemFieldNames.default),
-  workItemFields = WorkItemFieldNames.default
+  itemFormat     = WorkItem.formatForFields(WorkItemFields.default),
+  workItemFields = WorkItemFields.default
 ) {
   override def now: DateTime =
     DateTime.now

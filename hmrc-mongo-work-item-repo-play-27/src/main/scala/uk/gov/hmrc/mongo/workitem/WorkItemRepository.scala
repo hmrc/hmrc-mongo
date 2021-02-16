@@ -37,15 +37,21 @@ import scala.concurrent.{ExecutionContext, Future}
 abstract class WorkItemRepository[T, ID](
   collectionName: String,
   mongoComponent: MongoComponent,
-  itemFormat    : Format[WorkItem[T]], // TODO this should be just Format[T] ? We can build Format[WorkItem[T]] from WorkItem.formatForFields
-  val workItemFields: WorkItemFieldNames,
+  itemFormat    : Format[T],
+  idFormat      : Format[ObjectId], // TODO we have a mismatch of ID and ObjectId...
+  instantFormat : Format[Instant],
+  val workItemFields: WorkItemFields,
   replaceIndexes: Boolean = true
 )(implicit
-  ec: ExecutionContext
+  ec: ExecutionContext,
 ) extends PlayMongoRepository[WorkItem[T]](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
-  domainFormat   = itemFormat,
+  domainFormat   = {implicit val itemF    = itemFormat
+                    implicit val idF      = idFormat
+                    implicit val instantF = instantFormat
+                    WorkItem.formatForFields[T](workItemFields)
+                   },
   indexes        = Seq(
                      IndexModel(Indexes.ascending(workItemFields.status, workItemFields.updatedAt), IndexOptions().background(true)),
                      IndexModel(Indexes.ascending(workItemFields.status, workItemFields.availableAt), IndexOptions().background(true)),
@@ -78,10 +84,10 @@ abstract class WorkItemRepository[T, ID](
     initialState: T => ProcessingStatus
   )(item: T) =
     WorkItem(
-      id           = new ObjectId(),
+      id           = new ObjectId(), // TODO this isn't an `ID`. Queries should use toBson with formats. (simplify by fixing ID to ObjectId?)
       receivedAt   = now(),
       updatedAt    = now(),
-      availableAt  = availableAt,
+      availableAt  = availableAt, // TODO we've asked for format for Date, queries should use it (simply by fixing format?)
       status       = initialState(item),
       failureCount = 0,
       item         = item

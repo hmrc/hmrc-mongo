@@ -26,7 +26,7 @@ import scala.util.Try
 
 
 /** Defines the internal fields for [[WorkItem]], allowing customisation. */
-case class WorkItemFieldNames(
+case class WorkItemFields(
   id          : String,
   receivedAt  : String,
   updatedAt   : String,
@@ -36,9 +36,9 @@ case class WorkItemFieldNames(
   item        : String
 )
 
-object WorkItemFieldNames {
+object WorkItemFields {
   lazy val default =
-    WorkItemFieldNames(
+    WorkItemFields(
       id           = "_id",
       receivedAt   = "receivedAt",
       updatedAt    = "updatedAt",
@@ -62,10 +62,10 @@ case class WorkItem[T](
 object WorkItem {
 
   /** Creates json format for [[WorkItem]] for serialising in Mongo.
-    * It requires [[WorkItemFieldNames]] which should keep it aligned with queries.
+    * It requires [[WorkItemFields]] which should keep it aligned with queries.
     */
   def formatForFields[T](
-    fieldNames: WorkItemFieldNames
+    fieldNames: WorkItemFields
   )(implicit
     objectIdFormat: Format[ObjectId],
     instantFormat : Format[Instant],

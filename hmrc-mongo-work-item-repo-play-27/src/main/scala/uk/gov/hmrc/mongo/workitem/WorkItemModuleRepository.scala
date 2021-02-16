@@ -22,8 +22,6 @@ import org.mongodb.scala.model._
 import java.time.Instant
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.MongoComponent
-import uk.gov.hmrc.mongo.play.json.formats.MongoFormats.Implicits.objectIdFormats
-import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.Implicits.jatInstantFormats
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -44,8 +42,10 @@ abstract class WorkItemModuleRepository[T](
 ) extends WorkItemRepository[T, ObjectId](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
-  itemFormat     = WorkItemModuleRepository.formatsOf[T](moduleName),
-  workItemFields = WorkItemModuleRepository.workItemFieldNames(moduleName),
+  itemFormat     = WorkItemModuleRepository.readonlyFormat[T](trd),
+  idFormat       = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats,
+  instantFormat  = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormats,
+  workItemFields = WorkItemModuleRepository.workItemFields(moduleName),
   replaceIndexes = replaceIndexes
 ) {
   private def protectFromWrites =
@@ -62,9 +62,9 @@ abstract class WorkItemModuleRepository[T](
 }
 
 object WorkItemModuleRepository {
-  def workItemFieldNames(moduleName: String) = {
+  def workItemFields(moduleName: String) = {
     val availableAt = s"$moduleName.createdAt"
-    WorkItemFieldNames(
+    WorkItemFields(
       id           = "_id",
       receivedAt   = availableAt,
       updatedAt    = s"$moduleName.updatedAt",
@@ -76,7 +76,7 @@ object WorkItemModuleRepository {
   }
 
   def upsertModuleQuery(moduleName: String, time: Instant): Bson = {
-    val fieldNames = workItemFieldNames(moduleName)
+    val fieldNames = workItemFields(moduleName)
     Updates.combine(
       Updates.setOnInsert(fieldNames.availableAt, time),
       Updates.set(fieldNames.updatedAt, time),
@@ -85,15 +85,9 @@ object WorkItemModuleRepository {
     )
   }
 
-  def formatsOf[T](moduleName: String)(implicit trd: Reads[T]): Format[WorkItem[T]] = {
-
-    val writes: Writes[T] = new Writes[T] {
-      override def writes(o: T): JsValue =
-        throw new IllegalStateException("A work item module is not supposed to be written")
-    }
-
-    implicit val format: Format[T] = Format(trd, writes)
-
-    WorkItem.formatForFields[T](workItemFieldNames(moduleName))
-  }
+  def readonlyFormat[T](trd: Reads[T]): Format[T] =
+    Format(
+      trd,
+      (o: T) => throw new IllegalStateException("A work item module is not supposed to be written")
+    )
 }
