@@ -47,7 +47,7 @@ class WorkItemModuleRepositorySpec
         filter  = Filters.equal("_id", _id),
         update  = Updates.combine(
                     Updates.set("_id", _id),
-                    Updates.set("updatedAt", documentCreationTime), // why updatedt? its covered by upsertModuleQuery
+                    Updates.set("updatedAt", documentCreationTime), // this is different from testModule.updatedAt as updated by upsertModuleQuery
                     Updates.set("value", "test"),
                     WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
                   ),
@@ -56,8 +56,10 @@ class WorkItemModuleRepositorySpec
        .map(res => Some(res.getUpsertedId).isDefined shouldBe true)
        .futureValue
 
-      repository.pullOutstanding(documentCreationTime.plus(2, ChronoUnit.HOURS), documentCreationTime.plus(2, ChronoUnit.HOURS)).
-        futureValue shouldBe Some(WorkItem[ExampleItemWithModule](
+      repository.pullOutstanding(
+        failedBefore    = documentCreationTime.plus(2, ChronoUnit.HOURS),
+        availableBefore = documentCreationTime.plus(2, ChronoUnit.HOURS)
+      ).futureValue shouldBe Some(WorkItem[ExampleItemWithModule](
           id           = _id,
           receivedAt   = workItemModuleCreationTime,
           updatedAt    = timeSource.now,

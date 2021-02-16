@@ -24,7 +24,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.concurrent.{ExecutionContext, Future}
 
 trait MongoUtils {
-  val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
+  val logger: Logger = LoggerFactory.getLogger(getClass.getName)
 
   def ensureIndexes[A](
     collection: MongoCollection[A],

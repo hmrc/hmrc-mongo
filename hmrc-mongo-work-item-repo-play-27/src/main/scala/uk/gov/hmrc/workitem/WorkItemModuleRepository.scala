@@ -16,15 +16,14 @@
 
 package uk.gov.hmrc.workitem
 
-import com.typesafe.config.Config
 import org.bson.conversions.Bson
 import org.bson.types.ObjectId
 import org.mongodb.scala.model._
 import java.time.Instant
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.MongoComponent
-
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats.Implicits.objectIdFormats
+import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.Implicits.jatInstantFormats
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -32,13 +31,12 @@ import scala.concurrent.{ExecutionContext, Future}
   * to interact with those lifecycles.
   * It will namespace the lifecycle fields with the provided moduleName.
   * It assumes creation of WorkItems are made through another view (e.g. a standard [[WorkItemRepository]]), it will
-  * only allow interacting with the WorkItem lifecycle, and will throw runtime exceptions if `pushNew` is called.
+  * only allow interacting with the WorkItem lifecycle, and will throw runtime exceptions if `pushNew` or `pushNewBatch` are called.
   */
 abstract class WorkItemModuleRepository[T](
   collectionName: String,
   moduleName    : String,
   mongoComponent: MongoComponent,
-  config        : Config,
   replaceIndexes: Boolean = true
 )(implicit
   trd: Reads[T],
@@ -47,24 +45,16 @@ abstract class WorkItemModuleRepository[T](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
   itemFormat     = WorkItemModuleRepository.formatsOf[T](moduleName),
-  config         = config,
   workItemFields = WorkItemModuleRepository.workItemFieldNames(moduleName),
   replaceIndexes = replaceIndexes
 ) {
-
-  def protectFromWrites =
+  private def protectFromWrites =
     throw new IllegalStateException("The model object cannot be created via the work item module repository")
 
-  override def pushNew(item: T, receivedAt: Instant): Future[WorkItem[T]] =
+  override def pushNew(item: T, availableAt: Instant, initialState: T => ProcessingStatus): Future[WorkItem[T]] =
     protectFromWrites
 
-  override def pushNew(item: T, receivedAt: Instant, initialState: (T) => ProcessingStatus): Future[WorkItem[T]] =
-    protectFromWrites
-
-  override def pushNew(items: Seq[T], receivedAt: Instant): Future[Seq[WorkItem[T]]] =
-    protectFromWrites
-
-  override def pushNew(items: Seq[T], receivedAt: Instant, initialState: (T) => ProcessingStatus): Future[Seq[WorkItem[T]]] =
+  override def pushNewBatch(items: Seq[T], availableAt: Instant, initialState: T => ProcessingStatus): Future[Seq[WorkItem[T]]] =
     protectFromWrites
 
   override lazy val metricPrefix: String =
@@ -72,21 +62,17 @@ abstract class WorkItemModuleRepository[T](
 }
 
 object WorkItemModuleRepository {
-
-  import play.api.libs.functional.syntax._
-
-  private val updatedAtProperty   : String = "updatedAt"
-  private val createdAtProperty   : String = "createdAt"
-  private val failureCountProperty: String = "failureCount"
-  private val statusProperty      : String = "status"
-
-  def workItemFieldNames(moduleName: String) = new WorkItemFieldNames {
-    override val availableAt : String = s"$moduleName.$createdAtProperty"
-    override val updatedAt   : String = s"$moduleName.$updatedAtProperty"
-    override val failureCount: String = s"$moduleName.$failureCountProperty"
-    override val status      : String = s"$moduleName.$statusProperty"
-    override val receivedAt  : String = availableAt
-    override val id          : String = "_id"
+  def workItemFieldNames(moduleName: String) = {
+    val availableAt = s"$moduleName.createdAt"
+    WorkItemFieldNames(
+      id           = "_id",
+      receivedAt   = availableAt,
+      updatedAt    = s"$moduleName.updatedAt",
+      availableAt  = availableAt,
+      status       = s"$moduleName.status",
+      failureCount = s"$moduleName.failureCount",
+      item         = ""
+    )
   }
 
   def upsertModuleQuery(moduleName: String, time: Instant): Bson = {
@@ -99,24 +85,15 @@ object WorkItemModuleRepository {
     )
   }
 
+  def formatsOf[T](moduleName: String)(implicit trd: Reads[T]): Format[WorkItem[T]] = {
 
-  def formatsOf[T](moduleName:String)(implicit trd: Reads[T]): Format[WorkItem[T]] = {
-    implicit val instf : Reads[Instant] = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantReads
-    implicit val psf = ProcessingStatus.format
-    val reads: Reads[WorkItem[T]] =
-      ( (__ \ "_id"                                ).read[ObjectId]
-      ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[Instant]
-      ~ (__ \ moduleName \ s"$updatedAtProperty"   ).read[Instant]
-      ~ (__ \ moduleName \ s"$createdAtProperty"   ).read[Instant]
-      ~ (__ \ moduleName \ s"$statusProperty"      ).read[ProcessingStatus]
-      ~ (__ \ moduleName \ s"$failureCountProperty").read[Int].orElse(Reads.pure(0))
-      ~ __.read[T]
-      )(WorkItem.apply[T] _)
-
-    val writes: Writes[WorkItem[T]] = new Writes[WorkItem[T]] {
-      override def writes(o: WorkItem[T]): JsValue = throw new IllegalStateException("A work item module is not supposed to be written")
+    val writes: Writes[T] = new Writes[T] {
+      override def writes(o: T): JsValue =
+        throw new IllegalStateException("A work item module is not supposed to be written")
     }
 
-    Format(reads, writes)
+    implicit val format: Format[T] = Format(trd, writes)
+
+    WorkItem.formatForFields[T](workItemFieldNames(moduleName))
   }
 }

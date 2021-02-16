@@ -19,7 +19,6 @@ package uk.gov.hmrc.workitem
 import java.time.{Duration, Instant}
 import java.time.temporal.ChronoUnit
 
-import com.typesafe.config.ConfigFactory
 import org.bson.types.ObjectId
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.TestSuite
@@ -53,20 +52,18 @@ trait WithWorkItemRepositoryModule
   with TimeSource {
     this: TestSuite =>
 
-  val appConf = ConfigFactory.load("application.test.conf")
-
   implicit val eif = uk.gov.hmrc.workitem.ExampleItemWithModule.formats
 
   override lazy val repository = new WorkItemModuleRepository[ExampleItemWithModule](
     collectionName = "items",
     moduleName     = "testModule",
     mongoComponent = mongoComponent,
-    config         = appConf
   ) {
-    override val inProgressRetryAfterProperty: String = "retryAfterSeconds"
-    override lazy val inProgressRetryAfter: Duration = Duration.ofHours(1)
+    override val inProgressRetryAfter: Duration =
+      Duration.ofHours(1)
 
-    override def now(): Instant = timeSource.now
+    override def now(): Instant =
+      timeSource.now
   }
 }
 
@@ -77,31 +74,34 @@ trait WithWorkItemRepository
   with TimeSource {
     this: TestSuite =>
 
+  import uk.gov.hmrc.mongo.play.json.formats.MongoFormats.Implicits.objectIdFormats
+  import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.Implicits.jatInstantFormats
   implicit val eif = uk.gov.hmrc.workitem.ExampleItem.formats
 
-  val appConf = ConfigFactory.load("application.test.conf")
+  def exampleItemRepository(collectionName: String) = {
+    val workItemFields =
+      WorkItemFieldNames(
+        id           = "_id",
+        receivedAt   = "receivedAt",
+        updatedAt    = "updatedAt",
+        availableAt  = "availableAt",
+        status       = "status",
+        failureCount = "failureCount",
+        item         = "item"
+      )
 
-  def exampleItemRepository(collectionName: String) =
     new WorkItemRepository[ExampleItem, ObjectId](
       collectionName = collectionName,
       mongoComponent = mongoComponent,
-      itemFormat     = WorkItem.workItemMongoFormat[ExampleItem],
-      config         = appConf,
-      workItemFields = new WorkItemFieldNames {
-                         val receivedAt   = "receivedAt"
-                         val updatedAt    = "updatedAt"
-                         val availableAt  = "availableAt"
-                         val status       = "status"
-                         val id           = "_id"
-                         val failureCount = "failureCount"
-                       }
+      itemFormat     = WorkItem.formatForFields[ExampleItem](workItemFields),
+      workItemFields = workItemFields
     ) {
+      override lazy val inProgressRetryAfter: Duration =
+        Duration.ofHours(1)
 
-    override lazy val inProgressRetryAfter: Duration = Duration.ofHours(1)
-
-    def inProgressRetryAfterProperty: String = "retryAfterSeconds"
-
-    def now(): Instant = timeSource.now
+      override def now(): Instant =
+        timeSource.now
+    }
   }
 
   override lazy val collectionName = "items"

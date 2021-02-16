@@ -2,7 +2,7 @@
 
 ## How to use
 
-### WorkItemModuleRepository
+### WorkItemRepository
 
 See Scaladoc for [WorkItemRepository](../master/src/main/scala/uk/gov/hmrc/workitem/WorkItemRepository.scala)
 
@@ -12,9 +12,9 @@ It is parameterised by the Id representation (typically `ObjectId` or `String`) 
 It is an abstract class, so you will have to extend it to define the following:
 
 * `def now: DateTime` - gets the current timestamp for setting the WorkItem updatedAt field.
-* `def workItemFields: WorkItemFieldNames` - defines how to map the WorkItem into your mongo collection.
-* `def inProgressRetryAfterProperty: String` - defines the configuration key for setting how long to wait before retrying failed WorkItems.
+* `def inProgressRetryAfter: Duration` - defines how long to wait before retrying failed WorkItems.
 
+It takes parameters for the `itemFormat` and the `workItemFields`. They should align, so consider creating the itemFormat from the workItemFields with `WorkItem.formatForFields`
 
 
 e.g.
@@ -27,29 +27,22 @@ class GithubRequestsQueueRepository @Inject()(
 ) extends WorkItemRepository[MyWorkItem, ObjectId](
   collectionName = "myWorkItems",
   mongoComponent = mongoComponent,
-  itemFormat     = MyWorkItem.mongoFormats,
-  config         = configuration.underlying,
-  workItemFields = new WorkItemFieldNames {
-                     val receivedAt   = "receivedAt"
-                     val updatedAt    = "updatedAt"
-                     val availableAt  = "receivedAt"
-                     val status       = "status"
-                     val id           = "_id"
-                     val failureCount = "failureCount"
-                   }
+  itemFormat     = WorkItem.formatForFields(WorkItemFieldNames.default),
+  workItemFields = WorkItemFieldNames.default
 ) {
   override def now: DateTime =
     DateTime.now
 
-  override val inProgressRetryAfterProperty: String =
-    "queue.retryAfter"
+  override val inProgressRetryAfter: Duration =
+    config.getDuration("queue.retryAfter")
+
 ```
 
-### Using WorkItemModuleRepository
+### Using WorkItemRepository
 
-- `pushNew(item: T, receivedAt: DateTime, availableAt: DateTime, initialState: T => ProcessingStatus): Future[WorkItem[T]]`
+- `pushNew(item: T, availableAt: DateTime, initialState: T => ProcessingStatus): Future[WorkItem[T]]`
 
-You can push new WorkItems into the queue with `pushNew`. This function is overloaded to allow bulk creation. You can explicitly set the initial status, else it will default to `ToDo`. You can also explicitly set the `availableAt`, otherwise it be available for processing at the same time as `receivedAt`.
+You can push new WorkItems into the queue with `pushNew`. You can use `pushNewBatch` for bulk creation. You can explicitly set the initial status, else it will default to `ToDo`. You can also explicitly set the `availableAt`, otherwise it be available for processing immediately.
 
 - `pullOutstanding(failedBefore: DateTime, availableBefore: DateTime): Future[Option[WorkItem[T]]]`
 

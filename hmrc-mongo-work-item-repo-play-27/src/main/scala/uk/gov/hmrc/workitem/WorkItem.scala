@@ -24,6 +24,31 @@ import play.api.libs.json._
 
 import scala.util.Try
 
+
+/** Defines the internal fields for [[WorkItem]], allowing customisation. */
+case class WorkItemFieldNames(
+  id          : String,
+  receivedAt  : String,
+  updatedAt   : String,
+  availableAt : String,
+  status      : String,
+  failureCount: String,
+  item        : String
+)
+
+object WorkItemFieldNames {
+  lazy val default =
+    WorkItemFieldNames(
+      id           = "_id",
+      receivedAt   = "receivedAt",
+      updatedAt    = "updatedAt",
+      availableAt  = "receivedAt",
+      status       = "status",
+      failureCount = "failureCount",
+      item         = "item"
+    )
+}
+
 case class WorkItem[T](
   id          : ObjectId,
   receivedAt  : Instant,
@@ -36,15 +61,35 @@ case class WorkItem[T](
 
 object WorkItem {
 
-  implicit def workItemMongoFormat[T](implicit tFormat: Format[T]): Format[WorkItem[T]] =
-    workItemFormat[T](
-      objectIdFormat = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats,
-      instantFormat  = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormats,
-      tFormat        = tFormat
-    )
+  /** Creates json format for [[WorkItem]] for serialising in Mongo.
+    * It requires [[WorkItemFieldNames]] which should keep it aligned with queries.
+    */
+  def formatForFields[T](
+    fieldNames: WorkItemFieldNames
+  )(implicit
+    objectIdFormat: Format[ObjectId],
+    instantFormat : Format[Instant],
+    tFormat       : Format[T]
+  ): Format[WorkItem[T]] = {
+    import play.api.libs.functional.syntax._
 
+    def asPath(fieldName: String): JsPath =
+      if (fieldName.isEmpty) __
+      else fieldName.split("\\.").foldLeft[JsPath](__)(_ \ _)
 
-  private val restInstantReads: Reads[Instant] =
+    implicit val psf = ProcessingStatus.format
+
+    ( asPath(fieldNames.id          ).format[ObjectId]
+    ~ asPath(fieldNames.receivedAt  ).format[Instant]
+    ~ asPath(fieldNames.updatedAt   ).format[Instant]
+    ~ asPath(fieldNames.availableAt ).format[Instant]
+    ~ asPath(fieldNames.status      ).format[ProcessingStatus]
+    ~ asPath(fieldNames.failureCount).format[Int]
+    ~ asPath(fieldNames.item        ).format[T]
+    )(WorkItem.apply[T] _, unlift(WorkItem.unapply[T]))
+  }
+
+  private lazy val restInstantReads: Reads[Instant] =
     new Reads[Instant] {
       override def reads(json: JsValue): JsResult[Instant] = {
         json match {
@@ -58,7 +103,7 @@ object WorkItem {
       }
     }
 
-  private val restInstantWrites: Writes[Instant] =
+  private lazy val restInstantWrites: Writes[Instant] =
     new Writes[Instant] {
       private val restDateTimeFormat =
         // preserving millis which Instant.toString doesn't when 000
@@ -68,7 +113,7 @@ object WorkItem {
        JsString(restDateTimeFormat.format(instant))
     }
 
-  private val restObjectIdFormat: Format[ObjectId] =
+  private lazy val restObjectIdFormat: Format[ObjectId] =
     Format(
       Reads.StringReads.map(stringObjectId =>
         Try(new ObjectId(stringObjectId))
@@ -79,40 +124,23 @@ object WorkItem {
       Writes(id => JsString(id.toString))
     )
 
-  implicit def workItemRestFormat[T](implicit tFormat: Format[T]): Format[WorkItem[T]] =
-    workItemFormat[T](
-      objectIdFormat = restObjectIdFormat,
-      instantFormat  = Format(restInstantReads, restInstantWrites),
-      tFormat        = tFormat
+  /** Creates a json format for [[WorkItem]] appropriate for serialising through a REST endpoint. */
+  def workItemRestFormat[T](implicit tFormat: Format[T]): Format[WorkItem[T]] = {
+    implicit val objectIdFormat = restObjectIdFormat
+    implicit val instantFormat  = Format(restInstantReads, restInstantWrites)
+    implicit val psf            = ProcessingStatus.format
+
+    ( (__ \ "_id"         ).format[ObjectId]
+    ~ (__ \ "receivedAt"  ).format[Instant]
+    ~ (__ \ "updatedAt"   ).format[Instant]
+    // for backward compatibility, some REST requests may not have `receivedAt` field
+    ~ OFormat(
+      (__ \ "availableAt").read[Instant] or (__ \ "receivedAt").read[Instant],
+      (__ \ "availableAt" ).write[Instant]
     )
-
-  def workItemFormat[T](
-    implicit
-    objectIdFormat: Format[ObjectId],
-    instantFormat : Format[Instant],
-    tFormat       : Format[T]
-  ): Format[WorkItem[T]] = {
-    implicit val psf = ProcessingStatus.format
-    val reads =
-      ( (__ \ "_id"         ).read[ObjectId]
-      ~ (__ \ "receivedAt"  ).read[Instant]
-      ~ (__ \ "updatedAt"   ).read[Instant]
-      ~ ((__ \ "availableAt").read[Instant] or (__ \ "receivedAt").read[Instant])
-      ~ (__ \ "status"      ).read[ProcessingStatus]
-      ~ (__ \ "failureCount").read[Int]
-      ~ (__ \ "item"        ).read[T]
-      )(WorkItem.apply[T] _)
-
-    val writes =
-      ( (__ \ "_id"         ).write[ObjectId]
-      ~ (__ \ "receivedAt"  ).write[Instant]
-      ~ (__ \ "updatedAt"   ).write[Instant]
-      ~ (__ \ "availableAt" ).write[Instant]
-      ~ (__ \ "status"      ).write[ProcessingStatus]
-      ~ (__ \ "failureCount").write[Int]
-      ~ (__ \ "item"        ).write[T]
-      )(unlift(WorkItem.unapply[T]))
-
-    Format(reads, writes)
+    ~ (__ \ "status"      ).format[ProcessingStatus]
+    ~ (__ \ "failureCount").format[Int]
+    ~ (__ \ "item"        ).format[T]
+    )(WorkItem.apply[T] _, unlift(WorkItem.unapply[T]))
   }
 }
