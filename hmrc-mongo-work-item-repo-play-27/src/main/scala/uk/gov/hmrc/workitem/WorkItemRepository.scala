@@ -37,7 +37,7 @@ import scala.concurrent.{ExecutionContext, Future}
 abstract class WorkItemRepository[T, ID](
   collectionName: String,
   mongoComponent: MongoComponent,
-  itemFormat    : Format[WorkItem[T]],
+  itemFormat    : Format[WorkItem[T]], // TODO this should be just Format[T] ? We can build Format[WorkItem[T]] from WorkItem.formatForFields
   val workItemFields: WorkItemFieldNames,
   replaceIndexes: Boolean = true
 )(implicit
@@ -202,6 +202,18 @@ abstract class WorkItemRepository[T, ID](
       update = setStatusOperation(newStatus, None)
     ).toFuture
      .map(_.getModifiedCount > 0)
+
+  /** Deletes the WorkItem.
+    * It will return false if the WorkItem is not InProgress.
+    */
+  def completeAndDelete(id: ID): Future[Boolean] =
+    collection.deleteOne(
+      filter = Filters.and(
+                 Filters.equal(workItemFields.id, id),
+                 Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.InProgress))
+               )
+    ).toFuture
+     .map(_.getDeletedCount > 0)
 
   /** Sets the ProcessingStatus of a WorkItem to Cancelled.
     * @return [[StatusUpdateResult.Updated]] if the WorkItem is cancelled,

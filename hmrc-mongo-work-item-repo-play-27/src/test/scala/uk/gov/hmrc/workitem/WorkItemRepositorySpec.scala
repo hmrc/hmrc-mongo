@@ -64,7 +64,7 @@ class WorkItemRepositorySpec
   }
 
   "The work item repo" should {
-    "be able to save and reload a item" in {
+    "be able to save and reload an item" in {
       val returnedItem = repository.pushNew(item1, timeSource.now).futureValue
       val savedItem = findAll().futureValue.loneElement
 
@@ -107,7 +107,7 @@ class WorkItemRepositorySpec
       )
     }
 
-    "mark a item as done" in {
+    "mark an item as done" in {
       repository.pushNew(item1, timeSource.now).futureValue
       repository.markAs(findAll().futureValue.loneElement.id, ProcessingStatus.Succeeded).futureValue should be(true)
       findAll().futureValue.loneElement should have(
@@ -190,7 +190,7 @@ class WorkItemRepositorySpec
       ).futureValue should be(None)
     }
 
-    "complete a item as Succeded if it is in progress" in {
+    "complete an item as Succeded if it is in progress" in {
       repository.pushNew(item1, timeSource.now).futureValue
       repository.markAs(findAll().futureValue.loneElement.id, ProcessingStatus.InProgress).futureValue should be(true)
       val id = findAll().futureValue.head.id
@@ -201,7 +201,7 @@ class WorkItemRepositorySpec
       )
     }
 
-    "increment the failure count when completing a item as Failed" in {
+    "increment the failure count when completing an item as Failed" in {
       repository.pushNew(item1, timeSource.now).futureValue
       repository.markAs(findAll().futureValue.loneElement.id, ProcessingStatus.InProgress).futureValue should be(true)
       val id = findAll().futureValue.head.id
@@ -212,7 +212,7 @@ class WorkItemRepositorySpec
       )
     }
 
-    "not complete a item if it is not in progress" in {
+    "not complete an item if it is not in progress" in {
       repository.pushNew(item1, timeSource.now).futureValue
       val id = findAll().futureValue.head.id
       repository.complete(id, ProcessingStatus.Failed).futureValue should be(false)
@@ -222,8 +222,30 @@ class WorkItemRepositorySpec
       )
     }
 
-    "not complete a item if it cannot be found" in {
+    "not complete an item if it cannot be found" in {
       repository.complete(new ObjectId(), ProcessingStatus.Succeeded).futureValue should be(false)
+    }
+
+    "completeAndDelete an item if it is in progress" in {
+      repository.pushNew(item1, timeSource.now).futureValue
+      repository.markAs(findAll().futureValue.loneElement.id, ProcessingStatus.InProgress).futureValue should be(true)
+      val id = findAll().futureValue.head.id
+      repository.completeAndDelete(id).futureValue should be(true)
+      repository.findById(id).futureValue should be(None)
+    }
+
+    "not completeAndDelete an item if it is not in progress" in {
+      repository.pushNew(item1, timeSource.now).futureValue
+      val id = findAll().futureValue.head.id
+      repository.completeAndDelete(id).futureValue should be(false)
+      repository.findById(id).futureValue.value should have(
+        'status (ProcessingStatus.ToDo),
+        'failureCount (0)
+      )
+    }
+
+    "not completeAndDelete an item if it cannot be found" in {
+      repository.completeAndDelete(new ObjectId()).futureValue should be(false)
     }
 
     "be able to save a single item in a custom initial status" in {
