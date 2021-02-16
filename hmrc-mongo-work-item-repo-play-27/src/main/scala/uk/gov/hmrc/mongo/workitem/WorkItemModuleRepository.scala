@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.workitem
+package uk.gov.hmrc.mongo.workitem
 
 import org.bson.conversions.Bson
 import org.bson.types.ObjectId

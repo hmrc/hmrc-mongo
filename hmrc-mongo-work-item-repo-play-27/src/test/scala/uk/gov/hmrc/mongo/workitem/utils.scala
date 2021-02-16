@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.workitem
+package uk.gov.hmrc.mongo.workitem
 
 import java.time.{Duration, Instant}
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.atomic.AtomicReference
 
 import org.bson.types.ObjectId
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
@@ -29,19 +30,27 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 trait TimeSource {
   val timeSource = new {
-    var now: Instant = Instant.now()
+    private val nowRef =
+      new AtomicReference[Instant](Instant.now())
 
-    def advanceADay() = setNowTo(now.plus(1, ChronoUnit.DAYS))
+    def now: Instant =
+      nowRef.get()
 
-    def advance(duration: Duration) = setNowTo(now.plus(duration))
+    def advanceADay() =
+      setAndGet(now.plus(1, ChronoUnit.DAYS))
 
-    def retreat1Day() = setNowTo(now.minus(1, ChronoUnit.DAYS))
+    def advance(duration: Duration) =
+      setAndGet(now.plus(duration))
 
-    def retreatAlmostDay() = setNowTo(now.minus(1, ChronoUnit.DAYS).plus(1, ChronoUnit.MINUTES))
+    def retreat1Day() =
+      setAndGet(now.minus(1, ChronoUnit.DAYS))
 
-    def setNowTo(newNow: Instant) = {
-      now = newNow
-      now
+    def retreatAlmostDay() =
+      setAndGet(now.minus(1, ChronoUnit.DAYS).plus(1, ChronoUnit.MINUTES))
+
+    private def setAndGet(newNow: Instant) = {
+      nowRef.set(newNow)
+      newNow
     }
   }
 }
@@ -52,7 +61,7 @@ trait WithWorkItemRepositoryModule
   with TimeSource {
     this: TestSuite =>
 
-  implicit val eif = uk.gov.hmrc.workitem.ExampleItemWithModule.formats
+  implicit val eif = ExampleItemWithModule.formats
 
   override lazy val repository = new WorkItemModuleRepository[ExampleItemWithModule](
     collectionName = "items",
@@ -76,7 +85,7 @@ trait WithWorkItemRepository
 
   import uk.gov.hmrc.mongo.play.json.formats.MongoFormats.Implicits.objectIdFormats
   import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.Implicits.jatInstantFormats
-  implicit val eif = uk.gov.hmrc.workitem.ExampleItem.formats
+  implicit val eif = ExampleItem.formats
 
   def exampleItemRepository(collectionName: String) = {
     val workItemFields =

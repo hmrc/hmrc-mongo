@@ -6,7 +6,7 @@
 
 See Scaladoc for [WorkItemRepository](../master/src/main/scala/uk/gov/hmrc/workitem/WorkItemRepository.scala)
 
-Typically you will use `uk.gov.hmrc.workitem.WorkItemRepository` to create and retrieve `WorkItem`s for processing.
+Typically you will use `uk.gov.hmrc.hmrc.workitem.WorkItemRepository` to create and retrieve `WorkItem`s for processing.
 It is parameterised by the Id representation (typically `ObjectId` or `String`) and your PAYLOAD representation.
 
 It is an abstract class, so you will have to extend it to define the following:
@@ -47,7 +47,7 @@ You can push new WorkItems into the queue with `pushNew`. You can use `pushNewBa
 - `pullOutstanding(failedBefore: DateTime, availableBefore: DateTime): Future[Option[WorkItem[T]]]`
 
 You can retrieve WorkItems for processing with `pullOutstanding`. This returns one WorkItem if available, and also updates it's status atomically to `InProgress` which means it will be hidden from subsequent calls, ensuring that a single WorkItem will only be seen by a single instance of your service.
-You should resolve the WorkItem once you have finished processing it my calling `complete`, `cancel` or `markAs` to change it's status.
+You should resolve the WorkItem once you have finished processing it my calling `complete`, `completeAndDelete`, `cancel` or `markAs` to change it's status.
 Should you fail to update the status, e.g. you process crashes, then the WorkItem will be hidden from subsequent calls to `pullOutstanding` until it has "timed out". The timeout expiration is configured in configuration by the key as defined in `inProgressRetryAfterProperty`.
 
 You can repeatedly call `pullOutstanding` (e.g. on a scheduler) until there are no more WorkItems to be processed.
@@ -62,9 +62,11 @@ def process: Future[Unit] =
     .flatMap {
       case None => Future.successful(()) // there is no more - we've finished
       case Some(wi) => processWorkItem(wi.item).flatMap { // call your function to process a WorkItem
-        case Success => workItemRepository.complete(wi.id) // mark as completed
-        case Failure if wi.failureCount < config.maxRetries => workItemRepository.markAs(wi.id, Failed, None) // mark as failed - it will be reprocessed after a duration specified by `inProgressRetryAfterProperty`
-        case Failure => workItemRepository.markAs(wi.id, PermanentlyFailed, None) // you can also mark as any other status defined by `ProcessingStatus`
+        case Success => workItemRepository.complete(wi.id, ProcessingStatus.Succeeded) // mark as completed
+                        workItemRepository.completeAndDelete(wi.id) // alternatively, remove from mongo
+        case Failure if wi.failureCount < config.maxRetries =>
+                        workItemRepository.markAs(wi.id, ProcessingStatus.Failed) // mark as failed - it will be reprocessed after a duration specified by `inProgressRetryAfterProperty`
+        case Failure => workItemRepository.markAs(wi.id, ProcessingStatus.PermanentlyFailed) // you can also mark as any other status defined by `ProcessingStatus`
       }.flatMap(_ => process) // and repeat
     }
 ```

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.workitem
+package uk.gov.hmrc.mongo.workitem
 
 import org.bson.types.ObjectId
 import org.bson.conversions.Bson
@@ -220,8 +220,7 @@ abstract class WorkItemRepository[T, ID](
     * [[StatusUpdateResult.NotFound]] if it's not found,
     * and [[StatusUpdateResult.NotUpdated]] if it's not in a cancellable ProcessingStatus.
     */
-  def cancel(id: ID): Future[StatusUpdateResult] = {
-    import uk.gov.hmrc.workitem.StatusUpdateResult._
+  def cancel(id: ID): Future[StatusUpdateResult] =
     collection.findOneAndUpdate(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
@@ -233,17 +232,18 @@ abstract class WorkItemRepository[T, ID](
     ).toFuture
      .flatMap { res =>
        Option(res) match {
-         case Some(item) => Future.successful(Updated(
-                              previousStatus = item.status,
-                              newStatus      = ProcessingStatus.Cancelled
-                            ))
+         case Some(item) => Future.successful(
+                              StatusUpdateResult.Updated(
+                                previousStatus = item.status,
+                                newStatus      = ProcessingStatus.Cancelled
+                              )
+                            )
          case None       => findById(id).map {
-                              case Some(item) => NotUpdated(item.status)
-                              case None       => NotFound
+                              case Some(item) => StatusUpdateResult.NotUpdated(item.status)
+                              case None       => StatusUpdateResult.NotFound
                             }
        }
      }
-  }
 
   def findById(id: ID): Future[Option[WorkItem[T]]] =
     collection.find(Filters.equal("_id", id)).toFuture.map(_.headOption)
