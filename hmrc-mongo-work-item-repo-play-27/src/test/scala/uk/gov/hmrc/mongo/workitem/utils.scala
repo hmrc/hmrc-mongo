@@ -99,7 +99,6 @@ trait WithWorkItemRepository
       collectionName = collectionName,
       mongoComponent = mongoComponent,
       itemFormat     = ExampleItem.formats,
-      instantFormat  = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormats,
       workItemFields = workItemFields
     ) {
       override lazy val inProgressRetryAfter: Duration =

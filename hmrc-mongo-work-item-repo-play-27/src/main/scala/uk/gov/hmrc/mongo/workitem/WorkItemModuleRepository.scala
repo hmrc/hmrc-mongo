@@ -42,7 +42,6 @@ abstract class WorkItemModuleRepository[T](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
   itemFormat     = WorkItemModuleRepository.readonlyFormat[T](trd),
-  instantFormat  = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormats,
   workItemFields = WorkItemModuleRepository.workItemFields(moduleName),
   replaceIndexes = replaceIndexes
 ) {

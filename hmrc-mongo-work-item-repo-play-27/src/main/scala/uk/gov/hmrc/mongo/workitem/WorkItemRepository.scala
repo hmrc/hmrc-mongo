@@ -36,7 +36,6 @@ abstract class WorkItemRepository[T](
   collectionName: String,
   mongoComponent: MongoComponent,
   itemFormat    : Format[T],
-  instantFormat : Format[Instant],
   val workItemFields: WorkItemFields,
   replaceIndexes: Boolean = true
 )(implicit
@@ -44,10 +43,7 @@ abstract class WorkItemRepository[T](
 ) extends PlayMongoRepository[WorkItem[T]](
   collectionName = collectionName,
   mongoComponent = mongoComponent,
-  domainFormat   = {implicit val itemF    = itemFormat
-                    implicit val instantF = instantFormat
-                    WorkItem.formatForFields[T](workItemFields)
-                   },
+  domainFormat   = WorkItem.formatForFields[T](workItemFields)(itemFormat),
   indexes        = Seq(
                      IndexModel(Indexes.ascending(workItemFields.status, workItemFields.updatedAt), IndexOptions().background(true)),
                      IndexModel(Indexes.ascending(workItemFields.status, workItemFields.availableAt), IndexOptions().background(true)),
@@ -80,10 +76,10 @@ abstract class WorkItemRepository[T](
     initialState: T => ProcessingStatus
   )(item: T) =
     WorkItem(
-      id           = new ObjectId(), // TODO this isn't an `ID`. Queries should use toBson with formats. (simplify by fixing ID to ObjectId?)
+      id           = new ObjectId(),
       receivedAt   = now(),
       updatedAt    = now(),
-      availableAt  = availableAt, // TODO we've asked for format for Date, queries should use it (simply by fixing format?)
+      availableAt  = availableAt,
       status       = initialState(item),
       failureCount = 0,
       item         = item

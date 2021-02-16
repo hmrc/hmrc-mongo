@@ -6,15 +6,13 @@
 
 See Scaladoc for [WorkItemRepository](../master/src/main/scala/uk/gov/hmrc/workitem/WorkItemRepository.scala)
 
-Typically you will use `uk.gov.hmrc.hmrc.workitem.WorkItemRepository` to create and retrieve `WorkItem`s for processing.
-It is parameterised by the Id representation (typically `ObjectId` or `String`) and your PAYLOAD representation.
+Typically you will use `uk.gov.hmrc.hmrc.mongo.workitem.WorkItemRepository` to create and retrieve `WorkItem`s for processing.
+It is parameterised by your PAYLOAD representation.
 
 It is an abstract class, so you will have to extend it to define the following:
 
-* `def now: DateTime` - gets the current timestamp for setting the WorkItem updatedAt field.
+* `def now: Instant` - gets the current timestamp for setting the WorkItem updatedAt field.
 * `def inProgressRetryAfter: Duration` - defines how long to wait before retrying failed WorkItems.
-
-It takes parameters for the `itemFormat` and the `workItemFields`. They should align, so consider creating the itemFormat from the workItemFields with `WorkItem.formatForFields`
 
 
 e.g.
@@ -30,8 +28,8 @@ class GithubRequestsQueueRepository @Inject()(
   itemFormat     = MyWorkItem.mongoFormat,
   workItemFields = WorkItemFields.default
 ) {
-  override def now: DateTime =
-    DateTime.now
+  override def now(): Instant =
+    Instant.now()
 
   override val inProgressRetryAfter: Duration =
     config.getDuration("queue.retryAfter")
@@ -40,7 +38,7 @@ class GithubRequestsQueueRepository @Inject()(
 
 ### Using WorkItemRepository
 
-- `pushNew(item: T, availableAt: DateTime, initialState: T => ProcessingStatus): Future[WorkItem[T]]`
+- `pushNew(item: T, availableAt: Instant, initialState: T => ProcessingStatus): Future[WorkItem[T]]`
 
 You can push new WorkItems into the queue with `pushNew`. You can use `pushNewBatch` for bulk creation. You can explicitly set the initial status, else it will default to `ToDo`. You can also explicitly set the `availableAt`, otherwise it be available for processing immediately.
 

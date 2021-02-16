@@ -24,6 +24,7 @@ import play.api.libs.json._
 
 import scala.util.Try
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
+import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
 
 /** Defines the internal fields for [[WorkItem]], allowing customisation. */
@@ -68,8 +69,7 @@ object WorkItem {
   def formatForFields[T](
     fieldNames: WorkItemFields
   )(implicit
-    instantFormat : Format[Instant],
-    tFormat       : Format[T]
+    tFormat : Format[T]
   ): Format[WorkItem[T]] = {
     import play.api.libs.functional.syntax._
 
@@ -77,8 +77,9 @@ object WorkItem {
       if (fieldName.isEmpty) __
       else fieldName.split("\\.").foldLeft[JsPath](__)(_ \ _)
 
-    implicit val psf = ProcessingStatus.format
-    implicit val of  = MongoFormats.objectIdFormats
+    implicit val psf      = ProcessingStatus.format
+    implicit val oif      = MongoFormats.objectIdFormats
+    implicit val instantF = MongoJavatimeFormats.instantFormats
 
     ( asPath(fieldNames.id          ).format[ObjectId]
     ~ asPath(fieldNames.receivedAt  ).format[Instant]
