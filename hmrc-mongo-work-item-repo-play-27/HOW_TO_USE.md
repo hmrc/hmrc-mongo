@@ -32,7 +32,7 @@ class GithubRequestsQueueRepository @Inject()(
     Instant.now()
 
   override val inProgressRetryAfter: Duration =
-    config.getDuration("queue.retryAfter")
+    configuration.getDuration("queue.retryAfter")
 
 ```
 

@@ -61,8 +61,7 @@ class MongoCacheRepository[CacheId] @Inject() (
     val id = cacheIdType.run(cacheId)
     this.collection
       .find(Filters.equal("_id", id))
-      .first()
-      .toFutureOption()
+      .headOption
       .map(_.flatMap(cache => (cache.data \ dataKey.unwrap).asOpt[A]))
   }
 
