@@ -27,7 +27,7 @@ case class Lock(id: String, owner: String, timeCreated: Instant, expiryTime: Ins
 object Lock {
 
   implicit val format: Format[Lock] = {
-    implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormats
+    implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormat
     ((__ \ "_id").format[String]
       ~ (__ \ "owner").format[String]
       ~ (__ \ "timeCreated").format[Instant]

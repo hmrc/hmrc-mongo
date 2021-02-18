@@ -138,8 +138,8 @@ case class ExampleItemWithModule(
 
 object ExampleItemWithModule {
   implicit val formats = {
-    implicit val instantReads = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormats
-    implicit val objectIdFormats = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormats
+    implicit val instantReads = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormat
+    implicit val objectIdFormat = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormat
     Json.format[ExampleItemWithModule]
   }
 }

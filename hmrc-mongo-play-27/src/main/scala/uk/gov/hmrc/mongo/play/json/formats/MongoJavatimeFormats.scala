@@ -25,47 +25,46 @@ trait MongoJavatimeFormats {
 
   // Instant
 
-  final val instantWrites: Writes[Instant] =
-    (datetime: Instant) =>
-      Json.obj("$date" -> datetime.toEpochMilli)
-
   final val instantReads: Reads[Instant] =
-    (__ \ "$date").read[Long].map(Instant.ofEpochMilli)
+    Reads.at[Long](__ \ "$date")
+      .map(Instant.ofEpochMilli)
 
-  final val instantFormats: Format[Instant] = Format(instantReads, instantWrites)
+  final val instantWrites: Writes[Instant] =
+    Writes.at[Long](__ \ "$date")
+      .contramap(_.toEpochMilli)
+
+  final val instantFormat: Format[Instant] = Format(instantReads, instantWrites)
 
   // LocalDate
 
   private val msInDay = 24 * 60 * 60 * 1000
 
-  final val localDateRead: Reads[LocalDate] =
-    (__ \ "$date")
-      .read[Long]
+  final val localDateReads: Reads[LocalDate] =
+    Reads.at[Long](__ \ "$date")
       .map(date => LocalDate.ofEpochDay(date / msInDay))
 
-  final val localDateWrite: Writes[LocalDate] =
-    (localDate: LocalDate) =>
-      Json.obj("$date" -> msInDay * localDate.toEpochDay)
+  final val localDateWrites: Writes[LocalDate] =
+    Writes.at[Long](__ \ "$date")
+      .contramap(localDate => msInDay * localDate.toEpochDay)
 
-  final val localDateFormats = Format(localDateRead, localDateWrite)
+  final val localDateFormat = Format(localDateReads, localDateWrites)
 
   // LocalDateTime
 
-  final val localDateTimeRead: Reads[LocalDateTime] =
-    (__ \ "$date")
-      .read[Long]
+  final val localDateTimeReads: Reads[LocalDateTime] =
+    Reads.at[Long](__ \ "$date")
       .map(dateTime => LocalDateTime.ofInstant(Instant.ofEpochMilli(dateTime), ZoneId.of("Z")))
 
-  final val localDateTimeWrite: Writes[LocalDateTime] =
-    (dateTime: LocalDateTime) =>
-      Json.obj("$date" -> dateTime.toInstant(ZoneOffset.UTC).toEpochMilli)
+  final val localDateTimeWrites: Writes[LocalDateTime] =
+    Writes.at[Long](__ \ "$date")
+      .contramap(_.toInstant(ZoneOffset.UTC).toEpochMilli)
 
-  final val localDateTimeFormats = Format(localDateTimeRead, localDateTimeWrite)
+  final val localDateTimeFormat = Format(localDateTimeReads, localDateTimeWrites)
 
   trait Implicits {
-    implicit val jatInstantFormats: Format[Instant]             = outer.instantFormats
-    implicit val jatLocalDateFormats: Format[LocalDate]         = outer.localDateFormats
-    implicit val jatLocalDateTimeFormats: Format[LocalDateTime] = outer.localDateTimeFormats
+    implicit val jatInstantFormat: Format[Instant]             = outer.instantFormat
+    implicit val jatLocalDateFormat: Format[LocalDate]         = outer.localDateFormat
+    implicit val jatLocalDateTimeFormat: Format[LocalDateTime] = outer.localDateTimeFormat
   }
 
   object Implicits extends Implicits

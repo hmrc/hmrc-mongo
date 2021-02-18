@@ -115,7 +115,7 @@ class MongoCacheRepository[CacheId] @Inject() (
 
 object MongoCacheRepository {
   val format: Format[CacheItem] = {
-    implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormats
+    implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormat
     ((__ \ "_id").format[String]
       ~ (__ \ "data").format[JsObject]
       ~ (__ \ "modifiedDetails" \ "createdAt").format[Instant]

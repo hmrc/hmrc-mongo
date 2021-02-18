@@ -78,8 +78,8 @@ object WorkItem {
       else fieldName.split("\\.").foldLeft[JsPath](__)(_ \ _)
 
     implicit val psf      = ProcessingStatus.format
-    implicit val oif      = MongoFormats.objectIdFormats
-    implicit val instantF = MongoJavatimeFormats.instantFormats
+    implicit val oif      = MongoFormats.objectIdFormat
+    implicit val instantF = MongoJavatimeFormats.instantFormat
 
     ( asPath(fieldNames.id          ).format[ObjectId]
     ~ asPath(fieldNames.receivedAt  ).format[Instant]
