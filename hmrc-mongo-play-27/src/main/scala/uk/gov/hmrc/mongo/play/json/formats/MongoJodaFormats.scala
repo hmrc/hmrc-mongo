@@ -24,50 +24,44 @@ trait MongoJodaFormats {
 
   // LocalDate
 
-  val localDateRead: Reads[LocalDate] =
-    (__ \ "$date")
-      .read[Long]
+  final val localDateReads: Reads[LocalDate] =
+    Reads.at[Long](__ \ "$date")
       .map(date => new LocalDate(date, DateTimeZone.UTC))
 
-  val localDateWrite: Writes[LocalDate] = new Writes[LocalDate] {
-    def writes(localDate: LocalDate): JsValue =
-      Json.obj("$date" -> localDate.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis)
-  }
+  final val localDateWrites: Writes[LocalDate] =
+    Writes.at[Long](__ \ "$date")
+      .contramap(_.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis)
 
-  val localDateFormats = Format(localDateRead, localDateWrite)
+  final val localDateFormat = Format(localDateReads, localDateWrites)
 
   // LocalDateTime
 
-  val localDateTimeRead: Reads[LocalDateTime] =
-    (__ \ "$date")
-      .read[Long]
+  final val localDateTimeReads: Reads[LocalDateTime] =
+    Reads.at[Long](__ \ "$date")
       .map(dateTime => new LocalDateTime(dateTime, DateTimeZone.UTC))
 
-  val localDateTimeWrite: Writes[LocalDateTime] = new Writes[LocalDateTime] {
-    def writes(dateTime: LocalDateTime): JsValue =
-      Json.obj("$date" -> dateTime.toDateTime(DateTimeZone.UTC).getMillis)
-  }
+  final val localDateTimeWrites: Writes[LocalDateTime] =
+    Writes.at[Long](__ \ "$date")
+      .contramap(_.toDateTime(DateTimeZone.UTC).getMillis)
 
-  val localDateTimeFormats = Format(localDateTimeRead, localDateTimeWrite)
+  final val localDateTimeFormat = Format(localDateTimeReads, localDateTimeWrites)
 
   // DateTime
 
-  val dateTimeRead: Reads[DateTime] =
-    (__ \ "$date")
-      .read[Long]
+  final val dateTimeReads: Reads[DateTime] =
+    Reads.at[Long](__ \ "$date")
       .map(dateTime => new DateTime(dateTime, DateTimeZone.UTC))
 
-  val dateTimeWrite: Writes[DateTime] = new Writes[DateTime] {
-    def writes(dateTime: DateTime): JsValue =
-      Json.obj("$date" -> dateTime.getMillis)
-  }
+  final val dateTimeWrites: Writes[DateTime] =
+    Writes.at[Long](__ \ "$date")
+      .contramap(_.getMillis)
 
-  val dateTimeFormats = Format(dateTimeRead, dateTimeWrite)
+  final val dateTimeFormat = Format(dateTimeReads, dateTimeWrites)
 
   trait Implicits {
-    implicit val jotLocalDateFormats: Format[LocalDate]         = outer.localDateFormats
-    implicit val jotLocalDateTimeFormats: Format[LocalDateTime] = outer.localDateTimeFormats
-    implicit val jotDateTimeFormats: Format[DateTime]           = outer.dateTimeFormats
+    implicit val jotLocalDateFormat: Format[LocalDate]         = outer.localDateFormat
+    implicit val jotLocalDateTimeFormat: Format[LocalDateTime] = outer.localDateTimeFormat
+    implicit val jotDateTimeFormat: Format[DateTime]           = outer.dateTimeFormat
   }
 
   object Implicits extends Implicits

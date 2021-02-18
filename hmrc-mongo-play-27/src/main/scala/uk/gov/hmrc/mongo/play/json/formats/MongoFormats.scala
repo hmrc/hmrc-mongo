@@ -26,7 +26,7 @@ trait MongoFormats {
 
   // ObjectId
 
-  val objectIdRead: Reads[ObjectId] = Reads[ObjectId] { json =>
+  final val objectIdReads: Reads[ObjectId] = Reads[ObjectId] { json =>
     (json \ "$oid").validate[String].flatMap { str =>
       Try(new ObjectId(str)) match {
         case Success(bsonId) => JsSuccess(bsonId)
@@ -35,16 +35,14 @@ trait MongoFormats {
     }
   }
 
-  val objectIdWrite: Writes[ObjectId] = new Writes[ObjectId] {
-    def writes(objectId: ObjectId): JsValue = Json.obj(
-      "$oid" -> objectId.toString
-    )
-  }
+  final val objectIdWrites: Writes[ObjectId] =
+    (objectId: ObjectId) =>
+      Json.obj("$oid" -> objectId.toString)
 
-  val objectIdFormats: Format[ObjectId] = Format(objectIdRead, objectIdWrite)
+  final val objectIdFormat: Format[ObjectId] = Format(objectIdReads, objectIdWrites)
 
   trait Implicits {
-    implicit val objectIdFormats: Format[ObjectId] = outer.objectIdFormats
+    implicit val objectIdFormat: Format[ObjectId] = outer.objectIdFormat
   }
 
   object Implicits extends Implicits

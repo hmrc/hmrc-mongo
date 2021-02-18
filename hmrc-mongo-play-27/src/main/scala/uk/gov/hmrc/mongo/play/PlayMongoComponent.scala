@@ -38,8 +38,8 @@ class PlayMongoComponent @Inject() (
   private val mongoUri =
     configuration.get[String]("mongodb.uri")
 
-  override val client: MongoClient     = MongoClient(uri = mongoUri)
-  override val database: MongoDatabase = client.getDatabase((new ConnectionString(mongoUri)).getDatabase)
+  override lazy val client: MongoClient     = MongoClient(uri = mongoUri)
+  override lazy val database: MongoDatabase = client.getDatabase((new ConnectionString(mongoUri)).getDatabase)
 
   logger.debug(s"MongoComponent: MongoConnector configuration being used: $mongoUri")
 

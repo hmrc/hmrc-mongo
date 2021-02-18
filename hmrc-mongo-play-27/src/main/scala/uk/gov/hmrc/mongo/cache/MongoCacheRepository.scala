@@ -61,8 +61,7 @@ class MongoCacheRepository[CacheId] @Inject() (
     val id = cacheIdType.run(cacheId)
     this.collection
       .find(Filters.equal("_id", id))
-      .first()
-      .toFutureOption()
+      .headOption
       .map(_.flatMap(cache => (cache.data \ dataKey.unwrap).asOpt[A]))
   }
 
@@ -116,7 +115,7 @@ class MongoCacheRepository[CacheId] @Inject() (
 
 object MongoCacheRepository {
   val format: Format[CacheItem] = {
-    implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormats
+    implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormat
     ((__ \ "_id").format[String]
       ~ (__ \ "data").format[JsObject]
       ~ (__ \ "modifiedDetails" \ "createdAt").format[Instant]

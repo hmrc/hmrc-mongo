@@ -38,20 +38,19 @@ import scala.reflect.ClassTag
   */
 class PlayMongoRepository[A: ClassTag](
   mongoComponent: MongoComponent,
-  val collectionName: String,
-  val domainFormat: Format[A],
-  val indexes: Seq[IndexModel],
-  val optSchema: Option[BsonDocument] = None,
+  final val collectionName: String,
+  final val domainFormat: Format[A],
+  final val indexes: Seq[IndexModel],
+  final val optSchema: Option[BsonDocument] = None,
   replaceIndexes: Boolean = false
 )(implicit ec: ExecutionContext)
     extends MongoDatabaseCollection {
 
   private val logger = Logger(getClass)
 
-  val collection: MongoCollection[A] =
+  lazy val collection: MongoCollection[A] =
     CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat)
 
-  // TODO if client provide indexes empty, and then override indexes, it will be null here....
   Await.result(ensureIndexes, 5.seconds)
 
   Await.result(ensureSchema, 5.seconds)
