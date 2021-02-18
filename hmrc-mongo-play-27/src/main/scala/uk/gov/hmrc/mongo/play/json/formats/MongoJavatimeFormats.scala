@@ -25,44 +25,42 @@ trait MongoJavatimeFormats {
 
   // Instant
 
-  val instantWrites: Writes[Instant] = new Writes[Instant] {
-    def writes(datetime: Instant): JsValue = Json.obj("$date" -> datetime.toEpochMilli)
-  }
+  final val instantWrites: Writes[Instant] =
+    (datetime: Instant) =>
+      Json.obj("$date" -> datetime.toEpochMilli)
 
-  val instantReads: Reads[Instant] =
+  final val instantReads: Reads[Instant] =
     (__ \ "$date").read[Long].map(Instant.ofEpochMilli)
 
-  val instantFormats: Format[Instant] = Format(instantReads, instantWrites)
+  final val instantFormats: Format[Instant] = Format(instantReads, instantWrites)
 
   // LocalDate
 
   private val msInDay = 24 * 60 * 60 * 1000
 
-  val localDateRead: Reads[LocalDate] =
+  final val localDateRead: Reads[LocalDate] =
     (__ \ "$date")
       .read[Long]
       .map(date => LocalDate.ofEpochDay(date / msInDay))
 
-  val localDateWrite: Writes[LocalDate] = new Writes[LocalDate] {
-    def writes(localDate: LocalDate): JsValue =
+  final val localDateWrite: Writes[LocalDate] =
+    (localDate: LocalDate) =>
       Json.obj("$date" -> msInDay * localDate.toEpochDay)
-  }
 
-  val localDateFormats = Format(localDateRead, localDateWrite)
+  final val localDateFormats = Format(localDateRead, localDateWrite)
 
   // LocalDateTime
 
-  val localDateTimeRead: Reads[LocalDateTime] =
+  final val localDateTimeRead: Reads[LocalDateTime] =
     (__ \ "$date")
       .read[Long]
       .map(dateTime => LocalDateTime.ofInstant(Instant.ofEpochMilli(dateTime), ZoneId.of("Z")))
 
-  val localDateTimeWrite: Writes[LocalDateTime] = new Writes[LocalDateTime] {
-    def writes(dateTime: LocalDateTime): JsValue =
+  final val localDateTimeWrite: Writes[LocalDateTime] =
+    (dateTime: LocalDateTime) =>
       Json.obj("$date" -> dateTime.toInstant(ZoneOffset.UTC).toEpochMilli)
-  }
 
-  val localDateTimeFormats = Format(localDateTimeRead, localDateTimeWrite)
+  final val localDateTimeFormats = Format(localDateTimeRead, localDateTimeWrite)
 
   trait Implicits {
     implicit val jatInstantFormats: Format[Instant]             = outer.instantFormats

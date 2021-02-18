@@ -27,8 +27,8 @@ import scala.concurrent.Future
 
 
 trait MongoSupport extends ScalaFutures {
-  protected lazy val databaseName: String = "test-" + this.getClass.getSimpleName
-  protected lazy val mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
+  protected def databaseName: String = "test-" + this.getClass.getSimpleName
+  protected def mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
 
   protected lazy val mongoComponent: MongoComponent = MongoComponent(mongoUri)
   protected lazy val mongoClient: MongoClient       = mongoComponent.client

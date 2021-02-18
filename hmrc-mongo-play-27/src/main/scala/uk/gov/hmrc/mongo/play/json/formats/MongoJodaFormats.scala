@@ -24,45 +24,42 @@ trait MongoJodaFormats {
 
   // LocalDate
 
-  val localDateRead: Reads[LocalDate] =
+  final val localDateRead: Reads[LocalDate] =
     (__ \ "$date")
       .read[Long]
       .map(date => new LocalDate(date, DateTimeZone.UTC))
 
-  val localDateWrite: Writes[LocalDate] = new Writes[LocalDate] {
-    def writes(localDate: LocalDate): JsValue =
+  final val localDateWrite: Writes[LocalDate] =
+    (localDate: LocalDate) =>
       Json.obj("$date" -> localDate.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis)
-  }
 
-  val localDateFormats = Format(localDateRead, localDateWrite)
+  final val localDateFormats = Format(localDateRead, localDateWrite)
 
   // LocalDateTime
 
-  val localDateTimeRead: Reads[LocalDateTime] =
+  final val localDateTimeRead: Reads[LocalDateTime] =
     (__ \ "$date")
       .read[Long]
       .map(dateTime => new LocalDateTime(dateTime, DateTimeZone.UTC))
 
-  val localDateTimeWrite: Writes[LocalDateTime] = new Writes[LocalDateTime] {
-    def writes(dateTime: LocalDateTime): JsValue =
+  final val localDateTimeWrite: Writes[LocalDateTime] =
+    (dateTime: LocalDateTime) =>
       Json.obj("$date" -> dateTime.toDateTime(DateTimeZone.UTC).getMillis)
-  }
 
-  val localDateTimeFormats = Format(localDateTimeRead, localDateTimeWrite)
+  final val localDateTimeFormats = Format(localDateTimeRead, localDateTimeWrite)
 
   // DateTime
 
-  val dateTimeRead: Reads[DateTime] =
+  final val dateTimeRead: Reads[DateTime] =
     (__ \ "$date")
       .read[Long]
       .map(dateTime => new DateTime(dateTime, DateTimeZone.UTC))
 
-  val dateTimeWrite: Writes[DateTime] = new Writes[DateTime] {
-    def writes(dateTime: DateTime): JsValue =
+  final val dateTimeWrite: Writes[DateTime] =
+    (dateTime: DateTime) =>
       Json.obj("$date" -> dateTime.getMillis)
-  }
 
-  val dateTimeFormats = Format(dateTimeRead, dateTimeWrite)
+  final val dateTimeFormats = Format(dateTimeRead, dateTimeWrite)
 
   trait Implicits {
     implicit val jotLocalDateFormats: Format[LocalDate]         = outer.localDateFormats
