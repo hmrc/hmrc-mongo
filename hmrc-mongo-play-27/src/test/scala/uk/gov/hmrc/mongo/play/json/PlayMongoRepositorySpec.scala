@@ -99,21 +99,21 @@ class PlayMongoRepositorySpec
             .toFuture
             .futureValue shouldBe List(myObj)
 
-        checkFind("_id", myObj.id)
-        checkFind("string", myObj.string)
-        checkFind("boolean", myObj.boolean)
-        checkFind("int", myObj.int)
-        checkFind("long", myObj.long)
-        checkFind("double", myObj.double)
-        checkFind("bigDecimal", myObj.bigDecimal)
-        checkFind("jodaDateTime", myObj.jodaDateTime)
-        checkFind("jodaLocalDate", myObj.jodaLocalDate)
+        checkFind("_id"              , myObj.id)
+        checkFind("string"           , myObj.string)
+        checkFind("boolean"          , myObj.boolean)
+        checkFind("int"              , myObj.int)
+        checkFind("long"             , myObj.long)
+        checkFind("double"           , myObj.double)
+        checkFind("bigDecimal"       , myObj.bigDecimal)
+        checkFind("jodaDateTime"     , myObj.jodaDateTime)
+        checkFind("jodaLocalDate"    , myObj.jodaLocalDate)
         checkFind("jodaLocalDateTime", myObj.jodaLocalDateTime)
-        checkFind("javaInstant", myObj.javaInstant)
-        checkFind("javaLocalDate", myObj.javaLocalDate)
+        checkFind("javaInstant"      , myObj.javaInstant)
+        checkFind("javaLocalDate"    , myObj.javaLocalDate)
         checkFind("javaLocalDateTime", myObj.javaLocalDateTime)
-        checkFind("sum", myObj.sum)
-        checkFind("objectId", myObj.objectId)
+        checkFind("sum"              , myObj.sum)
+        checkFind("objectId"         , myObj.objectId)
       }
     }
 
@@ -133,20 +133,22 @@ class PlayMongoRepositorySpec
               .wasAcknowledged shouldBe true
 
           // Note, not checking update of `_id` since immutable
-          checkUpdate("string", targetObj.string)
-          checkUpdate("boolean", targetObj.boolean)
-          checkUpdate("int", targetObj.int)
-          checkUpdate("long", targetObj.long)
-          checkUpdate("double", targetObj.double)
-          checkUpdate("bigDecimal", targetObj.bigDecimal)
-          checkUpdate("jodaDateTime", targetObj.jodaDateTime)
-          checkUpdate("jodaLocalDate", targetObj.jodaLocalDate)
+          checkUpdate("string"           , targetObj.string           )
+          checkUpdate("boolean"          , targetObj.boolean          )
+          checkUpdate("int"              , targetObj.int              )
+          checkUpdate("long"             , targetObj.long             )
+          checkUpdate("double"           , targetObj.double           )
+          checkUpdate("bigDecimal"       , targetObj.bigDecimal       )
+          checkUpdate("jodaDateTime"     , targetObj.jodaDateTime     )
+          checkUpdate("jodaLocalDate"    , targetObj.jodaLocalDate    )
           checkUpdate("jodaLocalDateTime", targetObj.jodaLocalDateTime)
-          checkUpdate("javaInstant", targetObj.javaInstant)
-          checkUpdate("javaLocalDate", targetObj.javaLocalDate)
+          checkUpdate("javaInstant"      , targetObj.javaInstant      )
+          checkUpdate("javaLocalDate"    , targetObj.javaLocalDate    )
           checkUpdate("javaLocalDateTime", targetObj.javaLocalDateTime)
-          checkUpdate("sum", targetObj.sum)
-          checkUpdate("objectId", targetObj.objectId)
+          checkUpdate("sum"              , targetObj.sum              )
+          checkUpdate("objectId"         , targetObj.objectId         )
+          checkUpdate("listString"       , targetObj.listString       )
+          checkUpdate("listLong"         , targetObj.listLong         )
 
           val writtenObj = playMongoRepository.collection.find().toFuture
           writtenObj.futureValue shouldBe List(targetObj.copy(id = originalObj.id))
@@ -174,8 +176,8 @@ class PlayMongoRepositorySpec
            }
 
           // updates should fail with the wrong Writers
-          checkUpdateFails("javaInstant", targetObj.javaInstant)(Writes.DefaultInstantWrites)
-          checkUpdateFails("javaLocalDate", targetObj.javaLocalDate)(Writes.DefaultLocalDateWrites)
+          checkUpdateFails("javaInstant"      , targetObj.javaInstant      )(Writes.DefaultInstantWrites)
+          checkUpdateFails("javaLocalDate"    , targetObj.javaLocalDate    )(Writes.DefaultLocalDateWrites)
           checkUpdateFails("javaLocalDateTime", targetObj.javaLocalDateTime)(Writes.DefaultLocalDateTimeWrites)
         }
       }
@@ -223,11 +225,11 @@ class PlayMongoRepositorySpec
 
 object PlayMongoRepositorySpec {
 
-  case class StringWrapper(unwrap: String) extends AnyVal
-  case class BooleanWrapper(unwrap: Boolean) extends AnyVal
-  case class IntWrapper(unwrap: Int) extends AnyVal
-  case class LongWrapper(unwrap: Long) extends AnyVal
-  case class DoubleWrapper(unwrap: Double) extends AnyVal
+  case class StringWrapper    (unwrap: String    ) extends AnyVal
+  case class BooleanWrapper   (unwrap: Boolean   ) extends AnyVal
+  case class IntWrapper       (unwrap: Int       ) extends AnyVal
+  case class LongWrapper      (unwrap: Long      ) extends AnyVal
+  case class DoubleWrapper    (unwrap: Double    ) extends AnyVal
   case class BigDecimalWrapper(unwrap: BigDecimal) extends AnyVal
 
   sealed trait Sum
@@ -237,25 +239,28 @@ object PlayMongoRepositorySpec {
   }
 
   case class MyObject(
-    id: ObjectId,
+    id               : ObjectId,
     // Wrappers
-    string: StringWrapper,
-    boolean: BooleanWrapper,
-    int: IntWrapper,
-    long: LongWrapper,
-    double: DoubleWrapper,
-    bigDecimal: BigDecimalWrapper,
+    string           : StringWrapper,
+    boolean          : BooleanWrapper,
+    int              : IntWrapper,
+    long             : LongWrapper,
+    double           : DoubleWrapper,
+    bigDecimal       : BigDecimalWrapper,
     // Sum type (WIP)
-    sum: Sum,
+    sum              : Sum,
     // Joda time
-    jodaDateTime: jot.DateTime,
-    jodaLocalDate: jot.LocalDate,
+    jodaDateTime     : jot.DateTime,
+    jodaLocalDate    : jot.LocalDate,
     jodaLocalDateTime: jot.LocalDateTime,
     // Java time
-    javaInstant: jat.Instant,
-    javaLocalDate: jat.LocalDate,
+    javaInstant      : jat.Instant,
+    javaLocalDate    : jat.LocalDate,
     javaLocalDateTime: jat.LocalDateTime,
-    objectId: ObjectId
+    objectId         : ObjectId,
+    // Arrays
+    listString       : List[String],
+    listLong         : List[Long]
   )
 
   val stringWrapperFormat: Format[StringWrapper] =
@@ -309,21 +314,24 @@ object PlayMongoRepositorySpec {
     // Note without the following import, it will compile, but use plays Javatime formats.
     // Applying `myObjectSchema` will check that dates are being stored as dates
     import MongoJavatimeFormats.Implicits._
-    ( (__ \ "_id").format[ObjectId]
-    ~ (__ \ "string").format[StringWrapper]
-    ~ (__ \ "boolean").format[BooleanWrapper]
-    ~ (__ \ "int").format[IntWrapper]
-    ~ (__ \ "long").format[LongWrapper]
-    ~ (__ \ "double").format[DoubleWrapper]
-    ~ (__ \ "bigDecimal").format[BigDecimalWrapper]
-    ~ (__ \ "sum").format[Sum]
-    ~ (__ \ "jodaDateTime").format[jot.DateTime]
-    ~ (__ \ "jodaLocalDate").format[jot.LocalDate]
+    ( (__ \ "_id"              ).format[ObjectId         ]
+    ~ (__ \ "string"           ).format[StringWrapper    ]
+    ~ (__ \ "boolean"          ).format[BooleanWrapper   ]
+    ~ (__ \ "int"              ).format[IntWrapper       ]
+    ~ (__ \ "long"             ).format[LongWrapper      ]
+    ~ (__ \ "double"           ).format[DoubleWrapper    ]
+    ~ (__ \ "bigDecimal"       ).format[BigDecimalWrapper]
+    ~ (__ \ "sum"              ).format[Sum              ]
+    ~ (__ \ "jodaDateTime"     ).format[jot.DateTime     ]
+    ~ (__ \ "jodaLocalDate"    ).format[jot.LocalDate    ]
     ~ (__ \ "jodaLocalDateTime").format[jot.LocalDateTime]
-    ~ (__ \ "javaInstant").format[jat.Instant]
-    ~ (__ \ "javaLocalDate").format[jat.LocalDate]
+    ~ (__ \ "javaInstant"      ).format[jat.Instant      ]
+    ~ (__ \ "javaLocalDate"    ).format[jat.LocalDate    ]
     ~ (__ \ "javaLocalDateTime").format[jat.LocalDateTime]
-    ~ (__ \ "objectId").format[ObjectId])(MyObject.apply, unlift(MyObject.unapply))
+    ~ (__ \ "objectId"         ).format[ObjectId         ]
+    ~ (__ \ "listString"       ).format[List[String]     ]
+    ~ (__ \ "listLong"         ).format[List[Long]       ]
+    )(MyObject.apply, unlift(MyObject.unapply))
   }
 
   val myObjectSchema =
@@ -346,6 +354,8 @@ object PlayMongoRepositorySpec {
         , javaInstant      : { bsonType: "date"     }
         , javaLocalDate    : { bsonType: "date"     }
         , javaLocalDateTime: { bsonType: "date"     }
+        , listString       : { bsonType: "array"    }
+        , listLong         : { bsonType: "array"    }
         }
       }
       """
@@ -353,13 +363,14 @@ object PlayMongoRepositorySpec {
 
   def myObjectGen =
     for {
-      s <- Arbitrary.arbitrary[String]
-      b <- Arbitrary.arbitrary[Boolean]
-      i <- Arbitrary.arbitrary[Int]
-      l <- Arbitrary.arbitrary[Long]
-      d <- Arbitrary.arbitrary[Double]
-      bd <- Arbitrary
-             .arbitrary[BigDecimal]
+      s  <- Arbitrary.arbitrary[String      ]
+      b  <- Arbitrary.arbitrary[Boolean     ]
+      i  <- Arbitrary.arbitrary[Int         ]
+      l  <- Arbitrary.arbitrary[Long        ]
+      d  <- Arbitrary.arbitrary[Double      ]
+      ls <- Arbitrary.arbitrary[List[String]]
+      ll <- Arbitrary.arbitrary[List[Long]  ]
+      bd <- Arbitrary.arbitrary[BigDecimal  ]
              // Only BigDecimal within Decimal128 range is supported.
              .suchThat(bd => scala.util.Try(new org.bson.types.Decimal128(bd.bigDecimal)).isSuccess)
       epochMillis <- Gen.choose(0L, System.currentTimeMillis * 2) // Keep Dates within range (ArithmeticException for any Long.MAX_VALUE)
@@ -378,6 +389,8 @@ object PlayMongoRepositorySpec {
       javaInstant       = jat.Instant.ofEpochMilli(epochMillis),
       javaLocalDate     = jat.LocalDate.ofEpochDay(epochMillis / (24 * 60 * 60 * 1000)),
       javaLocalDateTime = jat.LocalDateTime.ofInstant(jat.Instant.ofEpochMilli(epochMillis), jat.ZoneId.of("Z")),
-      objectId          = new org.bson.types.ObjectId(new java.util.Date(epochMillis))
+      objectId          = new org.bson.types.ObjectId(new java.util.Date(epochMillis)),
+      listString        = ls,
+      listLong          = ll
     )
 }

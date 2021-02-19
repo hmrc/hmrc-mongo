@@ -19,7 +19,7 @@ package uk.gov.hmrc.mongo.cache
 import java.time.Instant
 import play.api.libs.json.JsObject
 
-private[cache] final case class CacheItem(
+final case class CacheItem(
   id: String,
   data: JsObject,
   createdAt: Instant,

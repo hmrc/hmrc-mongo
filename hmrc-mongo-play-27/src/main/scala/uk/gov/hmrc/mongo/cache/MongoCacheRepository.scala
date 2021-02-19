@@ -24,7 +24,7 @@ import org.mongodb.scala.WriteConcern
 import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, IndexModel, IndexOptions, Indexes, ReturnDocument, Updates}
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{Format, JsObject, Reads, Writes, __}
-import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
+import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils, TimestampSupport}
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
@@ -55,6 +55,11 @@ class MongoCacheRepository[CacheId] @Inject() (
       replaceIndexes = replaceIndexes
     ) {
 
+  def findById(id: String): Future[Option[CacheItem]] =
+    collection
+      .find(Filters.equal("_id", id))
+      .headOption()
+
   def get[A: Reads](
     cacheId: CacheId
   )(dataKey: DataKey[A]): Future[Option[A]] = {
@@ -67,23 +72,23 @@ class MongoCacheRepository[CacheId] @Inject() (
 
   def put[A: Writes](
     cacheId: CacheId
-  )(dataKey: DataKey[A], data: A): Future[String] = {
-    val id        = cacheIdType.run(cacheId)
-    val timestamp = timestampSupport.timestamp()
-    this.collection
-      .findOneAndUpdate(
-        filter = Filters.equal("_id", id),
-        update = Updates.combine(
-          Updates.set("data." + dataKey.unwrap, Codecs.toBson(data)),
-          Updates.set("modifiedDetails.lastUpdated", timestamp),
-          Updates.setOnInsert("_id", id),
-          Updates.setOnInsert("modifiedDetails.createdAt", timestamp)
-        ),
-        options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
-      )
-      .toFuture()
-      .map(_ => id)
-  }
+  )(dataKey: DataKey[A], data: A): Future[CacheItem] =
+    MongoUtils.retryOnDuplicateKey(retries = 3) {
+      val id        = cacheIdType.run(cacheId)
+      val timestamp = timestampSupport.timestamp()
+      this.collection
+        .findOneAndUpdate(
+          filter = Filters.equal("_id", id),
+          update = Updates.combine(
+            Updates.set("data." + dataKey.unwrap, Codecs.toBson(data)),
+            Updates.set("modifiedDetails.lastUpdated", timestamp),
+            Updates.setOnInsert("_id", id),
+            Updates.setOnInsert("modifiedDetails.createdAt", timestamp)
+          ),
+          options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
+        )
+        .toFuture()
+    }
 
   def delete[A](
     cacheId: CacheId
