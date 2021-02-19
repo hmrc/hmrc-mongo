@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
 
 import _root_.play.api.libs.json.__
 import _root_.play.api.libs.functional.syntax._
-import com.mongodb.MongoCommandException
+import com.mongodb.MongoServerException
 import com.mongodb.client.model.ReturnDocument
 import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, Updates}
 import org.scalatest.{AppendedClues, BeforeAndAfterEach}
@@ -31,6 +31,7 @@ import org.scalacheck.Arbitrary._
 import scala.collection.parallel.ExecutionContextTaskSupport
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
+import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 class DuplicateErrorOnUpsertSpec
@@ -96,9 +97,9 @@ class DuplicateErrorOnUpsertSpec
         parRange.map(_ => upsert(id, data)).toList
       }(implicitly, executor = fixedPool)
 
-      whenReady(expectedToFail.failed) { f =>
-        f shouldBe an [MongoCommandException] withClue "If no exception was thrown, the test was not aggressive enough to trigger the race condition on upsert"
-        assert(f.getMessage.contains("E11000 duplicate key error collection"))
+      whenReady(expectedToFail.failed) { ex =>
+        ex shouldBe a[MongoServerException] withClue "If no exception was thrown, the test was not aggressive enough to trigger the race condition on upsert"
+        DuplicateKey.unapply(ex.asInstanceOf[MongoServerException]) shouldBe defined
       }
     }
   }

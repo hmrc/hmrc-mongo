@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo
 
-import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, MongoWriteException}
+import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, MongoServerException}
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.{IndexModel, ValidationAction, ValidationLevel}
 import org.slf4j.{Logger, LoggerFactory}
@@ -138,8 +138,8 @@ trait MongoUtils {
 
   object DuplicateKey {
     val Code = 11000
-    def unapply(e: MongoWriteException): Option[MongoWriteException] =
-      e.getError.getCode match {
+    def unapply(e: MongoServerException): Option[MongoServerException] =
+      e.getCode match {
         case Code => Some(e)
         case _    => None
       }
