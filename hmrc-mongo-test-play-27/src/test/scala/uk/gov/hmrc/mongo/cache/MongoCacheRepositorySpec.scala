@@ -39,7 +39,7 @@ class MongoCacheRepositorySpec
 
   "put" should {
     "successfully create a cacheItem if one does not already exist" in {
-      repository.put(cacheId)(dataKey, person).futureValue shouldBe cacheId
+      repository.put(cacheId)(dataKey, person).futureValue shouldBe cacheItem
       count().futureValue                                  shouldBe 1
       findAll()
         .futureValue
@@ -51,10 +51,9 @@ class MongoCacheRepositorySpec
 
       insert(cacheItem.copy(createdAt = creationTimestamp, modifiedAt = creationTimestamp)).futureValue
 
-      repository.put(cacheId)(dataKey, person).futureValue shouldBe cacheId
+      repository.put(cacheId)(dataKey, person).futureValue shouldBe cacheItem.copy(createdAt = creationTimestamp, modifiedAt = now)
       count().futureValue                                  shouldBe 1
-      findAll().futureValue.head shouldBe cacheItem
-        .copy(createdAt = creationTimestamp, modifiedAt = now)
+      findAll().futureValue.head                           shouldBe cacheItem.copy(createdAt = creationTimestamp, modifiedAt = now)
     }
 
     "successfully keep items in the cache that are touched" in {

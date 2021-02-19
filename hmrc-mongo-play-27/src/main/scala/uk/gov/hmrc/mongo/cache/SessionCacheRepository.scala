@@ -55,7 +55,7 @@ class SessionCacheRepository @Inject() (
   )(implicit request: Request[Any], ec: ExecutionContext): Future[(String, String)] =
     cacheRepo
       .put[T](request)(dataKey, data)
-      .map(sessionIdKey -> _)
+      .map(res => sessionIdKey -> res.id)
 
   def getFromSession[T: Reads](dataKey: DataKey[T])(implicit request: Request[Any]): Future[Option[T]] =
     cacheRepo.get[T](request)(dataKey)
