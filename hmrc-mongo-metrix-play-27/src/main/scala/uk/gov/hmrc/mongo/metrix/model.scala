@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.metrix
 
-import play.api.libs.functional.syntax.{unlift, _}
+import play.api.libs.functional.syntax._
 import play.api.libs.json.{Format, __}
 
 final case class PersistedMetric(name: String, count: Int)

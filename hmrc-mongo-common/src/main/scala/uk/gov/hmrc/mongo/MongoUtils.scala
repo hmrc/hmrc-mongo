@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo
 
-import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, MongoWriteException}
+import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, MongoServerException}
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.{IndexModel, ValidationAction, ValidationLevel}
 import org.slf4j.{Logger, LoggerFactory}
@@ -100,6 +100,22 @@ trait MongoUtils {
         _       <- mongoComponent.database.runCommand(collMod).toFuture
        } yield ()
 
+  /** It is possible with MongoDB to have a duplicate key violation when trying to upsert, if two or more threads try
+    * the operation concurrently: https://jira.mongodb.org/browse/SERVER-14322
+    * See https://jira.tools.tax.service.gov.uk/browse/BDOG-731 for more background.
+    *
+    * You can wrap the upsert with retryOnDuplicateKey.
+    */
+  def retryOnDuplicateKey[A](retries: Int = 3)(f: => Future[A])(implicit ec: ExecutionContext): Future[A] = {
+    def attempt(retries: Int): Future[A] =
+      f.recoverWith {
+        case DuplicateKey(e) if (retries > 0) =>
+          logger.debug(s"Detected an E11000 duplicate key violation. Retrying upsert. Attempts left: $retries")
+          attempt(retries - 1)
+      }
+    attempt(retries)
+  }
+
   object IndexConflict {
     val IndexOptionsConflict  = 85 // e.g. change of ttl option
     val IndexKeySpecsConflict = 86 // e.g. change of field name
@@ -122,8 +138,8 @@ trait MongoUtils {
 
   object DuplicateKey {
     val Code = 11000
-    def unapply(e: MongoWriteException): Option[MongoWriteException] =
-      e.getError.getCode match {
+    def unapply(e: MongoServerException): Option[MongoServerException] =
+      e.getCode match {
         case Code => Some(e)
         case _    => None
       }

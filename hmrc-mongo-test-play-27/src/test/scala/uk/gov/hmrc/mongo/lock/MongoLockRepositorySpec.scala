@@ -19,7 +19,7 @@ package uk.gov.hmrc.mongo.lock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-import com.mongodb.MongoWriteException
+import com.mongodb.MongoServerException
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -220,9 +220,9 @@ class MongoLockRepositorySpec
       val lock2 = Lock("lockName", "owner2", now.plus(3, ChronoUnit.DAYS), now.plus(4, ChronoUnit.DAYS))
       insert(lock1).futureValue
 
-      whenReady(insert(lock2).failed) { exception =>
-        exception shouldBe a[MongoWriteException]
-        exception.asInstanceOf[MongoWriteException].getError.getCode shouldBe DuplicateKey.Code
+      whenReady(insert(lock2).failed) { ex =>
+        ex shouldBe a[MongoServerException]
+        DuplicateKey.unapply(ex.asInstanceOf[MongoServerException]) shouldBe defined
       }
 
       count().futureValue shouldBe 1
