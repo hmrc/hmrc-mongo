@@ -26,12 +26,12 @@ trait MongoJavatimeFormats {
   // Instant
 
   final val instantReads: Reads[Instant] =
-    Reads.at[Long](__ \ "$date")
-      .map(Instant.ofEpochMilli)
+    Reads.at[String](__ \ "$date" \ "$numberLong")
+      .map(s => Instant.ofEpochMilli(s.toLong))
 
   final val instantWrites: Writes[Instant] =
-    Writes.at[Long](__ \ "$date")
-      .contramap(_.toEpochMilli)
+    Writes.at[String](__ \ "$date" \ "$numberLong")
+      .contramap(_.toEpochMilli.toString)
 
   final val instantFormat: Format[Instant] = Format(instantReads, instantWrites)
 
@@ -40,24 +40,24 @@ trait MongoJavatimeFormats {
   private val msInDay = 24 * 60 * 60 * 1000
 
   final val localDateReads: Reads[LocalDate] =
-    Reads.at[Long](__ \ "$date")
-      .map(date => LocalDate.ofEpochDay(date / msInDay))
+    Reads.at[String](__ \ "$date" \ "$numberLong")
+      .map(date => LocalDate.ofEpochDay(date.toLong / msInDay))
 
   final val localDateWrites: Writes[LocalDate] =
-    Writes.at[Long](__ \ "$date")
-      .contramap(localDate => msInDay * localDate.toEpochDay)
+    Writes.at[String](__ \ "$date" \ "$numberLong")
+      .contramap(localDate => (msInDay * localDate.toEpochDay).toString)
 
   final val localDateFormat = Format(localDateReads, localDateWrites)
 
   // LocalDateTime
 
   final val localDateTimeReads: Reads[LocalDateTime] =
-    Reads.at[Long](__ \ "$date")
-      .map(dateTime => LocalDateTime.ofInstant(Instant.ofEpochMilli(dateTime), ZoneId.of("Z")))
+    Reads.at[String](__ \ "$date" \ "$numberLong")
+      .map(dateTime => LocalDateTime.ofInstant(Instant.ofEpochMilli(dateTime.toLong), ZoneId.of("Z")))
 
   final val localDateTimeWrites: Writes[LocalDateTime] =
-    Writes.at[Long](__ \ "$date")
-      .contramap(_.toInstant(ZoneOffset.UTC).toEpochMilli)
+    Writes.at[String](__ \ "$date" \ "$numberLong")
+      .contramap(_.toInstant(ZoneOffset.UTC).toEpochMilli.toString)
 
   final val localDateTimeFormat = Format(localDateTimeReads, localDateTimeWrites)
 

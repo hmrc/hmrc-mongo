@@ -113,8 +113,8 @@ trait Codecs {
         JsObject(
           d.asScala.map { case (k, v) => (k, bsonToJson(v)) }
         )
-      case other => // other types, attempt to convert to json object (Strict = `MongoDB Extended JSON format`)
-        toJsonDefault(other, JsonMode.STRICT) match {
+      case other => // other types, attempt to convert to json object (Extended = `MongoDB Extended JSON format`)
+        toJsonDefault(other, JsonMode.EXTENDED) match {
           case JsDefined(s)   => s
           case _: JsUndefined => logger.debug(s"Could not convert $other to Json"); JsNull
         }

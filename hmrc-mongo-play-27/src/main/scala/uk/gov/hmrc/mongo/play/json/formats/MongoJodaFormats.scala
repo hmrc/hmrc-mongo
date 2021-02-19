@@ -25,36 +25,38 @@ trait MongoJodaFormats {
   // LocalDate
 
   final val localDateReads: Reads[LocalDate] =
-    Reads.at[Long](__ \ "$date")
-      .map(date => new LocalDate(date, DateTimeZone.UTC))
+    Reads.at[String](__ \ "$date" \ "$numberLong")
+      .map(date =>
+        new LocalDate(date.toLong, DateTimeZone.UTC)
+      )
 
   final val localDateWrites: Writes[LocalDate] =
-    Writes.at[Long](__ \ "$date")
-      .contramap(_.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis)
+    Writes.at[String](__ \ "$date" \ "$numberLong")
+      .contramap[LocalDate](_.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis.toString)
 
   final val localDateFormat = Format(localDateReads, localDateWrites)
 
   // LocalDateTime
 
   final val localDateTimeReads: Reads[LocalDateTime] =
-    Reads.at[Long](__ \ "$date")
-      .map(dateTime => new LocalDateTime(dateTime, DateTimeZone.UTC))
+    Reads.at[String](__ \ "$date" \ "$numberLong")
+      .map(dateTime => new LocalDateTime(dateTime.toLong, DateTimeZone.UTC))
 
   final val localDateTimeWrites: Writes[LocalDateTime] =
-    Writes.at[Long](__ \ "$date")
-      .contramap(_.toDateTime(DateTimeZone.UTC).getMillis)
+    Writes.at[String](__ \ "$date" \ "$numberLong")
+      .contramap[LocalDateTime](_.toDateTime(DateTimeZone.UTC).getMillis.toString)
 
   final val localDateTimeFormat = Format(localDateTimeReads, localDateTimeWrites)
 
   // DateTime
 
   final val dateTimeReads: Reads[DateTime] =
-    Reads.at[Long](__ \ "$date")
-      .map(dateTime => new DateTime(dateTime, DateTimeZone.UTC))
+    Reads.at[String](__ \ "$date" \ "$numberLong")
+      .map(dateTime => new DateTime(dateTime.toLong, DateTimeZone.UTC))
 
   final val dateTimeWrites: Writes[DateTime] =
-    Writes.at[Long](__ \ "$date")
-      .contramap(_.getMillis)
+    Writes.at[String](__ \ "$date" \ "$numberLong")
+      .contramap[DateTime](_.getMillis.toString)
 
   final val dateTimeFormat = Format(dateTimeReads, dateTimeWrites)
 
