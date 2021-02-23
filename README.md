@@ -91,7 +91,7 @@ class LockClient @Inject()(mongoLockRepository: MongoLockRepository ) {
   val myLock = MongoLockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
 
   // now use the lock
-  myLock.attemptLockWithRelease{
+  myLock.attemptLockWithRelease {
     Future { /* do something */ }
   }.map {
     case Some(res) => logger.debug(s"Finished with $res. Lock has been released.")

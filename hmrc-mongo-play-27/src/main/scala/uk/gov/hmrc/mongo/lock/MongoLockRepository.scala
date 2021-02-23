@@ -32,7 +32,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 @ImplementedBy(classOf[MongoLockRepository])
 trait LockRepository {
-
   def takeLock(lockId: String, owner: String, ttl: Duration): Future[Boolean]
 
   def releaseLock(lockId: String, owner: String): Future[Unit]
@@ -40,42 +39,6 @@ trait LockRepository {
   def refreshExpiry(lockId: String, owner: String, ttl: Duration): Future[Boolean]
 
   def isLocked(lockId: String, owner: String): Future[Boolean]
-
-  def attemptLockWithRelease[T](lockId: String, owner: String, ttl: Duration, body: => Future[T])(
-    implicit ec: ExecutionContext
-  ): Future[Option[T]] =
-    (for {
-       acquired <- takeLock(lockId, owner, ttl)
-       result   <- ifelseF(acquired)(
-                     body.flatMap(value => releaseLock(lockId, owner).map(_ => Some(value))),
-                     None
-                   )
-     } yield result
-    ).recoverWith {
-      case ex => releaseLock(lockId, owner).flatMap(_ => Future.failed(ex))
-    }
-
-  def attemptLockWithRefreshExpiry[T](lockId: String, owner: String, ttl: Duration, body: => Future[T])(
-    implicit ec: ExecutionContext
-  ): Future[Option[T]] =
-    (for {
-       refreshed <- refreshExpiry(lockId, owner, ttl)
-       acquired  <- ifelseF(!refreshed)(
-                      takeLock(lockId, owner, ttl),
-                      false
-                    )
-       result    <- ifelseF(refreshed || acquired)(
-                      body.map(Option.apply),
-                      None
-                    )
-     } yield result
-    ).recoverWith {
-      case ex => releaseLock(lockId, owner).flatMap(_ => Future.failed(ex))
-    }
-
-  private def ifelseF[A](predicate: Boolean)(matched: => Future[A], unmatched: => A): Future[A] =
-    if (predicate) matched
-    else Future.successful(unmatched)
 }
 
 @Singleton

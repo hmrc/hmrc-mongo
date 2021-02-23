@@ -30,10 +30,36 @@ trait MongoLockService {
   private val ownerId = UUID.randomUUID().toString
 
   def attemptLockWithRelease[T](body: => Future[T])(implicit ec: ExecutionContext): Future[Option[T]] =
-    lockRepository.attemptLockWithRelease(lockId, ownerId, ttl, body)
+    (for {
+       acquired <- lockRepository.takeLock(lockId, ownerId, ttl)
+       result   <- ifelseF(acquired)(
+                     body.flatMap(value => lockRepository.releaseLock(lockId, ownerId).map(_ => Some(value))),
+                     None
+                   )
+     } yield result
+    ).recoverWith {
+      case ex => lockRepository.releaseLock(lockId, ownerId).flatMap(_ => Future.failed(ex))
+    }
 
   def attemptLockWithRefreshExpiry[T](body: => Future[T])(implicit ec: ExecutionContext): Future[Option[T]] =
-    lockRepository.attemptLockWithRefreshExpiry(lockId, ownerId, ttl, body)
+    (for {
+       refreshed <- lockRepository.refreshExpiry(lockId, ownerId, ttl)
+       acquired  <- ifelseF(!refreshed)(
+                      lockRepository.takeLock(lockId, ownerId, ttl),
+                      false
+                    )
+       result    <- ifelseF(refreshed || acquired)(
+                      body.map(Option.apply),
+                      None
+                    )
+     } yield result
+    ).recoverWith {
+      case ex => lockRepository.releaseLock(lockId, ownerId).flatMap(_ => Future.failed(ex))
+    }
+
+  private def ifelseF[A](predicate: Boolean)(matched: => Future[A], unmatched: => A): Future[A] =
+    if (predicate) matched
+    else Future.successful(unmatched)
 }
 
 object MongoLockService {
