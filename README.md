@@ -77,6 +77,39 @@ Other parameters:
 
 ## Lock
 
+An exclusive lock can be taken across instances of a service, this ensures that certain actions do not run concurrently. They can be useful for scheduled activity.
+
+A lock is taken by writing an entry in mongo. The lock is kept until it is released, or expires (as defined by the `ttl` parameter).
+
+Create an instance of `uk.gov.hmrc.mongo.lock.MongoLockService` with an injected `uk.gov.hmrc.mongo.lock.MongoLockRepository`.
+
+e.g.
+
+```scala
+@Singleton
+class LockClient @Inject()(mongoLockRepository: MongoLockRepository ) {
+  val myLock = MongoLockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
+
+  // now use the lock
+  myLock.attemptLockWithRelease{
+    Future { /* do something */ }
+  }.map {
+    case Some(res) => logger.debug(s"Finished with $res. Lock has been released.")
+    case None      => logger.debug("Failed to take lock")
+  }
+}
+```
+
+The functions available are:
+- `attemptLockWithRelease[T](body: => Future[T]): Future[Option[T]]`
+
+  the body is executed only if the lock can be obtained, and is released when the action has finished (both successfully or in failure).
+
+- `def attemptLockWithRefreshExpiry[T](body: => Future[T]): Future[Option[T]]`
+
+  similar to `attemptLockWithRelease` but if the lock is already taken by the same service, then the lock expiry will be refreshed first.
+
+
 ## Cache
 
 ### License

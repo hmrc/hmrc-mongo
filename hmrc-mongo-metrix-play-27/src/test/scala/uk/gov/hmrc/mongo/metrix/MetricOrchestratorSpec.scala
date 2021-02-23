@@ -238,7 +238,7 @@ class MetricOrchestratorSpec
 
       val lockRepo = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport) {
         // Force the lock to never be acquired for the purpose of this test
-        override def lock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = Future(false)
+        override def takeLock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = Future(false)
       }
 
       val lockService =

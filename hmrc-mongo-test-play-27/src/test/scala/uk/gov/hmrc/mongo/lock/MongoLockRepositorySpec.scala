@@ -38,7 +38,7 @@ class MongoLockRepositorySpec
   "lock" should {
 
     "successfully create a lock if one does not already exist" in {
-      repository.lock(lockId, owner, ttl).futureValue shouldBe true
+      repository.takeLock(lockId, owner, ttl).futureValue shouldBe true
 
       count().futureValue shouldBe 1
 
@@ -48,7 +48,7 @@ class MongoLockRepositorySpec
     "successfully create a lock if a different one already exists" in {
       insert(Lock("different-lock", owner, now, now.plus(1, ChronoUnit.SECONDS))).futureValue
 
-      repository.lock(lockId, owner, ttl).futureValue shouldBe true
+      repository.takeLock(lockId, owner, ttl).futureValue shouldBe true
 
       count().futureValue shouldBe 2
 
@@ -60,7 +60,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock).futureValue
 
-      repository.lock(lockId, owner, ttl).futureValue shouldBe false
+      repository.takeLock(lockId, owner, ttl).futureValue shouldBe false
 
       count().futureValue shouldBe 1
 
@@ -72,7 +72,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock).futureValue
 
-      repository.lock(lockId, owner, ttl).futureValue shouldBe false
+      repository.takeLock(lockId, owner, ttl).futureValue shouldBe false
 
       count().futureValue shouldBe 1
 
@@ -84,7 +84,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock).futureValue
 
-      repository.lock(lockId, owner, ttl).futureValue shouldBe true
+      repository.takeLock(lockId, owner, ttl).futureValue shouldBe true
 
       count().futureValue shouldBe 1
 

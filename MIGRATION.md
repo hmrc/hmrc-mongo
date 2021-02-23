@@ -17,6 +17,7 @@ This guide is for migrating from [simple-reactivemongo](https://github.com/hmrc/
   - [DefaultPlayMongoRepositorySupport](#defaultplaymongorepositorysupport)
   - [Mongo Schemas](#mongo-schemas)
 - [Deployment](#deployment)
+- [Lock](#lock)
 
 
 ## Replace dependencies
@@ -362,3 +363,73 @@ If you don’t replace it in your environment config your service will likely fa
 At the time of writing there are still some 200 services using the old sslEnabled flag.
 
 It would be sensible to re-run performance tests after upgrading keeping an eye on memory and cpu usage. Our benchmarking indicates that the official driver is as performant as reactive-mongo and has a smaller memory overhead but it’s worth validating this holds true for your own service.
+
+
+## Lock
+
+### LockKeeper
+
+`LockKeeper#tryLock` replaced by `MongoLockService#attemptLockWithRelease`
+
+```scala
+class MongoLock(db: () => DB, lockId_ : String) extends LockKeeper {
+  override val repo                 : LockRepository = LockMongoRepository(db)
+  override val lockId               : String         = lockId_
+  override val forceLockReleaseAfter: Duration       = Duration.standardMinutes(60)
+}
+
+@Singleton
+class LockClient @Inject()(mongo: ReactiveMongoComponent) {
+  private val db = mongo.mongoConnector.db
+
+  val myLock = new MongoLock(db, "my-lock")
+
+  // now use the lock
+  myLock.tryLock { ... }
+}
+```
+
+becomes
+
+```scala
+@Singleton
+class LockClient @Inject()(mongoLockRepository: MongoLockRepository ) {
+  val myLock = MongoLockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
+
+  // now use the lock
+  myLock.attemptLockWithRelease { ... }
+}
+```
+
+### ExclusiveTimePeriodLock
+
+`ExclusiveTimePeriodLock#tryToAcquireOrRenewLock` replaced by `MongoLockService#attemptLockWithRefreshExpiry`
+
+```scala
+class MongoLock(db: () => DB, lockId_ : String) extends ExclusiveTimePeriodLock {
+  override val repo       : LockRepository = LockMongoRepository(db)
+  override val lockId     : String         = lockId_
+  override val holdLockFor: Duration       = Duration.standardMinutes(60)
+}
+@Singleton
+class LockClient @Inject()(mongo: ReactiveMongoComponent) {
+  private val db = mongo.mongoConnector.db
+
+  val myLock = new MongoLock(db, "my-lock")
+
+  // now use the lock
+  myLock.tryToAcquireOrRenewLock { ... }
+}
+```
+
+becomes
+
+```scala
+@Singleton
+class LockClient @Inject()(mongoLockRepository: MongoLockRepository ) {
+  val myLock = MongoLockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
+
+  // now use the lock
+  myLock.attemptLockWithRefreshExpiry { ... }
+}
+```
