@@ -28,16 +28,16 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, DurationInt}
 
-class MongoLockServiceSpec
+class LockServiceSpec
   extends AnyWordSpecLike
      with Matchers
      with DefaultPlayMongoRepositorySupport[Lock] {
 
-  "attemptLockWithRelease" should {
+  "withLock" should {
     "obtain lock, run the block supplied and release the lock" in {
 
-      val optionalLock = mongoLockService
-        .attemptLockWithRelease {
+      val optionalLock = lockService
+        .withLock {
           find(mongoEq(Lock.id, lockId)).map(_.head)
         }
         .futureValue
@@ -51,14 +51,14 @@ class MongoLockServiceSpec
 
     "obtain lock, run the block supplied and release the lock when the block returns a failed future" in {
       a[RuntimeException] should be thrownBy {
-        mongoLockService.attemptLockWithRelease(Future.failed(new RuntimeException)).futureValue
+        lockService.withLock(Future.failed(new RuntimeException)).futureValue
       }
       count().futureValue shouldBe 0
     }
 
     "obtain lock, run the block supplied and release the lock when the block throws an exception" in {
       a[RuntimeException] should be thrownBy {
-        mongoLockService.attemptLockWithRelease(throw new RuntimeException).futureValue
+        lockService.withLock(throw new RuntimeException).futureValue
       }
       count().futureValue shouldBe 0
     }
@@ -67,8 +67,8 @@ class MongoLockServiceSpec
       val existingLock = Lock(lockId, "owner2", now, now.plusSeconds(100))
       insert(existingLock).futureValue
 
-      mongoLockService
-        .attemptLockWithRelease(fail("Should not execute!"))
+      lockService
+        .withLock(fail("Should not execute!"))
         .futureValue shouldBe None
 
       count().futureValue shouldBe 1
@@ -80,67 +80,13 @@ class MongoLockServiceSpec
       val existingLock = Lock(lockId, owner, now, now.plusSeconds(100))
       insert(existingLock).futureValue
 
-      mongoLockService
-        .attemptLockWithRelease(fail("Should not execute!"))
+      lockService
+        .withLock(fail("Should not execute!"))
         .futureValue shouldBe None
 
       count().futureValue shouldBe 1
 
       findAll().futureValue.head shouldBe existingLock
-    }
-  }
-
-  "attemptLockWithRefreshExpiry" should {
-
-    "execute the body if no previous lock is set" in {
-      var counter = 0
-      mongoLockService.attemptLockWithRefreshExpiry {
-        Future.successful(counter += 1)
-      }.futureValue
-      counter shouldBe 1
-    }
-
-    "execute the body if the lock for same serverId exists" in {
-      var counter = 0
-      mongoLockService.attemptLockWithRefreshExpiry {
-        Future.successful(counter += 1)
-      }.futureValue
-
-      mongoLockService.attemptLockWithRefreshExpiry {
-        Future.successful(counter += 1)
-      }.futureValue
-
-      counter shouldBe 2
-    }
-
-    "not execute the body and exit if the lock for another serverId exists" in {
-      var counter = 0
-      MongoLockService(repository, lockId, ttl)
-        .attemptLockWithRefreshExpiry {
-          Future.successful(counter += 1)
-        }
-        .futureValue
-
-      mongoLockService.attemptLockWithRefreshExpiry {
-        Future.successful(counter += 1)
-      }.futureValue
-
-      counter shouldBe 1
-    }
-
-    "execute the body if run after the ttl time has expired" in {
-      var counter = 0
-      mongoLockService.attemptLockWithRefreshExpiry {
-        Future.successful(counter += 1)
-      }.futureValue
-
-      Thread.sleep(1000 + 1)
-
-      mongoLockService.attemptLockWithRefreshExpiry {
-        Future.successful(counter += 1)
-      }.futureValue
-
-      counter shouldBe 2
     }
   }
 
@@ -150,5 +96,5 @@ class MongoLockServiceSpec
   private val now           = Instant.now()
 
   override protected val repository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
-  private val mongoLockService      = MongoLockService(repository, lockId, ttl)
+  private val lockService           = LockService(repository, lockId, ttl)
 }

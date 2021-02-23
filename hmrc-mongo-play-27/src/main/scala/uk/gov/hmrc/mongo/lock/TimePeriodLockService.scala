@@ -21,7 +21,10 @@ import java.util.UUID
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-trait MongoLockService {
+/** For locking for a give time period (i.e. stop other instances executing the task until it stops renewing the lock).
+  * The lock will be held on to when the task has finished, until it expires.
+  */
+trait TimePeriodLockService {
 
   val lockRepository: LockRepository
   val lockId: String
@@ -29,44 +32,31 @@ trait MongoLockService {
 
   private val ownerId = UUID.randomUUID().toString
 
-  def attemptLockWithRelease[T](body: => Future[T])(implicit ec: ExecutionContext): Future[Option[T]] =
-    (for {
-       acquired <- lockRepository.takeLock(lockId, ownerId, ttl)
-       result   <- ifelseF(acquired)(
-                     body.flatMap(value => lockRepository.releaseLock(lockId, ownerId).map(_ => Some(value))),
-                     None
-                   )
-     } yield result
-    ).recoverWith {
-      case ex => lockRepository.releaseLock(lockId, ownerId).flatMap(_ => Future.failed(ex))
-    }
-
-  def attemptLockWithRefreshExpiry[T](body: => Future[T])(implicit ec: ExecutionContext): Future[Option[T]] =
+  /** Runs `body` if a lock can be taken or if the existing lock is owned by this service instance.
+    * The lock is not released at the end of but task (unless it ends in failure), but is held onto until it expires.
+    */
+  def withRenewedLock[T](body: => Future[T])(implicit ec: ExecutionContext): Future[Option[T]] =
     (for {
        refreshed <- lockRepository.refreshExpiry(lockId, ownerId, ttl)
-       acquired  <- ifelseF(!refreshed)(
-                      lockRepository.takeLock(lockId, ownerId, ttl),
-                      false
-                    )
-       result    <- ifelseF(refreshed || acquired)(
-                      body.map(Option.apply),
-                      None
-                    )
+       acquired  <- if (!refreshed)
+                      lockRepository.takeLock(lockId, ownerId, ttl)
+                    else
+                      Future.successful(false)
+       result    <- if (refreshed || acquired)
+                      body.map(Option.apply)
+                    else
+                      Future.successful(None)
      } yield result
     ).recoverWith {
       case ex => lockRepository.releaseLock(lockId, ownerId).flatMap(_ => Future.failed(ex))
     }
-
-  private def ifelseF[A](predicate: Boolean)(matched: => Future[A], unmatched: => A): Future[A] =
-    if (predicate) matched
-    else Future.successful(unmatched)
 }
 
-object MongoLockService {
+object TimePeriodLockService {
 
-  def apply(lockRepository: LockRepository, lockId: String, ttl: Duration): MongoLockService = {
+  def apply(lockRepository: LockRepository, lockId: String, ttl: Duration): TimePeriodLockService = {
     val (lockRepository1, lockId1, ttl1) = (lockRepository, lockId, ttl)
-    new MongoLockService {
+    new TimePeriodLockService {
       override val lockRepository: LockRepository = lockRepository1
       override val lockId        : String         = lockId1
       override val ttl           : Duration       = ttl1

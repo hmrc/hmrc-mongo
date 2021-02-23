@@ -77,21 +77,29 @@ Other parameters:
 
 ## Lock
 
-An exclusive lock can be taken across instances of a service, this ensures that certain actions do not run concurrently. They can be useful for scheduled activity.
+This is a utility that prevents multiple instances of the same application from performing an operation at the same time. This can be useful for example when a REST api has to be called at a scheduled time. Without this utility every instance of the application would call the REST api.
 
-A lock is taken by writing an entry in mongo. The lock is kept until it is released, or expires (as defined by the `ttl` parameter).
+There are 2 variants that can be used to instigate a lock, `LockService` for locking for a particular task and `ExclusiveTimePeriodLock` to lock exclusively for a given time period (i.e. stop other instances executing the task until it stops renewing the lock).
 
-Create an instance of `uk.gov.hmrc.mongo.lock.MongoLockService` with an injected `uk.gov.hmrc.mongo.lock.MongoLockRepository`.
+### LockService
+
+Inject `MongoLockRepository` and create an instance of `LockService`.
+
+The `ttl` timeout allows other apps to release and get the lock if it was stuck for some reason.
+
+`withLock[T](body: => Future[T]): Future[Option[T]]` accepts anything that returns a Future[T] and will return the result in an Option. If it was not possible to acquire the lock, None is returned.
+
+It will execute the body only if the lock can be obtained, and the lock is released when the action has finished (both successfully or in failure).
 
 e.g.
 
 ```scala
 @Singleton
-class LockClient @Inject()(mongoLockRepository: MongoLockRepository ) {
-  val myLock = MongoLockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
+class LockClient @Inject()(mongoLockRepository: MongoLockRepository) {
+  val lockService = LockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
 
   // now use the lock
-  myLock.attemptLockWithRelease {
+  lockService.withLock {
     Future { /* do something */ }
   }.map {
     case Some(res) => logger.debug(s"Finished with $res. Lock has been released.")
@@ -100,15 +108,29 @@ class LockClient @Inject()(mongoLockRepository: MongoLockRepository ) {
 }
 ```
 
-The functions available are:
-- `attemptLockWithRelease[T](body: => Future[T]): Future[Option[T]]`
+### TimePeriodLockService
 
-  the body is executed only if the lock can be obtained, and is released when the action has finished (both successfully or in failure).
+The `ttl` timeout allows other apps to claim the lock if it is not renewed for this period.
 
-- `def attemptLockWithRefreshExpiry[T](body: => Future[T]): Future[Option[T]]`
+`withRenewedLock[T](body: => Future[T]): Future[Option[T]]` accepts anything that returns a Future[T] and will return the result in an Option. If it was not possible to acquire the lock, None is returned.
 
-  similar to `attemptLockWithRelease` but if the lock is already taken by the same service, then the lock expiry will be refreshed first.
+It will execute the body only if no lock is already taken, or the lock is already owned by this service instance. It is not released when the action has finished (unless it ends in failure), but is held onto until it expires.
 
+
+```scala
+@Singleton
+class LockClient @Inject()(mongoLockRepository: MongoLockRepository) {
+  val lockService = TimePeriodLockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
+
+  // now use the lock
+  lockService.withRenewedLock {
+    Future { /* do something */ }
+  }.map {
+    case Some(res) => logger.debug(s"Finished with $res. Lock has been renewed.")
+    case None      => logger.debug("Failed to take lock")
+  }
+}
+```
 
 ## Cache
 

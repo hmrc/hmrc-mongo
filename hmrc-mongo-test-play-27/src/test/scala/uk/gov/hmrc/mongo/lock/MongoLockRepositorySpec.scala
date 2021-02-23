@@ -35,8 +35,7 @@ class MongoLockRepositorySpec
      with Matchers
      with DefaultPlayMongoRepositorySupport[Lock] {
 
-  "lock" should {
-
+  "takeLock" should {
     "successfully create a lock if one does not already exist" in {
       repository.takeLock(lockId, owner, ttl).futureValue shouldBe true
 

@@ -369,7 +369,7 @@ It would be sensible to re-run performance tests after upgrading keeping an eye 
 
 ### LockKeeper
 
-`LockKeeper#tryLock` replaced by `MongoLockService#attemptLockWithRelease`
+`LockKeeper#tryLock` replaced by `LockService#withLock`
 
 ```scala
 class MongoLock(db: () => DB, lockId_ : String) extends LockKeeper {
@@ -393,17 +393,17 @@ becomes
 
 ```scala
 @Singleton
-class LockClient @Inject()(mongoLockRepository: MongoLockRepository ) {
-  val myLock = MongoLockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
+class LockClient @Inject()(mongoLockRepository: MongoLockRepository) {
+  val myLock = LockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
 
   // now use the lock
-  myLock.attemptLockWithRelease { ... }
+  myLock.withLock { ... }
 }
 ```
 
 ### ExclusiveTimePeriodLock
 
-`ExclusiveTimePeriodLock#tryToAcquireOrRenewLock` replaced by `MongoLockService#attemptLockWithRefreshExpiry`
+`ExclusiveTimePeriodLock#tryToAcquireOrRenewLock` replaced by `TimePeriodLockService#withRenewedLock`
 
 ```scala
 class MongoLock(db: () => DB, lockId_ : String) extends ExclusiveTimePeriodLock {
@@ -426,10 +426,10 @@ becomes
 
 ```scala
 @Singleton
-class LockClient @Inject()(mongoLockRepository: MongoLockRepository ) {
-  val myLock = MongoLockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
+class LockClient @Inject()(mongoLockRepository: MongoLockRepository) {
+  val myLock = TimePeriodLockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
 
   // now use the lock
-  myLock.attemptLockWithRefreshExpiry { ... }
+  myLock.withRenewedLock { ... }
 }
 ```
