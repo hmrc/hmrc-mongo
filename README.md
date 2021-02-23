@@ -19,6 +19,10 @@ Other included features are:
 - [test support](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-test-play-27)
 - [metrix](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-metrix-play-27)
 
+## Migration
+
+See [MIGRATION](https://github.com/hmrc/hmrc-mongo/blob/master/MIRATION.md) for migrating from Simple-reactivemongo.
+
 ## Adding to your build
 
 In your SBT build add:
