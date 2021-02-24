@@ -21,7 +21,10 @@ import java.util.UUID
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-trait MongoLockService {
+/** For locking for a particular task.
+  * The lock will be released when the task has finished.
+  */
+trait LockService {
 
   val lockRepository: LockRepository
   val lockId: String
@@ -29,18 +32,27 @@ trait MongoLockService {
 
   private val ownerId = UUID.randomUUID().toString
 
-  def attemptLockWithRelease[T](body: => Future[T])(implicit ec: ExecutionContext): Future[Option[T]] =
-    lockRepository.attemptLockWithRelease(lockId, ownerId, ttl, body)
-
-  def attemptLockWithRefreshExpiry[T](body: => Future[T])(implicit ec: ExecutionContext): Future[Option[T]] =
-    lockRepository.attemptLockWithRefreshExpiry(lockId, ownerId, ttl, body)
+  /** Runs `body` if a lock can be taken.
+    * The lock will be released when the task has finished.
+    */
+  def withLock[T](body: => Future[T])(implicit ec: ExecutionContext): Future[Option[T]] =
+    (for {
+       acquired <- lockRepository.takeLock(lockId, ownerId, ttl)
+       result   <- if (acquired)
+                     body.flatMap(value => lockRepository.releaseLock(lockId, ownerId).map(_ => Some(value)))
+                   else
+                     Future.successful(None)
+     } yield result
+    ).recoverWith {
+      case ex => lockRepository.releaseLock(lockId, ownerId).flatMap(_ => Future.failed(ex))
+    }
 }
 
-object MongoLockService {
+object LockService {
 
-  def apply(lockRepository: LockRepository, lockId: String, ttl: Duration): MongoLockService = {
+  def apply(lockRepository: LockRepository, lockId: String, ttl: Duration): LockService = {
     val (lockRepository1, lockId1, ttl1) = (lockRepository, lockId, ttl)
-    new MongoLockService {
+    new LockService {
       override val lockRepository: LockRepository = lockRepository1
       override val lockId        : String         = lockId1
       override val ttl           : Duration       = ttl1

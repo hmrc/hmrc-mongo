@@ -32,43 +32,13 @@ import scala.concurrent.{ExecutionContext, Future}
 
 @ImplementedBy(classOf[MongoLockRepository])
 trait LockRepository {
-
-  def lock(lockId: String, owner: String, ttl: Duration): Future[Boolean]
+  def takeLock(lockId: String, owner: String, ttl: Duration): Future[Boolean]
 
   def releaseLock(lockId: String, owner: String): Future[Unit]
 
   def refreshExpiry(lockId: String, owner: String, ttl: Duration): Future[Boolean]
 
   def isLocked(lockId: String, owner: String): Future[Boolean]
-
-  def attemptLockWithRelease[T](lockId: String, owner: String, ttl: Duration, body: => Future[T])(
-    implicit ec: ExecutionContext
-  ): Future[Option[T]] = {
-    val result = for {
-      acquired <- lock(lockId, owner, ttl)
-      result   <- when(acquired)(body.flatMap(value => releaseLock(lockId, owner).map(_ => Some(value))), None)
-    } yield result
-    result.recoverWith { case ex => releaseLock(lockId, owner).flatMap(_ => Future.failed(ex)) }
-  }
-
-  def attemptLockWithRefreshExpiry[T](lockId: String, owner: String, ttl: Duration, body: => Future[T])(
-    implicit ec: ExecutionContext
-  ): Future[Option[T]] = {
-    val result = for {
-      refreshed <- refreshExpiry(lockId, owner, ttl)
-      acquired  <- when(!refreshed)(lock(lockId, owner, ttl), false)
-      result    <- when(refreshed || acquired)(body.map(Option.apply), None)
-    } yield result
-
-    result.recoverWith {
-      case ex => releaseLock(lockId, owner).flatMap(_ => Future.failed(ex))
-    }
-  }
-
-  private def when[A](predicate: Boolean)(matched: => Future[A], unmatched: => A): Future[A] =
-    if (predicate) matched
-    else Future.successful(unmatched)
-
 }
 
 @Singleton
@@ -82,26 +52,37 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
     )
     with LockRepository {
 
-  private val logger       = Logger(getClass)
+  private val logger = Logger(getClass)
 
-  override def lock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = {
+  override def takeLock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = {
     val timeCreated = timestampSupport.timestamp()
     val expiryTime  = timeCreated.plus(JavaDuration.ofMillis(ttl.toMillis))
 
-    val acquireLock = for {
+    (for {
       deleteResult <- collection
-                       .deleteOne(filter = and(equal(Lock.id, lockId), lte(Lock.expiryTime, timeCreated)))
-                       .toFuture()
-      _ = if (deleteResult.getDeletedCount != 0)
-        logger.info(s"Removed ${deleteResult.getDeletedCount} expired locks for $lockId")
-      _ <- collection
-            .insertOne(Lock(id = lockId, owner = owner, timeCreated = timeCreated, expiryTime = expiryTime))
-            .toFuture()
-      _ = logger.debug(s"Took lock '$lockId' for '$owner' at $timeCreated. Expires at: $expiryTime")
-    } yield true
-
-    acquireLock.recover {
-      case _ =>
+                        .deleteOne(
+                           and(
+                             equal(Lock.id, lockId),
+                             lte(Lock.expiryTime, timeCreated)
+                           )
+                         )
+                        .toFuture()
+      _            =  if (deleteResult.getDeletedCount != 0)
+                        logger.info(s"Removed ${deleteResult.getDeletedCount} expired locks for $lockId")
+      _            <- collection
+                        .insertOne(
+                           Lock(
+                             id          = lockId,
+                             owner       = owner,
+                             timeCreated = timeCreated,
+                             expiryTime  = expiryTime
+                           )
+                         )
+                        .toFuture()
+      _            =  logger.debug(s"Took lock '$lockId' for '$owner' at $timeCreated. Expires at: $expiryTime")
+     } yield true
+    ).recover {
+      case DuplicateKey(e) =>
         logger.debug(s"Unable to take lock '$lockId' for '$owner'")
         false
     }
@@ -110,7 +91,12 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
   override def releaseLock(lockId: String, owner: String): Future[Unit] = {
     logger.debug(s"Releasing lock '$lockId' for '$owner'")
     collection
-      .deleteOne(filter = and(equal(Lock.id, lockId), equal(Lock.owner, owner)))
+      .deleteOne(
+         and(
+           equal(Lock.id, lockId),
+           equal(Lock.owner, owner)
+         )
+       )
       .toFuture
       .map(_ => ())
   }
@@ -122,7 +108,11 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
     // Use findOneAndUpdate to ensure the read and the write are performed as one atomic operation
     collection
       .findOneAndUpdate(
-        filter = and(equal(Lock.id, lockId), equal(Lock.owner, owner), gte(Lock.expiryTime, timeCreated)),
+        filter = and(
+                   equal(Lock.id, lockId),
+                   equal(Lock.owner, owner),
+                   gte(Lock.expiryTime, timeCreated)
+                 ),
         update = Updates.set(Lock.expiryTime, expiryTime)
       )
       .toFutureOption
@@ -143,7 +133,13 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
 
   override def isLocked(lockId: String, owner: String): Future[Boolean] =
     collection
-      .find(and(equal(Lock.id, lockId), equal(Lock.owner, owner), gt(Lock.expiryTime, timestampSupport.timestamp())))
+      .find(
+        and(
+          equal(Lock.id, lockId),
+          equal(Lock.owner, owner),
+          gt(Lock.expiryTime, timestampSupport.timestamp())
+        )
+       )
       .toFuture
       .map(_.nonEmpty)
 }

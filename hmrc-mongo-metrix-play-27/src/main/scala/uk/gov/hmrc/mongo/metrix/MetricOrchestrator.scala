@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 import com.codahale.metrics.{Gauge, MetricRegistry}
 import play.api.Logger
-import uk.gov.hmrc.mongo.lock.MongoLockService
+import uk.gov.hmrc.mongo.lock.LockService
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -65,7 +65,7 @@ object MetricOrchestrationResult {
 
 class MetricOrchestrator(
   metricSources: List[MetricSource],
-  lockService: MongoLockService,
+  lockService: LockService,
   metricRepository: MetricRepository,
   metricRegistry: MetricRegistry
 ) {
@@ -126,7 +126,7 @@ class MetricOrchestrator(
   )(implicit ec: ExecutionContext): Future[MetricOrchestrationResult] =
     for {
       // Only the node that acquires the lock will execute the update of the repository
-      maybeUpdatedMetrics <- lockService.attemptLockWithRelease(updateMetricRepository(resetToZeroFor))
+      maybeUpdatedMetrics <- lockService.withLock(updateMetricRepository(resetToZeroFor))
       // But all nodes will refresh all the metrics from that repository
       skipReportingForFn = skipReportingFor.getOrElse(Function.const(false) _)
       persistedMetrics <- metricRepository.findAll().map(_.filterNot(skipReportingForFn))

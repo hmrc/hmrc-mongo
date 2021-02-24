@@ -77,6 +77,61 @@ Other parameters:
 
 ## Lock
 
+This is a utility that prevents multiple instances of the same application from performing an operation at the same time. This can be useful for example when a REST api has to be called at a scheduled time. Without this utility every instance of the application would call the REST api.
+
+There are 2 variants that can be used to instigate a lock, `LockService` for locking for a particular task and `ExclusiveTimePeriodLock` to lock exclusively for a given time period (i.e. stop other instances executing the task until it stops renewing the lock).
+
+### LockService
+
+Inject `MongoLockRepository` and create an instance of `LockService`.
+
+The `ttl` timeout allows other apps to release and get the lock if it was stuck for some reason.
+
+`withLock[T](body: => Future[T]): Future[Option[T]]` accepts anything that returns a Future[T] and will return the result in an Option. If it was not possible to acquire the lock, None is returned.
+
+It will execute the body only if the lock can be obtained, and the lock is released when the action has finished (both successfully or in failure).
+
+e.g.
+
+```scala
+@Singleton
+class LockClient @Inject()(mongoLockRepository: MongoLockRepository) {
+  val lockService = LockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
+
+  // now use the lock
+  lockService.withLock {
+    Future { /* do something */ }
+  }.map {
+    case Some(res) => logger.debug(s"Finished with $res. Lock has been released.")
+    case None      => logger.debug("Failed to take lock")
+  }
+}
+```
+
+### TimePeriodLockService
+
+The `ttl` timeout allows other apps to claim the lock if it is not renewed for this period.
+
+`withRenewedLock[T](body: => Future[T]): Future[Option[T]]` accepts anything that returns a Future[T] and will return the result in an Option. If it was not possible to acquire the lock, None is returned.
+
+It will execute the body only if no lock is already taken, or the lock is already owned by this service instance. It is not released when the action has finished (unless it ends in failure), but is held onto until it expires.
+
+
+```scala
+@Singleton
+class LockClient @Inject()(mongoLockRepository: MongoLockRepository) {
+  val lockService = TimePeriodLockService(mongoLockRepository, lockId = "my-lock", ttl = 1.hour)
+
+  // now use the lock
+  lockService.withRenewedLock {
+    Future { /* do something */ }
+  }.map {
+    case Some(res) => logger.debug(s"Finished with $res. Lock has been renewed.")
+    case None      => logger.debug("Failed to take lock")
+  }
+}
+```
+
 ## Cache
 
 ### License

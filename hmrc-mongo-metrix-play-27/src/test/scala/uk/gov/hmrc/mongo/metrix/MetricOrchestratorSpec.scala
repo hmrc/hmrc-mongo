@@ -21,7 +21,7 @@ import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Inside._
 import org.scalatest.LoneElement
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
-import uk.gov.hmrc.mongo.lock.{MongoLockRepository, MongoLockService}
+import uk.gov.hmrc.mongo.lock.{MongoLockRepository, LockService}
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -238,11 +238,11 @@ class MetricOrchestratorSpec
 
       val lockRepo = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport) {
         // Force the lock to never be acquired for the purpose of this test
-        override def lock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = Future(false)
+        override def takeLock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = Future(false)
       }
 
       val lockService =
-        MongoLockService(
+        LockService(
           lockRepository = lockRepo,
           lockId         = "test-lock",
           ttl            = 1.milliseconds
@@ -306,8 +306,8 @@ class MetricOrchestratorSpec
       Future(Thread.sleep(200)).flatMap(_ => super.persist(calculatedMetric))
   }
 
-  private val mongoLockService: MongoLockService =
-    MongoLockService(
+  private val mongoLockService: LockService =
+    LockService(
       lockRepository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport),
       lockId         = "test-metrics",
       ttl            = 0.microseconds
