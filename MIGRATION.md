@@ -18,6 +18,7 @@ This guide is for migrating from [simple-reactivemongo](https://github.com/hmrc/
   - [Mongo Schemas](#mongo-schemas)
 - [Deployment](#deployment)
 - [Lock](#lock)
+- [Cache](#cache)
 
 
 ## Replace dependencies
@@ -369,7 +370,7 @@ It would be sensible to re-run performance tests after upgrading keeping an eye 
 
 ### LockKeeper
 
-`LockKeeper#tryLock` replaced by `LockService#withLock`
+`uk.gov.hmrc.lock.LockKeeper#tryLock` replaced by `uk.gov.hmrc.mongo.lock.LockService#withLock`
 
 ```scala
 class MongoLock(db: () => DB, lockId_ : String) extends LockKeeper {
@@ -403,7 +404,7 @@ class LockClient @Inject()(mongoLockRepository: MongoLockRepository) {
 
 ### ExclusiveTimePeriodLock
 
-`ExclusiveTimePeriodLock#tryToAcquireOrRenewLock` replaced by `TimePeriodLockService#withRenewedLock`
+`uk.gov.hmrc.lock.ExclusiveTimePeriodLock#tryToAcquireOrRenewLock` replaced by `uk.gov.hmrc.mongo.lock.TimePeriodLockService#withRenewedLock`
 
 ```scala
 class MongoLock(db: () => DB, lockId_ : String) extends ExclusiveTimePeriodLock {
@@ -433,3 +434,14 @@ class LockClient @Inject()(mongoLockRepository: MongoLockRepository) {
   myLock.withRenewedLock { ... }
 }
 ```
+
+
+## Cache
+
+### CacheRepository
+
+`uk.gov.hmrc.cache.repository.CacheRepository#createOrUpdate` replaced by `uk.gov.hmrc.mongo.cache.MongoCacheRepository#put`
+
+`uk.gov.hmrc.cache.model.Cache` replaced with `uk.gov.hmrc.mongo.cache.CacheItem`.
+
+`uk.gov.hmrc.mongo.cache.SessionCacheRepository` and `uk.gov.hmrc.mongo.cache.EntityCache` are new and may mean you can avoid some boilerplate.
