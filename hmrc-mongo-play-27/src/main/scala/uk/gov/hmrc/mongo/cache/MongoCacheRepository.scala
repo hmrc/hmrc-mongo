@@ -55,10 +55,12 @@ class MongoCacheRepository[CacheId] @Inject() (
       replaceIndexes = replaceIndexes
     ) {
 
-  def findById(id: String): Future[Option[CacheItem]] =
+  def findById(cacheId: CacheId): Future[Option[CacheItem]] = {
+    val id = cacheIdType.run(cacheId)
     collection
       .find(Filters.equal("_id", id))
       .headOption()
+  }
 
   def get[A: Reads](
     cacheId: CacheId
@@ -121,9 +123,10 @@ class MongoCacheRepository[CacheId] @Inject() (
 object MongoCacheRepository {
   val format: Format[CacheItem] = {
     implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormat
-    ((__ \ "_id").format[String]
-      ~ (__ \ "data").format[JsObject]
-      ~ (__ \ "modifiedDetails" \ "createdAt").format[Instant]
-      ~ (__ \ "modifiedDetails" \ "lastUpdated").format[Instant])(CacheItem.apply, unlift(CacheItem.unapply))
+    ( (__ \ "_id"                            ).format[String]
+    ~ (__ \ "data"                           ).format[JsObject]
+    ~ (__ \ "modifiedDetails" \ "createdAt"  ).format[Instant]
+    ~ (__ \ "modifiedDetails" \ "lastUpdated").format[Instant]
+    )(CacheItem.apply, unlift(CacheItem.unapply))
   }
 }

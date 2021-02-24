@@ -134,6 +134,97 @@ class LockClient @Inject()(mongoLockRepository: MongoLockRepository) {
 
 ## Cache
 
+This is a utility to cache generic JSON data in Mongo DB.
+
+The variants are:
+  - `MongoCacheRepository` for storing json data into a composite object which expires as a unit.
+  - `SessionCacheRepository` ties the composite object to the session.
+  - `EntityCache` which makes it easier to work with a single data type.
+
+
+### `MongoCacheRepository`
+
+e.g.
+
+```scala
+@Singleton
+class MyCacheRepository @Inject()(
+  mongoComponent  : MongoComponent,
+  configuration   : Configuration,
+  timestampSupport: TimestampSupport
+)(implicit ec: ExecutionContext
+) extends MongoCacheRepository(
+  mongoComponent   = mongoComponent,
+  collectionName   = "mycache",
+  ttl              = configuration.get[FiniteDuration]("cache.expiry")
+  timestampSupport = timestampSupport, // Provide a different one for testing
+  cacheIdType      = CacheIdType.SimpleCacheId // Here, CacheId to be represented with `String`
+)
+```
+
+The functions exposed by this class are:
+
+- `put[A: Writes](cacheId: CacheId)(dataKey: DataKey[A], data: A): Future[CacheItem]`
+
+  This upserts data into the cache.
+
+  Data inserted using this method has a time-to-live (TTL) that applies per CacheId. The amount of time is configured by the `ttl` parameter when creating the class. Any modifications of data for an CacheId will reset the TTL.
+
+  Calling `put[String](cacheId)(DataKey("key1"), "value1)` and `put[String](cacheId)(DataKey("key2"), "value2)` with the same cacheId will create the following JSON structure in Mongo:
+
+  ```json
+  {
+    "_id": "cacheId",
+    "data": {
+      "key1": "value1",
+      "key2": "value2"
+    }
+  }
+  ```
+
+  This structure allows caching multiple keys against a CacheId. As cached values expire per CacheId, this provides a way to expire related data at the same time.
+
+  See `EntityCache` for a simpler use-case, where key is hardcoded to a constant, to provide a cache of CacheId to value.
+
+- `get[A: Reads](cacheId: CacheId)(dataKey: DataKey[A]): Future[Option[A]]`
+
+  This retrieves the data stored under the dataKey.
+
+  The `DataKey` has a phantom type to indicate the type of data stored. e.g.
+
+  ```scala
+  implicit val stepOneDataFormat: Format[StepOneData] = ...
+  val stepOneDataKey = DataKey[StepOneData]("stepOne")
+
+  for {
+    _       <- cacheRepository.put(cacheId)(stepOneDataKey, StepOneData(..))
+    optData <- cacheRepository.get(cacheId)(stepOneDataKey) // inferred as Option[StepOneData]
+  } yield println(s"Found $optData")
+  ```
+
+- `delete[A](cacheId: CacheId)(dataKey: DataKey[A]): Future[Unit]`
+
+  Deletes the data stored under the dataKey.
+
+- `deleteEntity(cacheId: CacheId): Future[Unit]`
+
+  Deletes the whole entity (rather than waiting for the ttl).
+
+- `findById(cacheId: CacheId): Future[Option[CacheItem]]`
+
+  Returns the whole entity.
+
+
+### SessionCacheRepository
+
+  A variant of MongoCacheRepository which uses the sessionId for cacheId. This helps, for example, store data from different steps of a flow against the same session.
+
+  It exposes the functions `putSession`, `getFromSession` and `deleteFromSession` which require the `Request` rather than a CacheId.
+
+### EntityCache
+
+ A variant which makes it easier to work with a single data type, which all expire independently.
+
 ### License
 
 This code is open source software licensed under the [Apache 2.0 License]("http://www.apache.org/licenses/LICENSE-2.0.html").
