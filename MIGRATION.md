@@ -92,6 +92,8 @@ Also see [scalafix](https://github.com/hmrc/scalafix-rules/tree/master/hmrc-mong
 The syntax for defining indexes has changed.
 See: https://mongodb.github.io/mongo-java-driver/4.0/driver-scala/tutorials/indexes/
 
+:warning: Check that indexes are not unintentionally defined differently, since this may lead to a reindexing (of potentially large data).
+
 Indexes should be set in the PlayMongoRepository’s constructor e.g.
 
 ```scala
@@ -221,6 +223,13 @@ Values provided in filters and updates are not covered by this codec, see [Filte
 
 Json formats previously provided by simple-reactivemongo will need replacing.
 
+:warning: Check that your data is being stored with the same representation as before. Subtle differences may occur, especially with Dates (See [below](#dates)). These changes will break existing data and can be difficult to catch since a test may just verify that data can be serialised and deserialised, but not check that the data is in the same format as previously. It may not be noticed until deployed, when new data could be written in a new format, and old data cannot be read. At this point, it can be tricky to rectify.
+
+Some ideas for verifying the resulting data format are:
+- Manual inspection in the database
+- Tests could read the data out the database as Bson, and confirm the structure
+- Provide a schema to PlayMongoRepository during tests (they would have a performance impact if applied to production code)
+
 #### ObjectId:
 
 `reactivemongo.bson.BSONObjectID` with need replacing with `org.bson.types.ObjectId` in your model. And use `uk.gov.hmrc.mongo.json.ReactiveMongoFormats` to provide a json format.
@@ -229,14 +238,9 @@ Json formats previously provided by simple-reactivemongo will need replacing.
 
 simple-reactivemongo only provided support for joda dates. You can use `uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats` to provide the equivalent json format. However, we strongly recommend replacing joda dates with java time, and use `uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormat`s instead. Java time has official support in filters/updates - See [Filters/Updates](#Filters/Updates).
 
-:warning: Be careful with dates. If the json format for mongo is not in scope, it will silently use the date formats as provided by play-json, breaking existing data. It can be difficult to catch since a test may just test that data can be serialised and deserialised, but not check that the data is in the same format as previously. It may not be noticed until deployed, when new data could be written in a new format, and old data cannot be read. At this point, it can be tricky to rectify.
+:warning: Be especially careful with preserving the date format, since if the json format for mongo is not in scope, it will silently use the date formats as provided by play-json, breaking existing data.
 
-Some ideas for verifying the resulting data format are:
-- Manual inspection
-- Tests could read the data out the database as Bson, and confirm the structure
-- Provide a schema to PlayMongoRepository during tests (they would have a performance impact if applied to production code)
-
-It's also worth pointing out that Dates in hmrc-mongo will be represented in json slightly differently to the previous uk.gov.hmrc.mongo.json.ReactiveMongoFormats, i.e. with [MongoDB Extended JSON (v2)](https://docs.mongodb.com/manual/reference/mongodb-extended-json/), however this has no impact on the data type at rest (BSON).
+It's also worth pointing out that Dates in hmrc-mongo will be represented in json slightly differently to the previous `uk.gov.hmrc.mongo.json.ReactiveMongoFormats`, i.e. with [MongoDB Extended JSON (v2)](https://docs.mongodb.com/manual/reference/mongodb-extended-json/), however this has no impact on the data type at rest (BSON).
 
 #### Numbers:
 
@@ -246,7 +250,7 @@ Numbers have special representation in mongoDB extended JSON, but for compatibil
 
 The codec registered for the collection entity from the provided domain format only applies to the whole entity. When using leaf data values in filters/updates, a codec is looked up at runtime for the data values.
 
-If a codec is missing, it will result in a runtime exception. Ensure that your test coverage is sufficient.
+:warning: If a codec is missing, it will result in a runtime exception. Ensure that your test coverage is sufficient.
 
 #### Data types with codecs provided by the official driver:
 
@@ -260,6 +264,8 @@ collection.findOneAndUpdate(
 ```
 
 This is fine, since the official driver provides codecs for these types.
+
+Codecs exist for primatives, BSON, ObjectId and java time.
 
 #### value objects, need extracting
 
