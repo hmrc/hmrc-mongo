@@ -34,7 +34,8 @@ trait MongoJodaFormats {
     Writes.at[String](__ \ "$date" \ "$numberLong")
       .contramap[LocalDate](_.toDateTimeAtStartOfDay(DateTimeZone.UTC).getMillis.toString)
 
-  final val localDateFormat = Format(localDateReads, localDateWrites)
+  final val localDateFormat: Format[LocalDate] =
+    Format(localDateReads, localDateWrites)
 
   // LocalDateTime
 
@@ -46,7 +47,8 @@ trait MongoJodaFormats {
     Writes.at[String](__ \ "$date" \ "$numberLong")
       .contramap[LocalDateTime](_.toDateTime(DateTimeZone.UTC).getMillis.toString)
 
-  final val localDateTimeFormat = Format(localDateTimeReads, localDateTimeWrites)
+  final val localDateTimeFormat: Format[LocalDateTime] =
+    Format(localDateTimeReads, localDateTimeWrites)
 
   // DateTime
 
@@ -58,12 +60,13 @@ trait MongoJodaFormats {
     Writes.at[String](__ \ "$date" \ "$numberLong")
       .contramap[DateTime](_.getMillis.toString)
 
-  final val dateTimeFormat = Format(dateTimeReads, dateTimeWrites)
+  final val dateTimeFormat: Format[DateTime] =
+    Format(dateTimeReads, dateTimeWrites)
 
   trait Implicits {
-    implicit val jotLocalDateFormat: Format[LocalDate]         = outer.localDateFormat
+    implicit val jotLocalDateFormat    : Format[LocalDate]     = outer.localDateFormat
     implicit val jotLocalDateTimeFormat: Format[LocalDateTime] = outer.localDateTimeFormat
-    implicit val jotDateTimeFormat: Format[DateTime]           = outer.dateTimeFormat
+    implicit val jotDateTimeFormat     : Format[DateTime]      = outer.dateTimeFormat
   }
 
   object Implicits extends Implicits
