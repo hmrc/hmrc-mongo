@@ -39,7 +39,8 @@ trait MongoFormats {
     (objectId: ObjectId) =>
       Json.obj("$oid" -> objectId.toString)
 
-  final val objectIdFormat: Format[ObjectId] = Format(objectIdReads, objectIdWrites)
+  final val objectIdFormat: Format[ObjectId] =
+    Format(objectIdReads, objectIdWrites)
 
   trait Implicits {
     implicit val objectIdFormat: Format[ObjectId] = outer.objectIdFormat

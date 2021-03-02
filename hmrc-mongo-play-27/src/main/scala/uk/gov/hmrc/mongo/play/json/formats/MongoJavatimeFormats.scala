@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.play.json.formats
 
-import java.time.{Instant, LocalDate, LocalDateTime, ZoneId, ZoneOffset}
+import java.time.{Instant, LocalDate, LocalDateTime, ZoneOffset}
 
 import play.api.libs.json._
 
@@ -33,37 +33,38 @@ trait MongoJavatimeFormats {
     Writes.at[String](__ \ "$date" \ "$numberLong")
       .contramap(_.toEpochMilli.toString)
 
-  final val instantFormat: Format[Instant] = Format(instantReads, instantWrites)
+  final val instantFormat: Format[Instant] =
+    Format(instantReads, instantWrites)
 
   // LocalDate
 
-  private val msInDay = 24 * 60 * 60 * 1000
-
   final val localDateReads: Reads[LocalDate] =
     Reads.at[String](__ \ "$date" \ "$numberLong")
-      .map(date => LocalDate.ofEpochDay(date.toLong / msInDay))
+      .map(date => Instant.ofEpochMilli(date.toLong).atZone(ZoneOffset.UTC).toLocalDate)
 
   final val localDateWrites: Writes[LocalDate] =
     Writes.at[String](__ \ "$date" \ "$numberLong")
-      .contramap(localDate => (msInDay * localDate.toEpochDay).toString)
+      .contramap(_.atStartOfDay(ZoneOffset.UTC).toInstant.toEpochMilli.toString)
 
-  final val localDateFormat = Format(localDateReads, localDateWrites)
+  final val localDateFormat: Format[LocalDate] =
+    Format(localDateReads, localDateWrites)
 
   // LocalDateTime
 
   final val localDateTimeReads: Reads[LocalDateTime] =
     Reads.at[String](__ \ "$date" \ "$numberLong")
-      .map(dateTime => LocalDateTime.ofInstant(Instant.ofEpochMilli(dateTime.toLong), ZoneId.of("Z")))
+      .map(dateTime => Instant.ofEpochMilli(dateTime.toLong).atZone(ZoneOffset.UTC).toLocalDateTime)
 
   final val localDateTimeWrites: Writes[LocalDateTime] =
     Writes.at[String](__ \ "$date" \ "$numberLong")
       .contramap(_.toInstant(ZoneOffset.UTC).toEpochMilli.toString)
 
-  final val localDateTimeFormat = Format(localDateTimeReads, localDateTimeWrites)
+  final val localDateTimeFormat: Format[LocalDateTime] =
+    Format(localDateTimeReads, localDateTimeWrites)
 
   trait Implicits {
-    implicit val jatInstantFormat: Format[Instant]             = outer.instantFormat
-    implicit val jatLocalDateFormat: Format[LocalDate]         = outer.localDateFormat
+    implicit val jatInstantFormat      : Format[Instant]       = outer.instantFormat
+    implicit val jatLocalDateFormat    : Format[LocalDate]     = outer.localDateFormat
     implicit val jatLocalDateTimeFormat: Format[LocalDateTime] = outer.localDateTimeFormat
   }
 

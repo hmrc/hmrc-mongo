@@ -50,6 +50,8 @@ class PlayMongoRepositorySpec
   import Codecs.toBson
   import PlayMongoRepositorySpec._
 
+  import org.scalacheck.Shrink.shrinkAny // disable shrinking here - will just generate invalid inputs
+
   override implicit val patienceConfig: PatienceConfig = PatienceConfig(5.seconds)
 
   val mongoComponent = {
@@ -387,8 +389,8 @@ object PlayMongoRepositorySpec {
       jodaLocalDate     = new jot.LocalDate(epochMillis),
       jodaLocalDateTime = new jot.LocalDateTime(epochMillis),
       javaInstant       = jat.Instant.ofEpochMilli(epochMillis),
-      javaLocalDate     = jat.LocalDate.ofEpochDay(epochMillis / (24 * 60 * 60 * 1000)),
-      javaLocalDateTime = jat.LocalDateTime.ofInstant(jat.Instant.ofEpochMilli(epochMillis), jat.ZoneId.of("Z")),
+      javaLocalDate     = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDate,
+      javaLocalDateTime = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDateTime,
       objectId          = new org.bson.types.ObjectId(new java.util.Date(epochMillis)),
       listString        = ls,
       listLong          = ll
