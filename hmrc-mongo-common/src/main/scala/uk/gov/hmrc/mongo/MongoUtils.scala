@@ -24,7 +24,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.concurrent.{ExecutionContext, Future}
 
 trait MongoUtils {
-  val logger: Logger = LoggerFactory.getLogger(getClass.getName)
+  private val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
 
   def ensureIndexes[A](
     collection: MongoCollection[A],
@@ -48,14 +48,14 @@ trait MongoUtils {
                  }
                }
       indicesToDrop = if (replaceIndexes) currentIndices.toSet.diff(res.toSet + "_id_") else Set.empty
-      _ <-  Future.traverse(indicesToDrop) { indexName =>
-             logger.warn(s"Index '$indexName' is not longer defined, removing")
+      _   <- Future.traverse(indicesToDrop) { indexName =>
+               logger.warn(s"Index '$indexName' is not longer defined, removing")
                collection.dropIndex(indexName).toFuture
                  .recoverWith {
                    // could be caused by race conditions between server instances
                    case IndexNotFound(e) => Future.successful(())
                  }
-           }
+             }
     } yield res
 
   def existsCollection[A](
