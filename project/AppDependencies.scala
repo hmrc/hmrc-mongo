@@ -32,7 +32,7 @@ object AppDependencies {
   ) ++ test
 
   lazy val hmrcMongoTestPlay27: Seq[ModuleID] = Seq(
-    "org.scalatest"         %% "scalatest"       % "3.1.0",
+    "org.scalatest"         %% "scalatest"       % "3.0.8", // version chosen for compatibility with scalatestplus-play
     "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
   ) ++ test
@@ -45,11 +45,20 @@ object AppDependencies {
 
   lazy val hmrcMongoMetrixPlay27: Seq[ModuleID] = Seq(
     "com.kenshoo"           %% "metrics-play"    % "2.7.3_0.8.1",
+    "org.scalatest"         %% "scalatest"       % "3.1.0"  % Test,
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
   )
 
   lazy val hmrcMongoMetrixPlay28: Seq[ModuleID] = Seq(
-    "com.kenshoo"           %% "metrics-play"    % "2.7.3_0.8.1",
+    "com.kenshoo"           %% "metrics-play"    % "2.7.3_0.8.1", // no Play 2.8 build, but is compatible.
     "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
+  )
+
+  lazy val hmrcMongoWorkItemRepoPlay27: Seq[ModuleID] = Seq(
+    "org.scalatest"         %% "scalatest"       % "3.1.0"  % Test
+  )
+
+  lazy val hmrcMongoWorkItemRepoPlay28: Seq[ModuleID] = Seq(
+    "org.scalatest"         %% "scalatest"       % "3.1.0"  % Test
   )
 }
