@@ -21,7 +21,7 @@ Other included features are:
 
 ## Migration
 
-See [MIGRATION](https://github.com/hmrc/hmrc-mongo/blob/master/MIRATION.md) for migrating from Simple-reactivemongo.
+See [MIGRATION](https://github.com/hmrc/hmrc-mongo/blob/master/MIGRATION.md) for migrating from Simple-reactivemongo.
 
 ## Adding to your build
 
