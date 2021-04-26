@@ -177,7 +177,7 @@ insert( myModel )
 becomes
 
 ```scala
-collection.insert(myModel).toFuture()
+collection.insertOne(myModel).toFuture()
 ```
 
 ### Update
@@ -236,7 +236,7 @@ Some ideas for verifying the resulting data format are:
 
 #### ObjectId:
 
-`reactivemongo.bson.BSONObjectID` with need replacing with `org.bson.types.ObjectId` in your model. And use `uk.gov.hmrc.mongo.json.ReactiveMongoFormats` to provide a json format.
+`reactivemongo.bson.BSONObjectID` with need replacing with `org.bson.types.ObjectId` in your model. And use `import uk.gov.hmrc.mongo.play.json.formats.MongoFormats` to provide a json format.
 
 #### Dates:
 
