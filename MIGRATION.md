@@ -76,11 +76,14 @@ becomes
 @Singleton
 class MyRepo @Inject()(mongo: MongoComponent)(implicit ec: ExecutionContext
 ) extends PlayMongoRepository[MyModel](
-  collectionName = "mycollection",
   mongoComponent = mongo,
-  domainFormat   = MyModel.mongoFormat
+  collectionName = "mycollection",
+  domainFormat   = MyModel.mongoFormat,
+  indexes        = Seq(/* IndexModel() instances */)
 )
 ```
+
+If not using named arguments, please note that the order of the constructor parameters has changed.
 
 Note, the scope of the PlayMongoRepository is reduced in comparison to the ReactiveRepository. It is only responsible for setting up a `collection: MongoCollection[Entity]`, and initialising indices and entity codecs. You will use the collection directly for all queries and commands.
 
