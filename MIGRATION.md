@@ -79,7 +79,7 @@ class MyRepo @Inject()(mongo: MongoComponent)(implicit ec: ExecutionContext
   mongoComponent = mongo,
   collectionName = "mycollection",
   domainFormat   = MyModel.mongoFormat,
-  indexes        = Seq(/* IndexModel() instances */)
+  indexes        = Seq(/* IndexModel() instances, see Migrate index definitions below  */)
 )
 ```
 
