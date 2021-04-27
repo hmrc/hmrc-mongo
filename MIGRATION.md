@@ -324,7 +324,7 @@ collection.distinct[String]("name").toFuture()
 
 ### DefaultPlayMongoRepositorySupport
 
-`uk.gov.hmrc.mongo.MongoSpecSupport` has been replaced with `uk.gov.hmrc.mongo.test.MongoSupport`, however it is reccomended that you migrate to using `uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport[T]` instead which contains some improvements to the testing experience (**but also changes the way your test data is handled**, see below).
+`uk.gov.hmrc.mongo.MongoSpecSupport` has been replaced with `uk.gov.hmrc.mongo.test.MongoSupport`, however it is recommended that you migrate to using `uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport[T]` instead which contains some improvements to the testing experience (**but also changes the way your test data is handled**, see below).
 
 e.g.
 
@@ -337,9 +337,11 @@ class MyEntityRepositorySpec extends DefaultPlayMongoRepositorySupport[MyEntity]
 
 `DefaultPlayMongoRepositorySupport[T]` requires you to override `repository` in your tests, and provides a `mongoComponent` to create the repository. This will create a database named after the test.
 
-**NB** - Unlike the old `MongoSpecSupport`, `DefaultPlayMongoRepositorySupport` will ensure that the database is **cleaned of all data** and setup (with indexes and schemas) before each test, and turn on `no table scan` to ensure all queries have an index defined. To refine this behaviour, you may use the composed traits directly.
+**NB** In addition to initialising a mongoComponent (as per `MongoSpecSupport` from reactivemongo-test), `DefaultPlayMonoRepositorySupport` also includes additional traits (akin to `RepositoryPreparation` and `FailOnUnindexedQueries` from reactivemongo-test) which ensure that the database is **cleaned of all data** and setup (with indexes and schemas) before each test, and turn on `no table scan` to ensure all queries have an index defined.
 
-A number of additional helper functions are provided over and above what the old `MongoSpecSupport` provided:
+You may prefer to use `MongoSupport` or any of the other traits that compose `DefaultPlayMonoRepositorySupport` directly to refine or more closely replicate the old behaviour.
+
+In addition to these behaviours, `DefaultPlayMonoRepositorySupport` provides a number of additional helper functions over and above what the old `MongoSpecSupport` supported:
 - find
 - findAll
 - insert
@@ -348,8 +350,6 @@ A number of additional helper functions are provided over and above what the old
 - count
 
 The underlying collection can be accessed via `repository.collection`.
-
-You can still use the `MongoSupport` trait directly to more closely replicate the old behaviour.
 
 ### Mongo Schemas
 
