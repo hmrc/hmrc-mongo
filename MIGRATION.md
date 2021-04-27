@@ -324,9 +324,7 @@ collection.distinct[String]("name").toFuture()
 
 ### DefaultPlayMongoRepositorySupport
 
-`uk.gov.hmrc.mongo.MongoSpecSupport` should be replaced with `uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport[T]`.
-
-It expects the repository under test to override `repository`, and provides a `mongoComponent` to create the repository. This will create a database named after the test.
+`uk.gov.hmrc.mongo.MongoSpecSupport` has been replaced with `uk.gov.hmrc.mongo.test.MongoSupport`, however it is reccomended that you migrate to using `uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport[T]` instead which contains some improvements to the testing experience (**but also changes the way your test data is handled**, see below).
 
 e.g.
 
@@ -337,9 +335,11 @@ class MyEntityRepositorySpec extends DefaultPlayMongoRepositorySupport[MyEntity]
 }
 ```
 
-`DefaultPlayMongoRepositorySupport` will ensure that the database is cleaned and setup (with indexes and schemas) before each test, and turn on `no table scan` to ensure all queries have an index defined. To refine this behaviour, you may use the composed traits directly.
+`DefaultPlayMongoRepositorySupport[T]` requires you to override `repository` in your tests, and provides a `mongoComponent` to create the repository. This will create a database named after the test.
 
-Like MongoSpecSupport, a number of helper functions are provided
+**NB** - Unlike the old `MongoSpecSupport`, `DefaultPlayMongoRepositorySupport` will ensure that the database is **cleaned of all data** and setup (with indexes and schemas) before each test, and turn on `no table scan` to ensure all queries have an index defined. To refine this behaviour, you may use the composed traits directly.
+
+A number of additional helper functions are provided over and above what the old `MongoSpecSupport` provided:
 - find
 - findAll
 - insert
@@ -348,6 +348,8 @@ Like MongoSpecSupport, a number of helper functions are provided
 - count
 
 The underlying collection can be accessed via `repository.collection`.
+
+You can still use the `MongoSupport` trait directly to more closely replicate the old behaviour.
 
 ### Mongo Schemas
 
