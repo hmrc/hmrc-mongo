@@ -10,7 +10,7 @@ object AppDependencies {
     "org.scalacheck"       %% "scalacheck"               % "1.14.3"       % Test,
     "org.scalatestplus"    %% "scalatestplus-scalacheck" % "3.1.0.0-RC2"  % Test,
     "com.vladsch.flexmark" %  "flexmark-all"             % "0.35.10"      % Test,
-    "ch.qos.logback"       %  "logback-classic"          % "1.2.3"        % Test,
+    "ch.qos.logback"       %  "logback-classic"          % "1.2.3"        % Test
   )
 
   def mongoCommon(scalaBinaryVersionValue: String): Seq[ModuleID] = Seq(
@@ -23,12 +23,12 @@ object AppDependencies {
 
   lazy val hmrcMongoPlay27: Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"       % play27Version,
-    "com.typesafe.play" %% "play-guice" % play27Version,
+    "com.typesafe.play" %% "play-guice" % play27Version
   ) ++ test
 
   lazy val hmrcMongoPlay28: Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"       % play28Version,
-    "com.typesafe.play" %% "play-guice" % play28Version,
+    "com.typesafe.play" %% "play-guice" % play28Version
   ) ++ test
 
   lazy val hmrcMongoTestPlay27: Seq[ModuleID] = Seq(
