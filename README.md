@@ -28,7 +28,7 @@ See [MIGRATION](https://github.com/hmrc/hmrc-mongo/blob/master/MIGRATION.md) for
 In your SBT build add:
 
 ```scala
-resolvers += Resolver.bintrayRepo("hmrc", "releases")
+resolvers += "HMRC-open-artefacts-maven2" at "https://open.artefacts.tax.service.gov.uk/maven2"
 
 libraryDependencies ++= Seq(
   "uk.gov.hmrc.mongo" %% "hmrc-mongo-play-xx" % "[INSERT_VERSION]"
