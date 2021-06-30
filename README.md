@@ -18,6 +18,7 @@ Other included features are:
 - [cache](#cache)
 - [test support](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-test-play-27)
 - [metrix](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-metrix-play-27)
+- [work-item-repo](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-work-item-repo-play-27)
 
 ## Migration
 

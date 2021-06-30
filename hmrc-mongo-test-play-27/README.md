@@ -42,7 +42,7 @@ Test is now part of and versioned with the `hmrc-mongo` library, which provides 
 Include the following dependency in your SBT build
 
 ``` scala
-resolvers += Resolver.bintrayRepo("hmrc", "releases")
+resolvers += "HMRC-open-artefacts-maven2" at "https://open.artefacts.tax.service.gov.uk/maven2"
 
 libraryDependencies += "uk.gov.hmrc.mongo" %% "hmrc-mongo-test-play-26" % "[INSERT-VERSION]"
 ```
