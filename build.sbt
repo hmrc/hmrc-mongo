@@ -1,6 +1,3 @@
-import sbt.Keys._
-import sbt._
-
 // Disable multiple project tests running at the same time, since notablescan flag is a global setting.
 // https://www.scala-sbt.org/1.x/docs/Parallel-Execution.html
 Global / concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.Untagged)
@@ -9,7 +6,7 @@ Global / concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.Untagged)
 lazy val commonSettings = Seq(
   organization := "uk.gov.hmrc.mongo",
   majorVersion := 0,
-  scalaVersion := "2.12.12",
+  scalaVersion := "2.12.14",
   isPublicArtefact := true
 )
 

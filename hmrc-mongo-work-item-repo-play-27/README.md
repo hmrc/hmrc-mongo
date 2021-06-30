@@ -11,7 +11,7 @@ It can be used as a simplified alternative to SQS, using mongo-repository as the
 Include the following dependency in your SBT build
 
 ``` scala
-resolvers += Resolver.bintrayRepo("hmrc", "releases")
+resolvers += "HMRC-open-artefacts-maven2" at "https://open.artefacts.tax.service.gov.uk/maven2"
 
 libraryDependencies += "uk.gov.hmrc.mongo" %% "hmrc-mongo-work-item-repo-play-xx" % "[INSERT-VERSION]"
 ```
@@ -20,7 +20,7 @@ Where play-xx is play-26, play-27 or play-28 depending on your version of Play.
 
 ## How to Use
 
-See [How to Use](../master/HOW_TO_USE.md)
+See [How to Use](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-work-item-repo-play-27/HOW_TO_USE.md)
 
 ### License
 
