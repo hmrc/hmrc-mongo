@@ -75,7 +75,6 @@ class PlayMongoRepositorySpec
   import MongoJavatimeFormats.Implicits._
 
   "PlayMongoRepository.collection" should {
-
     "read and write object with fields" in {
       forAll(myObjectGen) { myObj =>
         prepareDatabase()
@@ -155,6 +154,39 @@ class PlayMongoRepositorySpec
           val writtenObj = playMongoRepository.collection.find().toFuture
           writtenObj.futureValue shouldBe List(targetObj.copy(id = originalObj.id))
         }
+      }
+    }
+
+    // We make a best attempt, for clients which unfortunately relied on the order of keys in JSON objects (which isn't required by the spec),
+    // which simple-reactivemongo implementation preserved.
+    // Clients should really be using BSON directly (which does guarantee order) or modelling in JSON appropriately (e.g. Array or order labelled objects).
+    // However, in the spirit of making the migration from simple-reactive mongo as easy as possible, we attempt to keep the order. This comes with caveats, such as
+    // the "_id" field will always bubble up to the first entry, and any mutation of the JSON object (adding/removing entries) will loose the ordering.
+   "preserve order in json keys" in {
+      val repo =
+        new PlayMongoRepository[JsObject](
+          mongoComponent = mongoComponent,
+          collectionName = "rawjson",
+          domainFormat   = Format[JsObject](jsv => JsSuccess(jsv.asInstanceOf[JsObject]), Writes[JsObject](js => js)),
+          indexes        = Seq.empty
+        )
+
+      forAll(flatJsonObjectGen) { json =>
+        def keys(json: JsObject) =
+          json.fields.map(_._1).toList
+
+        (for {
+           _            <- repo.collection.deleteMany(BsonDocument()).toFuture
+           _            <- repo.collection.insertOne(json).toFuture
+           returnedJson <- repo.collection.find().headOption.map {
+                             case Some(res) => res
+                             case other     => fail(new RuntimeException(s"Failed to read back JsObject - was $other"))
+                           }
+           // The `drop(1)` removes the generated "_id".
+           // Note, if we were to store "_id" ourselves, it would always be returned as the first entry, regardless of where it was set in the original Json.
+           // We cannot remove with `returnedJson - "_id"` since this will loose the ordering (play's implementation delegates to Scala).
+         } yield keys(json) shouldBe keys(returnedJson).drop(1)
+        ).futureValue
       }
     }
 
@@ -395,4 +427,19 @@ object PlayMongoRepositorySpec {
       listString        = ls,
       listLong          = ll
     )
+
+  val flatJsonObjectGen: Gen[JsObject] = {
+    // Not all Strings are valid bson field named (e.g. with `.`)
+    case class BsonFieldName(s: String)
+    implicit val bsonFieldNameGen: Arbitrary[BsonFieldName] =
+      Arbitrary(
+        Arbitrary.arbitrary[String]
+        .suchThat(s => scala.util.Try(BsonDocument(s -> "")).isSuccess)
+        .map(BsonFieldName)
+      )
+    Arbitrary.arbContainer2[Map,BsonFieldName,String]
+      .arbitrary.map { m =>
+        Json.obj(m.map { case (k, v) => k.s -> Json.toJsFieldJsValueWrapper[String](v) }.toSeq :_ *)
+      }
+  }
 }
