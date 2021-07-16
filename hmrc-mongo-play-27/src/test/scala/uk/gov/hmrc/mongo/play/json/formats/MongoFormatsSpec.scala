@@ -48,27 +48,27 @@ class MongoFormatsSpec
     }
 
     "be compatible with default java.time.Instant codec" in {
-      forAll(epochMilisGen) { epochMillis =>
+      forAll(epochMillisGen) { epochMillis =>
         val javaInstant = jat.Instant.ofEpochMilli(epochMillis)
         MongoJavatimeFormats.instantFormat.writes(javaInstant) shouldBe codecWrite(javaInstant)(classOf[jat.Instant])
       }
     }
 
     "be compatible with default java.time.LocalDateTime codec" in {
-      forAll(epochMilisGen) { epochMillis =>
+      forAll(epochMillisGen) { epochMillis =>
         val javaLocalDateTime = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDateTime
         MongoJavatimeFormats.localDateTimeFormat.writes(javaLocalDateTime) shouldBe codecWrite(javaLocalDateTime)(classOf[jat.LocalDateTime])
       }
     }
 
     "be compatible with default java.time.LocalDate codec" in {
-      forAll(epochMilisGen) { epochMillis =>
+      forAll(epochMillisGen) { epochMillis =>
         val javaLocalDate = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDate
         MongoJavatimeFormats.localDateFormat.writes(javaLocalDate) shouldBe codecWrite(javaLocalDate)(classOf[jat.LocalDate])
       }
     }
   }
 
-  def epochMilisGen =
+  def epochMillisGen =
     Gen.choose(0L, System.currentTimeMillis * 2) // Keep Dates within range (ArithmeticException for any Long.MAX_VALUE)
 }

@@ -110,9 +110,11 @@ trait Codecs {
         JsNumber(bd.getValue.bigDecimalValue)
       case s: BsonString => JsString(s.getValue)
       case d: BsonDocument =>
-        JsObject(
-          d.entrySet().asScala.toList.map(e => (e.getKey, bsonToJson(e.getValue)))
-        )
+        JsObject {
+          // Implementation attempts to preserve order as in BSON document (which relies on play's JSON implementation).
+          // Note, this however is not necessarily the orginal order, since `_id` always comes first.
+          d.entrySet.asScala.toList.map(e => (e.getKey, bsonToJson(e.getValue)))
+        }
       case a: BsonArray => JsArray(a.getValues.asScala.map(bsonToJson))
       case other => // other types, attempt to convert to json object (Extended = `MongoDB Extended JSON format`)
         toJsonDefault(other, JsonMode.EXTENDED) match {
