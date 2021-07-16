@@ -111,7 +111,7 @@ trait Codecs {
       case s: BsonString => JsString(s.getValue)
       case d: BsonDocument =>
         JsObject(
-          d.asScala.map { case (k, v) => (k, bsonToJson(v)) }
+          d.entrySet().asScala.toList.map(e => (e.getKey, bsonToJson(e.getValue)))
         )
       case a: BsonArray => JsArray(a.getValues.asScala.map(bsonToJson))
       case other => // other types, attempt to convert to json object (Extended = `MongoDB Extended JSON format`)
