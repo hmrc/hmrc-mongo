@@ -16,9 +16,12 @@
 
 package uk.gov.hmrc.mongo.play.json
 
+import org.bson.UuidRepresentation
+import org.bson.codecs.UuidCodec
 import org.bson.codecs.configuration.CodecRegistries
-import org.mongodb.scala.{MongoCollection, MongoDatabase}
 import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
+import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.MongoDatabase
 import play.api.libs.json.Format
 
 import scala.reflect.ClassTag
@@ -29,11 +32,16 @@ trait CollectionFactory {
     collectionName: String,
     domainFormat: Format[A]
   ): MongoCollection[A] =
-   db.getCollection[A](collectionName)
+    db.getCollection[A](collectionName)
       .withCodecRegistry(
         CodecRegistries.fromRegistries(
-          CodecRegistries.fromCodecs(Codecs.playFormatCodec(domainFormat)),
-          DEFAULT_CODEC_REGISTRY))
+          CodecRegistries.fromCodecs(
+            Codecs.playFormatCodec(domainFormat),
+            new UuidCodec(UuidRepresentation.STANDARD)
+          ),
+          DEFAULT_CODEC_REGISTRY
+        )
+      )
 }
 
 object CollectionFactory extends CollectionFactory
