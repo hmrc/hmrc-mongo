@@ -16,57 +16,60 @@
 
 package uk.gov.hmrc.mongo.play.json.formats
 
+import org.bson.BsonBinarySubType
+import org.bson.UuidRepresentation
+import org.bson.internal.UuidHelper
 import play.api.libs.json._
 
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.util.Base64
 import java.util.UUID
 
-trait MongoUuidFormats {
+abstract class MongoUuids(uuidRep: UuidRepresentation) {
   outer =>
 
   private val encoder = Base64.getEncoder
   private val decoder = Base64.getDecoder
 
-  private val UuidOldSubType = "03"
-  private val UuidNewSubtype = "04"
+  private val UuidOldSubtype = BsonBinarySubType.UUID_LEGACY.getValue
+  private val UuidNewSubtype = BsonBinarySubType.UUID_STANDARD.getValue
 
-  private def readBase64(str: String, byteOrder: ByteOrder): UUID = {
-    val bytes     = decoder.decode(str)
-    val buffer    = ByteBuffer.wrap(bytes).order(byteOrder)
-    val highBytes = buffer.getLong()
-    val lowBytes  = buffer.getLong()
-    new UUID(highBytes, lowBytes)
-  }
+  private val ChosenSubType =
+    if (uuidRep == UuidRepresentation.JAVA_LEGACY) UuidOldSubtype else UuidNewSubtype
 
-  private def writeBase64(uuid: UUID, byteOrder: ByteOrder): String = {
-    val empty = new Array[Byte](16)
-    val bytes = ByteBuffer.wrap(empty).order(byteOrder)
-    bytes.putLong(uuid.getMostSignificantBits)
-    bytes.putLong(uuid.getLeastSignificantBits)
-    encoder.encodeToString(bytes.array())
-  }
+  private def readBase64(str: String, subType: Byte): UUID =
+    UuidHelper.decodeBinaryToUuid(
+      decoder.decode(str),
+      subType,
+      uuidRep
+    )
+
+  private def writeBase64(uuid: UUID): String =
+    encoder.encodeToString(
+      UuidHelper.encodeUuidToBinary(uuid, uuidRep)
+    )
 
   final val uuidReads: Reads[UUID] =
-    Reads.at[String](__ \ "$binary" \ "subType").flatMap {
-      case `UuidOldSubType` =>
-        Reads
-          .at[String](__ \ "$binary" \ "base64")
-          .map(readBase64(_, ByteOrder.LITTLE_ENDIAN))
-      case `UuidNewSubtype` =>
-        Reads
-          .at[String](__ \ "$binary" \ "base64")
-          .map(readBase64(_, ByteOrder.BIG_ENDIAN))
-      case other =>
-        Reads.failed(s"Invalid BSON binary subtype for UUID: '$other'")
-    }
+    Reads
+      .at[String](__ \ "$binary" \ "subType")
+      .map(_.toByte)
+      .flatMap {
+        case `UuidOldSubtype` =>
+          Reads
+            .at[String](__ \ "$binary" \ "base64")
+            .map(readBase64(_, UuidOldSubtype))
+        case `UuidNewSubtype` =>
+          Reads
+            .at[String](__ \ "$binary" \ "base64")
+            .map(readBase64(_, UuidNewSubtype))
+        case other =>
+          Reads.failed(f"Invalid BSON binary subtype for UUID: '$other%02x'")
+      }
 
   final val uuidWrites: Writes[UUID] = Writes { uuid =>
     Json.obj(
       "$binary" -> Json.obj(
-        "base64"  -> writeBase64(uuid, ByteOrder.BIG_ENDIAN),
-        "subType" -> UuidNewSubtype
+        "base64"  -> writeBase64(uuid),
+        "subType" -> f"$ChosenSubType%02x"
       )
     )
   }
@@ -81,4 +84,10 @@ trait MongoUuidFormats {
   object Implicits extends Implicits
 }
 
+abstract class MongoUuidFormats extends MongoUuids(UuidRepresentation.STANDARD)
+
 object MongoUuidFormats extends MongoUuidFormats
+
+abstract class MongoLegacyUuidFormats extends MongoUuids(UuidRepresentation.JAVA_LEGACY)
+
+object MongoLegacyUuidFormats extends MongoLegacyUuidFormats

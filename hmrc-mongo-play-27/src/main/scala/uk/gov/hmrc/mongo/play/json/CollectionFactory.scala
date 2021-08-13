@@ -16,8 +16,7 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import org.bson.UuidRepresentation
-import org.bson.codecs.UuidCodec
+import org.bson.codecs.Codec
 import org.bson.codecs.configuration.CodecRegistries
 import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.MongoCollection
@@ -30,15 +29,14 @@ trait CollectionFactory {
   def collection[A: ClassTag](
     db: MongoDatabase,
     collectionName: String,
-    domainFormat: Format[A]
+    domainFormat: Format[A],
+    extraCodecs: Codec[_]*
   ): MongoCollection[A] =
     db.getCollection[A](collectionName)
       .withCodecRegistry(
         CodecRegistries.fromRegistries(
-          CodecRegistries.fromCodecs(
-            Codecs.playFormatCodec(domainFormat),
-            new UuidCodec(UuidRepresentation.STANDARD)
-          ),
+          CodecRegistries.fromCodecs(Codecs.playFormatCodec(domainFormat)),
+          CodecRegistries.fromCodecs(extraCodecs: _*),
           DEFAULT_CODEC_REGISTRY
         )
       )
