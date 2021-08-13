@@ -26,6 +26,7 @@ import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.reflect.ClassTag
+import org.bson.codecs.Codec
 
 /** Initialise a mongo repository.
   * @param mongoComponent
@@ -42,14 +43,15 @@ class PlayMongoRepository[A: ClassTag](
   final val domainFormat: Format[A],
   final val indexes: Seq[IndexModel],
   final val optSchema: Option[BsonDocument] = None,
-  replaceIndexes: Boolean = false
+  replaceIndexes: Boolean = false,
+  extraCodecs: Seq[Codec[_]] = Seq.empty
 )(implicit ec: ExecutionContext)
     extends MongoDatabaseCollection {
 
   private val logger = Logger(getClass)
 
   lazy val collection: MongoCollection[A] =
-    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat)
+    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs)
 
   Await.result(ensureIndexes, 5.seconds)
 

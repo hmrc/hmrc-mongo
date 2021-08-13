@@ -16,28 +16,40 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import java.{time => jat}
-
 import com.mongodb.MongoWriteException
+import org.bson.UuidRepresentation
+import org.bson.codecs.UuidCodec
 import org.bson.types.ObjectId
 import org.joda.{time => jot}
-import org.mongodb.scala.{Document, ReadPreference}
-import org.mongodb.scala.bson.{BsonDocument, BsonString}
-import org.mongodb.scala.model.{Filters, Updates}
-import org.scalacheck.{Arbitrary, Gen}
+import org.mongodb.scala.Document
+import org.mongodb.scala.ReadPreference
+import org.mongodb.scala.bson.BsonDocument
+import org.mongodb.scala.bson.BsonString
+import org.mongodb.scala.model.Filters
+import org.mongodb.scala.model.Updates
+import org.scalacheck.Arbitrary
+import org.scalacheck.Gen
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.compatible.Assertion
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
-import org.scalatest.BeforeAndAfterAll
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import play.api.libs.json._
 import play.api.libs.functional.syntax._
-import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
-import uk.gov.hmrc.mongo.play.json.formats.{MongoFormats, MongoJavatimeFormats, MongoJodaFormats}
+import play.api.libs.json._
+import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.MongoUtils
+import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
+import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
+import uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats
+import uk.gov.hmrc.mongo.play.json.formats.MongoUuidFormats
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.util.UUID
+import java.{time => jat}
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+
 import ExecutionContext.Implicits.global
 
 class PlayMongoRepositorySpec
@@ -64,7 +76,8 @@ class PlayMongoRepositorySpec
     collectionName = "myobject",
     domainFormat   = myObjectFormat,
     indexes        = Seq.empty,
-    optSchema      = Some(myObjectSchema)
+    optSchema      = Some(myObjectSchema),
+    extraCodecs    = Seq(new UuidCodec(UuidRepresentation.STANDARD))
   )
 
   import Implicits._
@@ -73,6 +86,8 @@ class PlayMongoRepositorySpec
   // Note without the following import, it will compile, but use plays Javatime formats.
   // Applying `myObjectSchema` will check that dates are being stored as dates
   import MongoJavatimeFormats.Implicits._
+  // Note without the following import, it will compile, but use play's UUID formats.
+  import MongoUuidFormats.Implicits._
 
   "PlayMongoRepository.collection" should {
     "read and write object with fields" in {
@@ -115,6 +130,29 @@ class PlayMongoRepositorySpec
         checkFind("javaLocalDateTime", myObj.javaLocalDateTime)
         checkFind("sum"              , myObj.sum)
         checkFind("objectId"         , myObj.objectId)
+        checkFind("uuid"             , myObj.uuid)
+        checkFind("uuidWrapper"      , myObj.uuidWrapper)
+      }
+    }
+
+    "filter by fields with native Mongo Java codecs" in {
+      forAll(myObjectGen) { myObj =>
+        prepareDatabase()
+
+        val result = playMongoRepository.collection.insertOne(myObj).toFuture
+        result.futureValue.wasAcknowledged shouldBe true
+
+        def checkFind[A: Writes](key: String, value: A): Assertion =
+          playMongoRepository.collection
+            .find(filter = Filters.equal(key, value))
+            .toFuture
+            .futureValue shouldBe List(myObj)
+
+        checkFind("_id"              , myObj.id)
+        checkFind("javaInstant"      , myObj.javaInstant)
+        checkFind("javaLocalDate"    , myObj.javaLocalDate)
+        checkFind("javaLocalDateTime", myObj.javaLocalDateTime)
+        checkFind("uuid"             , myObj.uuid)
       }
     }
 
@@ -150,9 +188,44 @@ class PlayMongoRepositorySpec
           checkUpdate("objectId"         , targetObj.objectId         )
           checkUpdate("listString"       , targetObj.listString       )
           checkUpdate("listLong"         , targetObj.listLong         )
+          checkUpdate("uuid"             , targetObj.uuid             )
+          checkUpdate("uuidWrapper"      , targetObj.uuidWrapper      )
 
           val writtenObj = playMongoRepository.collection.find().toFuture
           writtenObj.futureValue shouldBe List(targetObj.copy(id = originalObj.id))
+        }
+      }
+    }
+
+    "update fields with native Mongo Java codecs" in {
+      forAll(myObjectGen) { originalObj =>
+        forAll(myObjectGen suchThat (_ != originalObj)) { targetObj =>
+          prepareDatabase()
+
+          val result = playMongoRepository.collection.insertOne(originalObj).toFuture
+          result.futureValue.wasAcknowledged shouldBe true
+
+          def checkUpdate[A: Writes](key: String, value: A): Assertion =
+            playMongoRepository.collection
+              .updateOne(filter = BsonDocument(), update = Updates.set(key, value))
+              .toFuture
+              .futureValue
+              .wasAcknowledged shouldBe true
+
+          // Note, not checking update of `_id` since immutable
+          checkUpdate("javaInstant"      , targetObj.javaInstant      )
+          checkUpdate("javaLocalDate"    , targetObj.javaLocalDate    )
+          checkUpdate("javaLocalDateTime", targetObj.javaLocalDateTime)
+          checkUpdate("uuid"             , targetObj.uuid             )
+
+          val writtenObj = playMongoRepository.collection.find().toFuture
+
+          writtenObj.futureValue shouldBe List(originalObj.copy(
+            javaInstant = targetObj.javaInstant,
+            javaLocalDate = targetObj.javaLocalDate,
+            javaLocalDateTime = targetObj.javaLocalDateTime,
+            uuid = targetObj.uuid
+          ))
         }
       }
     }
@@ -213,6 +286,8 @@ class PlayMongoRepositorySpec
           checkUpdateFails("javaInstant"      , targetObj.javaInstant      )(Writes.DefaultInstantWrites)
           checkUpdateFails("javaLocalDate"    , targetObj.javaLocalDate    )(Writes.DefaultLocalDateWrites)
           checkUpdateFails("javaLocalDateTime", targetObj.javaLocalDateTime)(Writes.DefaultLocalDateTimeWrites)
+          checkUpdateFails("uuid"             , targetObj.uuid             )(Writes.UuidWrites)
+          checkUpdateFails("uuidWrapper"      , targetObj.uuidWrapper      )(Writes.UuidWrites.contramap(_.unwrap))
         }
       }
     }
@@ -265,6 +340,7 @@ object PlayMongoRepositorySpec {
   case class LongWrapper      (unwrap: Long      ) extends AnyVal
   case class DoubleWrapper    (unwrap: Double    ) extends AnyVal
   case class BigDecimalWrapper(unwrap: BigDecimal) extends AnyVal
+  case class UUIDWrapper      (unwrap: UUID      ) extends AnyVal
 
   sealed trait Sum
   object Sum {
@@ -294,7 +370,10 @@ object PlayMongoRepositorySpec {
     objectId         : ObjectId,
     // Arrays
     listString       : List[String],
-    listLong         : List[Long]
+    listLong         : List[Long],
+    // UUID
+    uuid             : UUID,
+    uuidWrapper      : UUIDWrapper
   )
 
   val stringWrapperFormat: Format[StringWrapper] =
@@ -314,6 +393,12 @@ object PlayMongoRepositorySpec {
 
   val bigDecimalWrapperFormat: Format[BigDecimalWrapper] =
     implicitly[Format[BigDecimal]].inmap(BigDecimalWrapper.apply, unlift(BigDecimalWrapper.unapply))
+
+  // Note without the following import, it will compile, but use play's UUID formats.
+  import MongoUuidFormats.Implicits._
+
+  val uuidWrapperFormat: Format[UUIDWrapper] =
+    implicitly[Format[UUID]].inmap(UUIDWrapper.apply, unlift(UUIDWrapper.unapply))
 
   val sumFormat: Format[Sum] = new Format[Sum] {
     override def reads(js: JsValue) =
@@ -338,6 +423,7 @@ object PlayMongoRepositorySpec {
     implicit val lwf  = longWrapperFormat
     implicit val dwf  = doubleWrapperFormat
     implicit val bdwf = bigDecimalWrapperFormat
+    implicit val uwf  = uuidWrapperFormat
     implicit val sf   = sumFormat
   }
 
@@ -365,6 +451,8 @@ object PlayMongoRepositorySpec {
     ~ (__ \ "objectId"         ).format[ObjectId         ]
     ~ (__ \ "listString"       ).format[List[String]     ]
     ~ (__ \ "listLong"         ).format[List[Long]       ]
+    ~ (__ \ "uuid"             ).format[UUID             ]
+    ~ (__ \ "uuidWrapper"      ).format[UUIDWrapper      ]
     )(MyObject.apply, unlift(MyObject.unapply))
   }
 
@@ -390,6 +478,9 @@ object PlayMongoRepositorySpec {
         , javaLocalDateTime: { bsonType: "date"     }
         , listString       : { bsonType: "array"    }
         , listLong         : { bsonType: "array"    }
+        , listLong         : { bsonType: "array"    }
+        , uuid             : { bsonType: "binData"  }
+        , uuidWrapper      : { bsonType: "binData"  }
         }
       }
       """
@@ -404,6 +495,7 @@ object PlayMongoRepositorySpec {
       d  <- Arbitrary.arbitrary[Double      ]
       ls <- Arbitrary.arbitrary[List[String]]
       ll <- Arbitrary.arbitrary[List[Long]  ]
+      u  <- Arbitrary.arbitrary[UUID        ]
       bd <- Arbitrary.arbitrary[BigDecimal  ]
              // Only BigDecimal within Decimal128 range is supported.
              .suchThat(bd => scala.util.Try(new org.bson.types.Decimal128(bd.bigDecimal)).isSuccess)
@@ -425,7 +517,9 @@ object PlayMongoRepositorySpec {
       javaLocalDateTime = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDateTime,
       objectId          = new org.bson.types.ObjectId(new java.util.Date(epochMillis)),
       listString        = ls,
-      listLong          = ll
+      listLong          = ll,
+      uuid              = u,
+      uuidWrapper       = UUIDWrapper(u)
     )
 
   val flatJsonObjectGen: Gen[JsObject] = {
@@ -433,7 +527,7 @@ object PlayMongoRepositorySpec {
     case class BsonFieldName(s: String)
     implicit val bsonFieldNameGen: Arbitrary[BsonFieldName] =
       Arbitrary(
-        Arbitrary.arbitrary[String]
+        Gen.alphaNumStr
         .suchThat(s => scala.util.Try(BsonDocument(s -> "")).isSuccess)
         .map(BsonFieldName)
       )

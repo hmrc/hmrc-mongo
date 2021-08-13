@@ -16,55 +16,137 @@
 
 package uk.gov.hmrc.mongo.play.json.formats
 
-import java.{time => jat}
-
-import play.api.libs.json.{Json, JsValue}
+import org.bson.BSONException
+import org.bson.UuidRepresentation
+import org.bson.codecs.EncoderContext
+import org.bson.codecs.UuidCodec
+import org.bson.codecs.configuration.CodecRegistries
+import org.bson.json.JsonMode
+import org.bson.json.JsonWriter
+import org.bson.json.JsonWriterSettings
+import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
 import org.scalacheck.Gen
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
-import org.bson.json.JsonWriterSettings
-import org.bson.json.JsonMode
-import org.bson.json.JsonWriter
-import org.bson.codecs.EncoderContext
+import play.api.libs.json.JsError
+import play.api.libs.json.JsValue
+import play.api.libs.json.Json
 
+import java.util.UUID
+import java.{time => jat}
 
-class MongoFormatsSpec
-    extends AnyWordSpecLike
-    with Matchers
-    with ScalaCheckDrivenPropertyChecks
-    with EitherValues {
+class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDrivenPropertyChecks with EitherValues {
 
   import org.scalacheck.Shrink.shrinkAny // disable shrinking here - will just generate invalid numbers
 
-  "formats" should {
-    def codecWrite[A](a: A)(implicit clazz: Class[A]): JsValue = {
-      val writer = new java.io.StringWriter
+  "formats" when {
+    def codecWrite[A](a: A, uuidRep: UuidRepresentation = UuidRepresentation.STANDARD)(implicit
+      clazz: Class[A]
+    ): JsValue = {
+      val writer         = new java.io.StringWriter
       val writerSettings = JsonWriterSettings.builder.outputMode(JsonMode.EXTENDED).build
-      DEFAULT_CODEC_REGISTRY.get(clazz).encode(new JsonWriter(writer, writerSettings), a, EncoderContext.builder.build)
+      val registry = CodecRegistries.fromRegistries(
+        CodecRegistries.fromCodecs(new UuidCodec(uuidRep)),
+        DEFAULT_CODEC_REGISTRY
+      )
+      registry.get(clazz).encode(new JsonWriter(writer, writerSettings), a, EncoderContext.builder.build)
       Json.parse(writer.toString)
     }
 
-    "be compatible with default java.time.Instant codec" in {
-      forAll(epochMillisGen) { epochMillis =>
-        val javaInstant = jat.Instant.ofEpochMilli(epochMillis)
-        MongoJavatimeFormats.instantFormat.writes(javaInstant) shouldBe codecWrite(javaInstant)(classOf[jat.Instant])
+    "encoding java.time values" should {
+
+      "be compatible with default java.time.Instant codec" in {
+        forAll(epochMillisGen) { epochMillis =>
+          val javaInstant = jat.Instant.ofEpochMilli(epochMillis)
+          MongoJavatimeFormats.instantFormat.writes(javaInstant) shouldBe codecWrite(javaInstant)(classOf[jat.Instant])
+        }
+      }
+
+      "be compatible with default java.time.LocalDateTime codec" in {
+        forAll(epochMillisGen) { epochMillis =>
+          val javaLocalDateTime = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDateTime
+          MongoJavatimeFormats.localDateTimeFormat.writes(javaLocalDateTime) shouldBe codecWrite(javaLocalDateTime)(
+            classOf[jat.LocalDateTime]
+          )
+        }
+      }
+
+      "be compatible with default java.time.LocalDate codec" in {
+        forAll(epochMillisGen) { epochMillis =>
+          val javaLocalDate = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDate
+          MongoJavatimeFormats.localDateFormat.writes(javaLocalDate) shouldBe codecWrite(javaLocalDate)(
+            classOf[jat.LocalDate]
+          )
+        }
       }
     }
 
-    "be compatible with default java.time.LocalDateTime codec" in {
-      forAll(epochMillisGen) { epochMillis =>
-        val javaLocalDateTime = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDateTime
-        MongoJavatimeFormats.localDateTimeFormat.writes(javaLocalDateTime) shouldBe codecWrite(javaLocalDateTime)(classOf[jat.LocalDateTime])
+    "encoding UUIDs in standard Mongo UUID encoding" should {
+
+      "be compatible with UuidRepresentation.STANDARD java.util.UUID codec" in {
+        forAll { uuid: UUID =>
+          MongoUuidFormats.uuidFormat.writes(uuid) shouldBe codecWrite(uuid, UuidRepresentation.STANDARD)(classOf[UUID])
+        }
       }
+
+      "allow reading UUID written with UuidRepresentation.STANDARD" in {
+        forAll { uuid: UUID =>
+          val jsValue = codecWrite(uuid, UuidRepresentation.STANDARD)(classOf[UUID])
+          MongoUuidFormats.uuidReads.reads(jsValue).asOpt should contain(uuid)
+        }
+      }
+
+      "not allow reading UUID written with UuidRepresentation.JAVA_LEGACY" in {
+        forAll { uuid: UUID =>
+          val jsValue = codecWrite(uuid, UuidRepresentation.JAVA_LEGACY)(classOf[UUID])
+          assertThrows[BSONException] {
+            MongoUuidFormats.uuidReads.reads(jsValue)
+          }
+        }
+      }
+
+      "fail when reading data written with generic binary subtype as UUID" in {
+        forAll { bytes: Array[Byte] =>
+          MongoUuidFormats.uuidReads.reads(codecWrite(bytes)(classOf[Array[Byte]])) shouldBe JsError(
+            "Invalid BSON binary subtype for UUID: '00'"
+          )
+        }
+      }
+
     }
 
-    "be compatible with default java.time.LocalDate codec" in {
-      forAll(epochMillisGen) { epochMillis =>
-        val javaLocalDate = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDate
-        MongoJavatimeFormats.localDateFormat.writes(javaLocalDate) shouldBe codecWrite(javaLocalDate)(classOf[jat.LocalDate])
+    "encoding UUIDs in legacy Mongo UUID encoding" should {
+
+      "be compatible with UuidRepresentation.LEGACY java.util.UUID codec" in {
+        forAll { uuid: UUID =>
+          MongoLegacyUuidFormats.uuidFormat.writes(uuid) shouldBe codecWrite(uuid, UuidRepresentation.JAVA_LEGACY)(
+            classOf[UUID]
+          )
+        }
+      }
+
+      "allow reading UUID written with UuidRepresentation.JAVA_LEGACY" in {
+        forAll { uuid: UUID =>
+          val jsValue = codecWrite(uuid, UuidRepresentation.JAVA_LEGACY)(classOf[UUID])
+          MongoLegacyUuidFormats.uuidReads.reads(jsValue).asOpt should contain(uuid)
+        }
+      }
+
+      "allow reading UUID written with UuidRepresentation.STANDARD" in {
+        forAll { uuid: UUID =>
+          val jsValue = codecWrite(uuid, UuidRepresentation.STANDARD)(classOf[UUID])
+          MongoLegacyUuidFormats.uuidReads.reads(jsValue).asOpt should contain(uuid)
+        }
+      }
+
+      "fail when reading data written with generic binary subtype as UUID" in {
+        forAll { bytes: Array[Byte] =>
+          MongoLegacyUuidFormats.uuidReads.reads(codecWrite(bytes)(classOf[Array[Byte]])) shouldBe JsError(
+            "Invalid BSON binary subtype for UUID: '00'"
+          )
+        }
       }
     }
   }
