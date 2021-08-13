@@ -300,6 +300,26 @@ collection.findOneAndUpdate(
 
 Dates are worth a special mention. Codecs are already provided for Java time, allowing their use directly in filters/updates. However, they do not exist for jodatime, you will have to use `Codecs.toBson` with the `uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats` in scope. We recommend migrating to use java time.
 
+#### Nothing
+
+If you come across:
+
+> Can't find a codec for class scala.runtime.Nothing$.","exception":"org.bson.codecs.configuration.CodecConfigurationException
+
+This arises when `Nothing` is inferred as the result type of a query, and no codec exists for this type. This can be fixed by explicitly stating the expected type.
+
+e.g.
+
+```scala
+collection.distinct("name").toFuture()
+```
+
+becomes
+
+```scala
+collection.distinct[String]("name").toFuture()
+```
+
 ## UUIDs
 
 MongoDB is able to serialize UUIDs as binary values for greater storage efficiency and index performance.
@@ -327,26 +347,6 @@ If your service uses the new UUID encoding, when declaring Play JSON `Format`s f
 If your service is a new service with no existing production data, or if the service has never previously used UUID values in its data models, you can safely use `UuidRepresentation.STANDARD` and `MongoUuidFormats.Implicits`.
 
 It's possible that your service writes UUIDs to the database as `String` values, in which case you do not need to use the `MongoUuidFormats` provided by this library at all. The default Play Framework UUID `Format`s already encode UUIDs correctly for your service.
-
-#### Nothing
-
-If you come across:
-
-> Can't find a codec for class scala.runtime.Nothing$.","exception":"org.bson.codecs.configuration.CodecConfigurationException
-
-This arises when `Nothing` is inferred as the result type of a query, and no codec exists for this type. This can be fixed by explicitly stating the expected type.
-
-e.g.
-
-```scala
-collection.distinct("name").toFuture()
-```
-
-becomes
-
-```scala
-collection.distinct[String]("name").toFuture()
-```
 
 ## Updating Tests
 
