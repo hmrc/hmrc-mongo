@@ -51,7 +51,7 @@ class PlayMongoRepository[A: ClassTag](
   private val logger = Logger(getClass)
 
   lazy val collection: MongoCollection[A] =
-    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs: _*)
+    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs)
 
   Await.result(ensureIndexes, 5.seconds)
 

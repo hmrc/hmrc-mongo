@@ -314,7 +314,9 @@ There is a new binary subtype because in the past, different Mongo drivers used 
 
 This means that if your service currently uses binary UUIDs and you are migrating to **hmrc-mongo**, then you must be aware of which encoding your service currently uses.
 
-If you do not configure the UUID encoding to match your existing data, queries which filter by UUID will fail to find any data that was written prior to migrating to **hmrc-mongo**. If you are forced to back out your migration to **hmrc-mongo**, any new data that was written after the deployment of the new code will not be able to be found once the changes are backed out.
+If you do not configure the UUID encoding to match your existing data, queries which filter by UUID will fail to find any data that was written prior to migrating to **hmrc-mongo**. You may also experience runtime exceptions when reading legacy UUID data from Mongo. If you are forced to back out your migration to **hmrc-mongo**, any data that was written after the deployment of the new code will not be able to be found when filtering by UUID if the changes are backed out.
+
+As a result of these concerns, it might be more practical to migrate any data stored in the old UUID encoding using an aggregation pipeline before proceeding with your migration to **hmrc-mongo**.
 
 Once you know which representation your service uses, you can provide a `new UuidCodec(UuidRepresentation.STANDARD)` or `new UuidCodec(UuidRepresentation.JAVA_LEGACY)` as part of the `extraCodecs` for your repository.
 

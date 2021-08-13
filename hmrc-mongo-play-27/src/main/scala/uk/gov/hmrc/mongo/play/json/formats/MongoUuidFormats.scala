@@ -33,8 +33,8 @@ abstract class MongoUuids(uuidRep: UuidRepresentation) {
   private val UuidOldSubtype = BsonBinarySubType.UUID_LEGACY.getValue
   private val UuidNewSubtype = BsonBinarySubType.UUID_STANDARD.getValue
 
-  private val ChosenSubType =
-    if (uuidRep == UuidRepresentation.JAVA_LEGACY) UuidOldSubtype else UuidNewSubtype
+  private val chosenSubType =
+    if (uuidRep == UuidRepresentation.STANDARD) UuidNewSubtype else UuidOldSubtype
 
   private def readBase64(str: String, subType: Byte): UUID =
     UuidHelper.decodeBinaryToUuid(
@@ -69,7 +69,7 @@ abstract class MongoUuids(uuidRep: UuidRepresentation) {
     Json.obj(
       "$binary" -> Json.obj(
         "base64"  -> writeBase64(uuid),
-        "subType" -> f"$ChosenSubType%02x"
+        "subType" -> f"$chosenSubType%02x"
       )
     )
   }

@@ -16,6 +16,7 @@
 
 package uk.gov.hmrc.mongo.play.json.formats
 
+import org.bson.BSONException
 import org.bson.UuidRepresentation
 import org.bson.codecs.EncoderContext
 import org.bson.codecs.UuidCodec
@@ -35,8 +36,6 @@ import play.api.libs.json.Json
 
 import java.util.UUID
 import java.{time => jat}
-import org.bson.BSONException
-import uk.gov.hmrc.mongo.lock.MongoLockRepository
 
 class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDrivenPropertyChecks with EitherValues {
 
