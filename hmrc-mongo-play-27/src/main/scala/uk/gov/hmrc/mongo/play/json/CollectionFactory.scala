@@ -30,7 +30,7 @@ trait CollectionFactory {
     db: MongoDatabase,
     collectionName: String,
     domainFormat: Format[A],
-    extraCodecs: Seq[Codec[_]]
+    extraCodecs: Seq[Codec[_]] = Seq.empty
   ): MongoCollection[A] =
     db.getCollection[A](collectionName)
       .withCodecRegistry(
