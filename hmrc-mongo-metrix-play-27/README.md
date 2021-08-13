@@ -52,15 +52,15 @@ this information to graphite.
 import scala.concurrent.duration.DurationInt
 
 
-val lockId: String                            = "your-lock-id"
-val ttl: Duration                             = 10.seconds
-val mongoLockService                          = MongoLockService(mongoLockRepository, lockId, ttl)
+val lockId: String = "your-lock-id"
+val ttl: Duration  = 10.seconds
+val lockService    = LockService(mongoLockRepository, lockId, ttl)
 
 val sources: List[MetricSource] = ... AddYourMetricSourcesHere ...
 
 val metricOrchestrator new MetricOrchestrator(
   metricSources     = sources,
-  lockService       = mongoLockService,
+  lockService       = lockService,
   metricRepository  = metricRepository,
   metricRegistry    = metricRegistry
 )
