@@ -16,6 +16,7 @@ The model objects are mapped to json with [Play json](https://github.com/playfra
 Other included features are:
 - [lock](#lock)
 - [cache](#cache)
+- [transactions](#transactions)
 - [test support](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-test-play-27)
 - [metrix](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-metrix-play-27)
 - [work-item-repo](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-work-item-repo-play-27)
@@ -230,6 +231,38 @@ The functions exposed by this class are:
 ### EntityCache
 
  A variant which makes it easier to work with a single data type, which all expire independently.
+
+## Transactions
+
+The trait `uk.gov.hmrc.mongo.transaction.Transactions` fills the gap of providing `withTransaction` (as available for the java sync driver) for mongo-scala. It may be removed when this is supported by the native driver.
+
+First confirm whether you actually need to use transactions, they will incur a performance cost.
+
+If you don't need to use an existing Session, it is preferrable to use `withSessionAndTransaction`.
+
+You will need to provide an implicit `TransactionConfiguration`. We recommend using `TransactionConfiguration.strict` for causal consistency, but you can provide your own if you do not need such a strict configuation.
+
+It is also recommended to stick with the `Future` rather than the `Observable` abstraction, since we have noticed a few gotchas with the `Observable` - e.g. some db functions return `Publisher[Void]` which silently ignore any further monadic steps, and not all exceptions are bubbled up leading to timeouts.
+
+e.g.
+
+```scala
+class ModelRepository @Inject() (val mongoComponent: MongoComponent)(implicit ec: ExecutionContext)
+  extends PlayMongoRepository[Model](...)
+     with Transactions {
+
+  private implicit val tc = TransactionConfiguration.strict
+
+  def replaceAll(seq: Seq[Model]): Future[Unit] =
+    withSessionAndTransaction(session =>
+      for {
+        _ <- collection.deleteMany(session, Document()).toFuture()
+        _ <- collection.insertMany(session, seq).toFuture()
+      } yield ()
+    )
+```
+
+You may need to ensure that the collection is created as part of your setup, since implicit creation of collections from a transactional insert/upsert is only supported from Mongo 4.4. This applies to tests too.
 
 ### License
 

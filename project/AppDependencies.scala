@@ -14,7 +14,7 @@ object AppDependencies {
   )
 
   def mongoCommon(scalaBinaryVersionValue: String): Seq[ModuleID] = Seq(
-    "org.mongodb.scala" %% "mongo-scala-driver" % "4.1.1",
+    "org.mongodb.scala" %% "mongo-scala-driver" % "4.3.1",
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
   )
 

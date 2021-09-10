@@ -13,6 +13,7 @@ This guide is for migrating from [simple-reactivemongo](https://github.com/hmrc/
 - [BSON, Domain Formats and Codecs](#bson-domain-formats-and-codecs)
   - [Entity model](#entity-model)
   - [Filters/Updates](#filtersupdates)
+- [UUIDs](#uuids)
 - [Updating Tests](#updating-tests)
   - [DefaultPlayMongoRepositorySupport](#defaultplaymongorepositorysupport)
   - [Mongo Schemas](#mongo-schemas)
