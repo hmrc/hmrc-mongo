@@ -234,15 +234,15 @@ The functions exposed by this class are:
 
 ## Transactions
 
-The trait `uk.gov.hmrc.mongo.transaction.Transactions` fills the gap of providing `withTransaction` (as available for the java sync driver) for mongo-scala. It may be removed when this is supported by the native driver.
+The trait `uk.gov.hmrc.mongo.transaction.Transactions` fills the gap of providing `withTransaction` (as available for the java sync driver) for mongo-scala. It may be removed when this is supported by the official driver.
 
 First confirm whether you actually need to use transactions, they will incur a performance cost.
 
-If you don't need to use an existing Session, it is preferrable to use `withSessionAndTransaction`.
+If you don't need to use an existing Session, it is preferrable to use `withSessionAndTransaction` which will provide you a session to use.
 
-You will need to provide an implicit `TransactionConfiguration`. We recommend using `TransactionConfiguration.strict` for causal consistency, but you can provide your own if you do not need such a strict configuation.
+You will need to provide an implicit `TransactionConfiguration`. We recommend using `TransactionConfiguration.strict` for causal consistency, but you can provide your own if you do not need such a strict configuration.
 
-It is also recommended to stick with the `Future` rather than the `Observable` abstraction, since we have noticed a few gotchas with the `Observable` - e.g. some db functions return `Publisher[Void]` which silently ignore any further monadic steps, and not all exceptions are bubbled up leading to timeouts.
+It is also recommended to use the `Future` rather than the `Observable` abstraction, since we have noticed a few gotchas with the `Observable` - e.g. some db functions return `Publisher[Void]` which silently ignore any further monadic steps, and not all exceptions bubble up leading to timeouts.
 
 e.g.
 
@@ -262,7 +262,7 @@ class ModelRepository @Inject() (val mongoComponent: MongoComponent)(implicit ec
     )
 ```
 
-You may need to ensure that the collection is created as part of your setup, since implicit creation of collections from a transactional insert/upsert is only supported from Mongo 4.4. This applies to tests too.
+You may see `com.mongodb.MongoCommandException, with message: Command failed with error 263 (OperationNotSupportedInTransaction): 'Cannot create namespace ... in multi-document transaction.'` if collections are created implicitly on insert/upsert from a transaction, which is not supported until Mongo 4.4. You will need to ensure that the collection is created before the transaction runs. This especially applies to tests.
 
 ### License
 
