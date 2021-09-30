@@ -16,6 +16,7 @@
 
 package uk.gov.hmrc.mongo.play.json
 
+import akka.util.ByteString
 import com.mongodb.MongoWriteException
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
@@ -39,6 +40,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.MongoUtils
+import uk.gov.hmrc.mongo.play.json.formats.MongoBinaryFormats
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 import uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats
@@ -82,6 +84,7 @@ class PlayMongoRepositorySpec
 
   import Implicits._
   import MongoFormats.Implicits._
+  import MongoBinaryFormats.Implicits._
   import MongoJodaFormats.Implicits._
   // Note without the following import, it will compile, but use plays Javatime formats.
   // Applying `myObjectSchema` will check that dates are being stored as dates
@@ -132,6 +135,8 @@ class PlayMongoRepositorySpec
         checkFind("objectId"         , myObj.objectId)
         checkFind("uuid"             , myObj.uuid)
         checkFind("uuidWrapper"      , myObj.uuidWrapper)
+        checkFind("binary"           , myObj.binary)
+        checkFind("binaryWrapper"    , myObj.binaryWrapper)
       }
     }
 
@@ -190,6 +195,8 @@ class PlayMongoRepositorySpec
           checkUpdate("listLong"         , targetObj.listLong         )
           checkUpdate("uuid"             , targetObj.uuid             )
           checkUpdate("uuidWrapper"      , targetObj.uuidWrapper      )
+          checkUpdate("binary"           , targetObj.binary           )
+          checkUpdate("binaryWrapper"    , targetObj.binaryWrapper    )
 
           val writtenObj = playMongoRepository.collection.find().toFuture
           writtenObj.futureValue shouldBe List(targetObj.copy(id = originalObj.id))
@@ -288,6 +295,8 @@ class PlayMongoRepositorySpec
           checkUpdateFails("javaLocalDateTime", targetObj.javaLocalDateTime)(Writes.DefaultLocalDateTimeWrites)
           checkUpdateFails("uuid"             , targetObj.uuid             )(Writes.UuidWrites)
           checkUpdateFails("uuidWrapper"      , targetObj.uuidWrapper      )(Writes.UuidWrites.contramap(_.unwrap))
+          checkUpdateFails("binary"           , targetObj.binary           )(Writes.arrayWrites[Byte].contramap(_.toArray[Byte]))
+          checkUpdateFails("binaryWrapper"    , targetObj.binaryWrapper    )(Writes.arrayWrites[Byte].contramap(_.unwrap.toArray[Byte]))
         }
       }
     }
@@ -334,13 +343,14 @@ class PlayMongoRepositorySpec
 
 object PlayMongoRepositorySpec {
 
-  case class StringWrapper    (unwrap: String    ) extends AnyVal
-  case class BooleanWrapper   (unwrap: Boolean   ) extends AnyVal
-  case class IntWrapper       (unwrap: Int       ) extends AnyVal
-  case class LongWrapper      (unwrap: Long      ) extends AnyVal
-  case class DoubleWrapper    (unwrap: Double    ) extends AnyVal
-  case class BigDecimalWrapper(unwrap: BigDecimal) extends AnyVal
-  case class UUIDWrapper      (unwrap: UUID      ) extends AnyVal
+  case class StringWrapper    (unwrap: String     ) extends AnyVal
+  case class BooleanWrapper   (unwrap: Boolean    ) extends AnyVal
+  case class IntWrapper       (unwrap: Int        ) extends AnyVal
+  case class LongWrapper      (unwrap: Long       ) extends AnyVal
+  case class DoubleWrapper    (unwrap: Double     ) extends AnyVal
+  case class BigDecimalWrapper(unwrap: BigDecimal ) extends AnyVal
+  case class UUIDWrapper      (unwrap: UUID       ) extends AnyVal
+  case class BinaryWrapper    (unwrap: ByteString ) extends AnyVal
 
   sealed trait Sum
   object Sum {
@@ -373,7 +383,9 @@ object PlayMongoRepositorySpec {
     listLong         : List[Long],
     // UUID
     uuid             : UUID,
-    uuidWrapper      : UUIDWrapper
+    uuidWrapper      : UUIDWrapper,
+    binary           : ByteString,
+    binaryWrapper    : BinaryWrapper
   )
 
   val stringWrapperFormat: Format[StringWrapper] =
@@ -400,6 +412,11 @@ object PlayMongoRepositorySpec {
   val uuidWrapperFormat: Format[UUIDWrapper] =
     implicitly[Format[UUID]].inmap(UUIDWrapper.apply, unlift(UUIDWrapper.unapply))
 
+  import MongoBinaryFormats.Implicits._
+
+  val binaryWrapperFormat: Format[BinaryWrapper] =
+    implicitly[Format[ByteString]].inmap(BinaryWrapper.apply, unlift(BinaryWrapper.unapply))
+
   val sumFormat: Format[Sum] = new Format[Sum] {
     override def reads(js: JsValue) =
       js.validate[String]
@@ -417,14 +434,15 @@ object PlayMongoRepositorySpec {
   }
 
   object Implicits {
-    implicit val swf  = stringWrapperFormat
-    implicit val bwf  = booleanWrapperFormat
-    implicit val iwf  = intWrapperFormat
-    implicit val lwf  = longWrapperFormat
-    implicit val dwf  = doubleWrapperFormat
-    implicit val bdwf = bigDecimalWrapperFormat
-    implicit val uwf  = uuidWrapperFormat
-    implicit val sf   = sumFormat
+    implicit val swf   = stringWrapperFormat
+    implicit val bwf   = booleanWrapperFormat
+    implicit val iwf   = intWrapperFormat
+    implicit val lwf   = longWrapperFormat
+    implicit val dwf   = doubleWrapperFormat
+    implicit val bdwf  = bigDecimalWrapperFormat
+    implicit val uwf   = uuidWrapperFormat
+    implicit val binwf = binaryWrapperFormat
+    implicit val sf    = sumFormat
   }
 
   val myObjectFormat = {
@@ -453,6 +471,8 @@ object PlayMongoRepositorySpec {
     ~ (__ \ "listLong"         ).format[List[Long]       ]
     ~ (__ \ "uuid"             ).format[UUID             ]
     ~ (__ \ "uuidWrapper"      ).format[UUIDWrapper      ]
+    ~ (__ \ "binary"           ).format[ByteString       ]
+    ~ (__ \ "binaryWrapper"    ).format[BinaryWrapper    ]
     )(MyObject.apply, unlift(MyObject.unapply))
   }
 
@@ -481,6 +501,8 @@ object PlayMongoRepositorySpec {
         , listLong         : { bsonType: "array"    }
         , uuid             : { bsonType: "binData"  }
         , uuidWrapper      : { bsonType: "binData"  }
+        , binary           : { bsonType: "binData"  }
+        , binaryWrapper    : { bsonType: "binData"  }
         }
       }
       """
@@ -488,15 +510,16 @@ object PlayMongoRepositorySpec {
 
   def myObjectGen =
     for {
-      s  <- Arbitrary.arbitrary[String      ]
-      b  <- Arbitrary.arbitrary[Boolean     ]
-      i  <- Arbitrary.arbitrary[Int         ]
-      l  <- Arbitrary.arbitrary[Long        ]
-      d  <- Arbitrary.arbitrary[Double      ]
-      ls <- Arbitrary.arbitrary[List[String]]
-      ll <- Arbitrary.arbitrary[List[Long]  ]
-      u  <- Arbitrary.arbitrary[UUID        ]
-      bd <- Arbitrary.arbitrary[BigDecimal  ]
+      s   <- Arbitrary.arbitrary[String      ]
+      b   <- Arbitrary.arbitrary[Boolean     ]
+      i   <- Arbitrary.arbitrary[Int         ]
+      l   <- Arbitrary.arbitrary[Long        ]
+      d   <- Arbitrary.arbitrary[Double      ]
+      ls  <- Arbitrary.arbitrary[List[String]]
+      ll  <- Arbitrary.arbitrary[List[Long]  ]
+      u   <- Arbitrary.arbitrary[UUID        ]
+      bin <- Arbitrary.arbitrary[Array[Byte] ]
+      bd  <- Arbitrary.arbitrary[BigDecimal  ]
              // Only BigDecimal within Decimal128 range is supported.
              .suchThat(bd => scala.util.Try(new org.bson.types.Decimal128(bd.bigDecimal)).isSuccess)
       epochMillis <- Gen.choose(0L, System.currentTimeMillis * 2) // Keep Dates within range (ArithmeticException for any Long.MAX_VALUE)
@@ -519,7 +542,9 @@ object PlayMongoRepositorySpec {
       listString        = ls,
       listLong          = ll,
       uuid              = u,
-      uuidWrapper       = UUIDWrapper(u)
+      uuidWrapper       = UUIDWrapper(u),
+      binary            = ByteString(bin),
+      binaryWrapper     = BinaryWrapper(ByteString(bin))
     )
 
   val flatJsonObjectGen: Gen[JsObject] = {

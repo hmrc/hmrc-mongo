@@ -301,6 +301,12 @@ collection.findOneAndUpdate(
 
 Dates are worth a special mention. Codecs are already provided for Java time, allowing their use directly in filters/updates. However, they do not exist for jodatime, you will have to use `Codecs.toBson` with the `uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats` in scope. We recommend migrating to use java time.
 
+#### Binary data
+
+Play framework already provides formats for encoding `Array[Byte]`. However, these formats are provided via the generic format for arrays, and therefore encode byte arrays as arrays of numbers.
+
+This is not what most services require when encoding binary data to store in Mongo, so **hmrc-mongo** provides `uk.gov.hmrc.mongo.play.json.formats.MongoBinaryFormats` for encoding `Array[Byte]`, `ByteBuffer` and `akka.util.ByteString` to Mongo's binary representation.
+
 #### Nothing
 
 If you come across:
