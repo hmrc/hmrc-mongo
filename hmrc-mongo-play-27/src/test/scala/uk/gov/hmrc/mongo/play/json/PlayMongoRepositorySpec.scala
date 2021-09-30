@@ -384,6 +384,8 @@ object PlayMongoRepositorySpec {
     // UUID
     uuid             : UUID,
     uuidWrapper      : UUIDWrapper,
+    // Binary data - we use ByteString for this test because case class equality
+    // uses reference equality for arrays so it will never compare equal
     binary           : ByteString,
     binaryWrapper    : BinaryWrapper
   )
