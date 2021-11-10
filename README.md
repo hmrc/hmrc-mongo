@@ -23,7 +23,7 @@ Other included features are:
 
 ## Migration
 
-See [MIGRATION](https://github.com/hmrc/hmrc-mongo/blob/master/MIGRATION.md) for migrating from Simple-reactivemongo.
+See [MIGRATION](https://github.com/hmrc/hmrc-mongo/blob/main/MIGRATION.md) for migrating from Simple-reactivemongo.
 
 ## Adding to your build
 
@@ -45,7 +45,7 @@ Create a case class to represent the data model to be serialised/deserialised to
 
 Create [JSON Format](https://www.playframework.com/documentation/2.8.x/ScalaJsonCombinators) to map the data model to JSON.
 
-Extend [PlayMongoRepository](https://github.com/hmrc/hmrc-mongo/blob/master/hmrc-mongo-play-27/src/main/scala/uk/gov/hmrc/mongo/play/PlayMongoComponent.scala), providing the collectionName, the mongoComponent, and domainFormat.
+Extend [PlayMongoRepository](https://github.com/hmrc/hmrc-mongo/blob/main/hmrc-mongo-play-27/src/main/scala/uk/gov/hmrc/mongo/play/PlayMongoComponent.scala), providing the collectionName, the mongoComponent, and domainFormat.
 
 The mongoComponent can be injected if you register the PlayMongoModule with play. In `application.conf`:
 ```scala
