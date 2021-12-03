@@ -31,8 +31,6 @@ import scala.concurrent.duration.DurationInt
   * It is recommended to use the Future variant (i.e. add `.toFuture` to all db calls), since the Observable variant
   * has some surprises. E.g.
   *  - some commands return `Observable[Void]` which will ignore any following map/flatMap (e.g. for-comprehension steps)
-  *  - exceptions are only propagated up if they occur inside an Observable, other exceptions (e.g. thrown in map/flatMap) will be
-  *    be swallowed, leading to timeouts.
   */
 trait Transactions {
   def mongoComponent: MongoComponent
@@ -159,9 +157,9 @@ trait Transactions {
                  completeWith(session.abortTransaction(), ())
                    .recover {
                      case e2 => logger.error(s"Error aborting transaction: ${e2.getMessage}", e2)
-                                raiseError(e1) // throwing breaks MapObservable/FlatMapObservable...
+                                throw e1
                    }
-                   .flatMap[A](_ => raiseError(e1))  // throwing breaks MapObservable/FlatMapObservable...
+                   .map[A](_ => throw e1)
                }
         _   <- retryFor(e =>
                  !e.isInstanceOf[MongoExecutionTimeoutException]
@@ -174,6 +172,8 @@ trait Transactions {
   /** Observable[Void] by definition will never emit a value to be mapped (see org.mongodb.scala.internal.MapObservable).
     * When converting to Future, it works since it completes with `None` (see org.mongodb.scala.Observable.headOption).
     * This function converts an Observable[Void] to the provided value to continue.
+    *
+    * `completeWithUnit` now exists on `Observable` but throws "java.lang.IllegalStateException: The Observable has not been subscribed to."
     */
   def completeWith[A](obs: Observable[Void], f: => A): Observable[A] =
     new Observable[A] {
@@ -193,30 +193,6 @@ trait Transactions {
 
             override def onNext(tResult: Void): Unit =
               ??? // by definition never called
-          }
-        )
-    }
-
-    /** Throwing exceptions will not propagate through org.mongodb.scala.internal.MapObservable or
-      * org.mongodb.scala.internal.FlatMapObservable.
-      * For tests, this will ensure the errors are raised inside an Observable.
-      */
-    private[transaction] def raiseError[A](e: Throwable) = new Observable[A] {
-      val delegate: Observable[Unit] = Observable[Unit](Seq(()))
-      override def subscribe(observer: Observer[_ >: A]): Unit =
-        delegate.subscribe(
-          new Observer[Unit] {
-            override def onError(throwable: Throwable): Unit =
-              observer.onError(throwable)
-
-            override def onSubscribe(sub: Subscription): Unit =
-              observer.onSubscribe(sub)
-
-            override def onComplete(): Unit =
-              () // not reached
-
-            override def onNext(tResult: Unit): Unit =
-              onError(e)
           }
         )
     }

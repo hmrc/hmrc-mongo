@@ -242,7 +242,7 @@ If you don't need to use an existing Session, it is preferrable to use `withSess
 
 You will need to provide an implicit `TransactionConfiguration`. We recommend using `TransactionConfiguration.strict` for causal consistency, but you can provide your own if you do not need such a strict configuration.
 
-It is also recommended to use the `Future` rather than the `Observable` abstraction, since we have noticed a few gotchas with the `Observable` - e.g. some db functions return `Publisher[Void]` which silently ignore any further monadic steps, and not all exceptions bubble up leading to timeouts.
+It is also recommended to use the `Future` rather than the `Observable` abstraction, since we have noticed a few gotchas with the `Observable` - e.g. some db functions return `Publisher[Void]` which silently ignore any further monadic steps.
 
 e.g.
 
