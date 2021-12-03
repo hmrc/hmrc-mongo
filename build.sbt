@@ -63,14 +63,14 @@ lazy val hmrcMongoMetrixPlay27 = Project("hmrc-mongo-metrix-play-27", file("hmrc
   .settings(
     commonSettings,
     libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay27
-  ).dependsOn(hmrcMongoPlay27, hmrcMongoTestPlay27)
+  ).dependsOn(hmrcMongoPlay27, hmrcMongoTestPlay27 % "compile->test")
 
 lazy val hmrcMongoMetrixPlay28 = Project("hmrc-mongo-metrix-play-28", file("hmrc-mongo-metrix-play-28"))
   .settings(
     commonSettings,
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-metrix-play-27/src/main/scala",
     libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay28
-  ).dependsOn(hmrcMongoPlay28, hmrcMongoTestPlay28)
+  ).dependsOn(hmrcMongoPlay28, hmrcMongoTestPlay28 % "compile->test")
 
 lazy val hmrcMongoWorkItemRepoPlay27 = Project("hmrc-mongo-work-item-repo-play-27", file("hmrc-mongo-work-item-repo-play-27"))
   .settings(
