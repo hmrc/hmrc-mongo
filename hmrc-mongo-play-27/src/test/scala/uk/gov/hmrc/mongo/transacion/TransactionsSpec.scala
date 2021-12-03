@@ -142,7 +142,7 @@ class TransactionSpec
           for {
             _ <- collection.insertOne(session, BsonDocument())
             _ <- collection.insertOne(session, BsonDocument())
-            _ <- raiseError[Unit](new RuntimeException("Fail")) // doesn't work with `sys.error("Fail")`
+            _ =  sys.error("Fail")
           } yield ()
         }.toFuture().failed.futureValue
 
@@ -166,7 +166,7 @@ class TransactionSpec
             _   <- collection.insertOne(session, BsonDocument())
             _   <- collection.insertOne(session, BsonDocument())
             _   <- if (i == 1)
-                    raiseError[Unit](e) // doesn't work with `throw e`
+                    throw e
                   else Observable[Unit](Seq(()))
           } yield ()
         }.toFuture().futureValue
