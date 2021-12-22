@@ -59,7 +59,7 @@ trait Transactions {
     ec: ExecutionContext
   ): Future[A] =
     for {
-      session <- tc.clientSessionOptions.fold(mongoComponent.client.startSession)(mongoComponent.client.startSession _).toFuture()
+      session <- tc.clientSessionOptions.fold(mongoComponent.client.startSession())(mongoComponent.client.startSession _).toFuture()
       f2      =  f(session)
       _       =  f2.onComplete(_ => session.close())
       res     <- f2
@@ -123,7 +123,7 @@ trait Transactions {
     tc: TransactionConfiguration
   ): Observable[A] =
     for {
-      session <- tc.clientSessionOptions.fold(mongoComponent.client.startSession)(mongoComponent.client.startSession _)
+      session <- tc.clientSessionOptions.fold(mongoComponent.client.startSession())(mongoComponent.client.startSession _)
       res     <- f(session).recover { case e => session.close(); throw e }
       _       =  session.close()
       } yield res

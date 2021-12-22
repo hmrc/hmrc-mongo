@@ -16,9 +16,8 @@
 
 package uk.gov.hmrc.mongo
 
-import org.scalatest.{Failed, Outcome, Retries}
+import org.scalatest.{BeforeAndAfterEach, Failed, Outcome, Retries}
 import org.scalatest.wordspec.AnyWordSpecLike
-import org.scalatest.{BeforeAndAfterEach, Outcome, Retries}
 import org.slf4j.{Logger, LoggerFactory}
 
 abstract class WordSpecLikeWithRetries extends AnyWordSpecLike with Retries {

@@ -27,6 +27,7 @@ import play.api.libs.json.Json
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.language.reflectiveCalls
 
 trait TimeSource {
   val timeSource = new {

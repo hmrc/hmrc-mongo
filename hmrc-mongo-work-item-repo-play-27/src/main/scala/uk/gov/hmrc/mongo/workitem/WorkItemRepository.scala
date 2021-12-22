@@ -98,7 +98,7 @@ abstract class WorkItemRepository[T](
     initialState: T => ProcessingStatus = toDo _
   ): Future[WorkItem[T]] = {
     val workItem = newWorkItem(availableAt, initialState)(item)
-    collection.insertOne(workItem).toFuture.map(_ => workItem)
+    collection.insertOne(workItem).toFuture().map(_ => workItem)
   }
 
   /** Creates a batch of new [[WorkItem]]s.
@@ -113,7 +113,7 @@ abstract class WorkItemRepository[T](
   ): Future[Seq[WorkItem[T]]] = {
     val workItems = items.map(newWorkItem(availableAt, initialState))
 
-    collection.insertMany(workItems).toFuture.map { result =>
+    collection.insertMany(workItems).toFuture().map { result =>
       if (result.getInsertedIds.size == workItems.size) workItems
       else throw new RuntimeException(s"Only ${result.getInsertedIds.size} items were saved")
     }
@@ -139,7 +139,7 @@ abstract class WorkItemRepository[T](
           update  = setStatusOperation(ProcessingStatus.InProgress, None),
           options = FindOneAndUpdateOptions()
                       .returnDocument(ReturnDocument.AFTER)
-        ).toFutureOption
+        ).toFutureOption()
 
     def todoQuery: Bson =
       Filters.and(
@@ -164,7 +164,7 @@ abstract class WorkItemRepository[T](
     def inProgressQuery: Bson =
       Filters.and(
         Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.InProgress)),
-        Filters.lt(workItemFields.updatedAt, now.minus(inProgressRetryAfter))
+        Filters.lt(workItemFields.updatedAt, now().minus(inProgressRetryAfter))
       )
 
     findNextItemByQuery(todoQuery).flatMap {
@@ -184,7 +184,7 @@ abstract class WorkItemRepository[T](
     collection.updateOne(
       filter = Filters.equal(workItemFields.id, id),
       update = setStatusOperation(status, availableAt)
-    ).toFuture
+    ).toFuture()
      .map(_.getMatchedCount > 0)
 
   /** Sets the ProcessingStatus of a WorkItem to a ResultStatus.
@@ -198,7 +198,7 @@ abstract class WorkItemRepository[T](
                  Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.InProgress))
                ),
       update = setStatusOperation(newStatus, None)
-    ).toFuture
+    ).toFuture()
      .map(_.getModifiedCount > 0)
 
   /** Deletes the WorkItem.
@@ -210,7 +210,7 @@ abstract class WorkItemRepository[T](
                  Filters.equal(workItemFields.id, id),
                  Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.InProgress))
                )
-    ).toFuture
+    ).toFuture()
      .map(_.getDeletedCount > 0)
 
   /** Sets the ProcessingStatus of a WorkItem to Cancelled.
@@ -227,7 +227,7 @@ abstract class WorkItemRepository[T](
                 )
                ),
       update  = setStatusOperation(ProcessingStatus.Cancelled, None),
-    ).toFuture
+    ).toFuture()
      .flatMap { res =>
        Option(res) match {
          case Some(item) => Future.successful(
@@ -244,16 +244,18 @@ abstract class WorkItemRepository[T](
      }
 
   def findById(id: ObjectId): Future[Option[WorkItem[T]]] =
-    collection.find(Filters.equal("_id", id)).toFuture.map(_.headOption)
+    collection.find(Filters.equal("_id", id))
+      .toFuture()
+      .map(_.headOption)
 
   /** Returns the number of WorkItems in the specified ProcessingStatus */
   def count(state: ProcessingStatus): Future[Long] =
-    collection.countDocuments(filter = Filters.equal(workItemFields.status, state.name)).toFuture
+    collection.countDocuments(filter = Filters.equal(workItemFields.status, state.name)).toFuture()
 
   private def setStatusOperation(newStatus: ProcessingStatus, availableAt: Option[Instant]): Bson =
     Updates.combine(
       Updates.set(workItemFields.status, ProcessingStatus.toBson(newStatus)),
-      Updates.set(workItemFields.updatedAt, now),
+      Updates.set(workItemFields.updatedAt, now()),
       (availableAt.map(when => Updates.set(workItemFields.availableAt, when)).getOrElse(BsonDocument())),
       (if (newStatus == ProcessingStatus.Failed) Updates.inc(workItemFields.failureCount, 1) else BsonDocument())
     )

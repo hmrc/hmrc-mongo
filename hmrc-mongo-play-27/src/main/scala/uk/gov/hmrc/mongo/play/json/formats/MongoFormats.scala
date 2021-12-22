@@ -69,8 +69,8 @@ trait MongoFormats {
     */
   @deprecated("Map entity `id` directly to `_id`, rather than using JSON automated macro.", "0.35.0")
   def mongoEntity[A](baseFormat: Format[A]): Format[A] = {
-    val publicIdPath: JsPath  = __ \ '_id
-    val privateIdPath: JsPath = __ \ 'id
+    val publicIdPath: JsPath  = __ \ "_id"
+    val privateIdPath: JsPath = __ \ "id"
     new Format[A] {
       def reads(json: JsValue): JsResult[A] =
         baseFormat.compose(copyKey(publicIdPath, privateIdPath)).reads(json)

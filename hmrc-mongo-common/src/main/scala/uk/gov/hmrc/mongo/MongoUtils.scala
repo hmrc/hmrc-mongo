@@ -33,24 +33,24 @@ trait MongoUtils {
   )(implicit ec: ExecutionContext
   ): Future[Seq[String]] =
     for {
-      currentIndices <- collection.listIndexes.toFuture.map(_.map(_("name").asString.getValue))
+      currentIndices <- collection.listIndexes().toFuture().map(_.map(_("name").asString.getValue))
       res <- Future.traverse(indexes) { index =>
                collection
                  .createIndex(index.getKeys, index.getOptions)
-                 .toFuture
+                 .toFuture()
                  .recoverWith {
                    case IndexConflict(e) if replaceIndexes =>
                      logger.warn("Conflicting Mongo index found. This index will be updated")
                      for {
-                       _      <- collection.dropIndex(index.getOptions.getName).toFuture
-                       result <- collection.createIndex(index.getKeys, index.getOptions).toFuture
+                       _      <- collection.dropIndex(index.getOptions.getName).toFuture()
+                       result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
                      } yield result
                  }
                }
       indicesToDrop = if (replaceIndexes) currentIndices.toSet.diff(res.toSet + "_id_") else Set.empty
       _   <- Future.traverse(indicesToDrop) { indexName =>
                logger.warn(s"Index '$indexName' is not longer defined, removing")
-               collection.dropIndex(indexName).toFuture
+               collection.dropIndex(indexName).toFuture()
                  .recoverWith {
                    // could be caused by race conditions between server instances
                    case IndexNotFound(e) => Future.successful(())
@@ -64,7 +64,7 @@ trait MongoUtils {
     )(implicit ec: ExecutionContext
     ): Future[Boolean] =
       for {
-        collections <- mongoComponent.database.listCollectionNames.toFuture
+        collections <- mongoComponent.database.listCollectionNames().toFuture()
       } yield collections.contains(collection.namespace.getCollectionName)
 
 
@@ -81,7 +81,7 @@ trait MongoUtils {
         _       <- Future.successful(logger.info(s"Ensuring ${collection.namespace} has ${optSchema.fold("no")(_ => "a")} jsonSchema"))
         exists  <- existsCollection(mongoComponent, collection)
         _       <- if (!exists) {
-                     mongoComponent.database.createCollection(collection.namespace.getCollectionName).toFuture
+                     mongoComponent.database.createCollection(collection.namespace.getCollectionName).toFuture()
                    } else Future.successful(())
         collMod =  optSchema.fold(
                      Document(
@@ -97,7 +97,7 @@ trait MongoUtils {
                          "validationAction" -> ValidationAction.ERROR.getValue
                        )
                    )
-        _       <- mongoComponent.database.runCommand(collMod).toFuture
+        _       <- mongoComponent.database.runCommand(collMod).toFuture()
        } yield ()
 
   /** It is possible with MongoDB to have a duplicate key violation when trying to upsert, if two or more threads try

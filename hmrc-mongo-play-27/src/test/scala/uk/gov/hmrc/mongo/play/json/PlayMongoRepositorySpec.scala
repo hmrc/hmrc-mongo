@@ -97,10 +97,10 @@ class PlayMongoRepositorySpec
       forAll(myObjectGen) { myObj =>
         prepareDatabase()
 
-        val result = playMongoRepository.collection.insertOne(myObj).toFuture
+        val result = playMongoRepository.collection.insertOne(myObj).toFuture()
         result.futureValue.wasAcknowledged shouldBe true
 
-        val writtenObj = playMongoRepository.collection.find().toFuture
+        val writtenObj = playMongoRepository.collection.find().toFuture()
         writtenObj.futureValue shouldBe List(myObj)
       }
     }
@@ -109,13 +109,13 @@ class PlayMongoRepositorySpec
       forAll(myObjectGen) { myObj =>
         prepareDatabase()
 
-        val result = playMongoRepository.collection.insertOne(myObj).toFuture
+        val result = playMongoRepository.collection.insertOne(myObj).toFuture()
         result.futureValue.wasAcknowledged shouldBe true
 
         def checkFind[A: Writes](key: String, value: A): Assertion =
           playMongoRepository.collection
             .find(filter = Filters.equal(key, toBson(value)))
-            .toFuture
+            .toFuture()
             .futureValue shouldBe List(myObj)
 
         checkFind("_id"              , myObj.id)
@@ -144,13 +144,13 @@ class PlayMongoRepositorySpec
       forAll(myObjectGen) { myObj =>
         prepareDatabase()
 
-        val result = playMongoRepository.collection.insertOne(myObj).toFuture
+        val result = playMongoRepository.collection.insertOne(myObj).toFuture()
         result.futureValue.wasAcknowledged shouldBe true
 
         def checkFind[A: Writes](key: String, value: A): Assertion =
           playMongoRepository.collection
             .find(filter = Filters.equal(key, value))
-            .toFuture
+            .toFuture()
             .futureValue shouldBe List(myObj)
 
         checkFind("_id"              , myObj.id)
@@ -166,13 +166,13 @@ class PlayMongoRepositorySpec
         forAll(myObjectGen suchThat (_ != originalObj)) { targetObj =>
           prepareDatabase()
 
-          val result = playMongoRepository.collection.insertOne(originalObj).toFuture
+          val result = playMongoRepository.collection.insertOne(originalObj).toFuture()
           result.futureValue.wasAcknowledged shouldBe true
 
           def checkUpdate[A: Writes](key: String, value: A): Assertion =
             playMongoRepository.collection
               .updateOne(filter = BsonDocument(), update = Updates.set(key, toBson(value)))
-              .toFuture
+              .toFuture()
               .futureValue
               .wasAcknowledged shouldBe true
 
@@ -198,7 +198,7 @@ class PlayMongoRepositorySpec
           checkUpdate("binary"           , targetObj.binary           )
           checkUpdate("binaryWrapper"    , targetObj.binaryWrapper    )
 
-          val writtenObj = playMongoRepository.collection.find().toFuture
+          val writtenObj = playMongoRepository.collection.find().toFuture()
           writtenObj.futureValue shouldBe List(targetObj.copy(id = originalObj.id))
         }
       }
@@ -209,13 +209,13 @@ class PlayMongoRepositorySpec
         forAll(myObjectGen suchThat (_ != originalObj)) { targetObj =>
           prepareDatabase()
 
-          val result = playMongoRepository.collection.insertOne(originalObj).toFuture
+          val result = playMongoRepository.collection.insertOne(originalObj).toFuture()
           result.futureValue.wasAcknowledged shouldBe true
 
           def checkUpdate[A: Writes](key: String, value: A): Assertion =
             playMongoRepository.collection
               .updateOne(filter = BsonDocument(), update = Updates.set(key, value))
-              .toFuture
+              .toFuture()
               .futureValue
               .wasAcknowledged shouldBe true
 
@@ -225,13 +225,13 @@ class PlayMongoRepositorySpec
           checkUpdate("javaLocalDateTime", targetObj.javaLocalDateTime)
           checkUpdate("uuid"             , targetObj.uuid             )
 
-          val writtenObj = playMongoRepository.collection.find().toFuture
+          val writtenObj = playMongoRepository.collection.find().toFuture()
 
           writtenObj.futureValue shouldBe List(originalObj.copy(
-            javaInstant = targetObj.javaInstant,
-            javaLocalDate = targetObj.javaLocalDate,
+            javaInstant       = targetObj.javaInstant,
+            javaLocalDate     = targetObj.javaLocalDate,
             javaLocalDateTime = targetObj.javaLocalDateTime,
-            uuid = targetObj.uuid
+            uuid              = targetObj.uuid
           ))
         }
       }
@@ -256,9 +256,9 @@ class PlayMongoRepositorySpec
           json.fields.map(_._1).toList
 
         (for {
-           _            <- repo.collection.deleteMany(BsonDocument()).toFuture
-           _            <- repo.collection.insertOne(json).toFuture
-           returnedJson <- repo.collection.find().headOption.map {
+           _            <- repo.collection.deleteMany(BsonDocument()).toFuture()
+           _            <- repo.collection.insertOne(json).toFuture()
+           returnedJson <- repo.collection.find().headOption().map {
                              case Some(res) => res
                              case other     => fail(new RuntimeException(s"Failed to read back JsObject - was $other"))
                            }
@@ -275,14 +275,14 @@ class PlayMongoRepositorySpec
         forAll(myObjectGen suchThat (_ != originalObj)) { targetObj =>
           prepareDatabase()
 
-          val result = playMongoRepository.collection.insertOne(originalObj).toFuture
+          val result = playMongoRepository.collection.insertOne(originalObj).toFuture()
           result.futureValue.wasAcknowledged shouldBe true
 
           def checkUpdateFails[A](key: String, value: A)(implicit ev: Writes[A]): Assertion =
             whenReady {
               playMongoRepository.collection
                 .updateOne(filter = BsonDocument(), update = Updates.set(key, toBson(value)))
-                .toFuture
+                .toFuture()
                 .failed
             } { e =>
               e            shouldBe a[MongoWriteException]
@@ -305,7 +305,7 @@ class PlayMongoRepositorySpec
   def prepareDatabase(): Unit =
     (for {
       exists <- MongoUtils.existsCollection(mongoComponent, playMongoRepository.collection)
-      _      <- if (exists) playMongoRepository.collection.deleteMany(BsonDocument()).toFuture
+      _      <- if (exists) playMongoRepository.collection.deleteMany(BsonDocument()).toFuture()
                 else Future.successful(())
      } yield ()
     ).futureValue
@@ -315,7 +315,7 @@ class PlayMongoRepositorySpec
     // ensure jsonSchema is defined as expected
     (for {
        _           <- updateIndexPreference(requireIndexedQuery = false)
-       collections <- mongoComponent.database.listCollections.toFuture
+       collections <- mongoComponent.database.listCollections().toFuture()
        collection  =  collections.find(_.get("name") == Some(BsonString(playMongoRepository.collection.namespace.getCollectionName)))
        _           =  collection.isDefined shouldBe true
        options     =  collection.flatMap(_.get[BsonDocument]("options"))
@@ -336,7 +336,7 @@ class PlayMongoRepositorySpec
         "setParameter" -> 1,
         "notablescan" -> notablescan
       ))
-      .toFuture
+      .toFuture()
       .map(_.getBoolean("was"))
   }
 }

@@ -26,13 +26,17 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.language.reflectiveCalls
+import org.scalatest.matchers.HavePropertyMatcher
+import org.scalatest.matchers.HavePropertyMatchResult
 
 class WorkItemRepositorySpec
   extends AnyWordSpec
      with Matchers
      with WithWorkItemRepository
      with LoneElement
-     with OptionValues {
+     with OptionValues
+     with CustomMatchers {
 
   def createWorkItemsWith(statuses: Seq[ProcessingStatus]): Unit =
     Future.traverse(statuses) { status =>
@@ -55,7 +59,7 @@ class WorkItemRepositorySpec
 
       createWorkItemsWith(Seq(ProcessingStatus.ToDo, ProcessingStatus.ToDo, ProcessingStatus.InProgress))
 
-      repository.metrics.futureValue should contain allOf(
+      repository.metrics.futureValue should contain.allOf(
         metricKey(ProcessingStatus.ToDo) -> 2,
         metricKey(ProcessingStatus.InProgress) -> 1,
         metricKey(ProcessingStatus.Succeeded) -> 0
@@ -69,11 +73,11 @@ class WorkItemRepositorySpec
       val savedItem = findAll().futureValue.loneElement
 
       returnedItem should have(
-        'item (item1),
-        'status (ProcessingStatus.ToDo),
-        'failureCount (0),
-        'receivedAt (timeSource.now),
-        'updatedAt (timeSource.now)
+        item         (item1),
+        status       (ProcessingStatus.ToDo),
+        failureCount (0),
+        receivedAt   (timeSource.now),
+        updatedAt    (timeSource.now)
       )
 
       returnedItem should equal(savedItem)
@@ -86,10 +90,10 @@ class WorkItemRepositorySpec
       val savedItems = findAll().futureValue
 
       every(savedItems) should have(
-        'status (ProcessingStatus.ToDo),
-        'failureCount (0),
-        'receivedAt (timeSource.now),
-        'updatedAt (timeSource.now)
+        status       (ProcessingStatus.ToDo),
+        failureCount (0),
+        receivedAt   (timeSource.now),
+        updatedAt    (timeSource.now)
       )
       savedItems.map(_.item) should contain theSameElementsAs items
       returnedItems should equal(savedItems)
@@ -101,9 +105,9 @@ class WorkItemRepositorySpec
         failedBefore    = timeSource.now,
         availableBefore = timeSource.now.plusSeconds(10)
       ).futureValue.value should have(
-        'item (item1),
-        'status (ProcessingStatus.InProgress),
-        'failureCount (0)
+        item         (item1),
+        status       (ProcessingStatus.InProgress),
+        failureCount (0)
       )
     }
 
@@ -111,9 +115,9 @@ class WorkItemRepositorySpec
       repository.pushNew(item1, timeSource.now).futureValue
       repository.markAs(findAll().futureValue.loneElement.id, ProcessingStatus.Succeeded).futureValue should be(true)
       findAll().futureValue.loneElement should have(
-        'status (ProcessingStatus.Succeeded),
-        'failureCount (0),
-        'item (item1))
+        status       (ProcessingStatus.Succeeded),
+        failureCount (0),
+        item         (item1))
     }
 
     "return false trying to mark a non-existent item as done" in {
@@ -145,9 +149,9 @@ class WorkItemRepositorySpec
         failedBefore    = timeSource.now.plusSeconds(1),
         availableBefore = timeSource.now.plusSeconds(1)
       ).futureValue.value should have(
-        'item (item1),
-        'status (ProcessingStatus.InProgress),
-        'failureCount (1)
+        item         (item1),
+        status       (ProcessingStatus.InProgress),
+        failureCount (1)
       )
     }
 
@@ -159,9 +163,9 @@ class WorkItemRepositorySpec
         failedBefore    = timeSource.now,
         availableBefore = timeSource.now
       ).futureValue.value should have(
-        'item (item1),
-        'status (ProcessingStatus.InProgress),
-        'failureCount (0)
+        item         (item1),
+        status       (ProcessingStatus.InProgress),
+        failureCount (0)
       )
     }
 
@@ -196,8 +200,8 @@ class WorkItemRepositorySpec
       val id = findAll().futureValue.head.id
       repository.complete(id, ProcessingStatus.Succeeded).futureValue should be(true)
       repository.findById(id).futureValue.value should have(
-        'status (ProcessingStatus.Succeeded),
-        'failureCount (0)
+        status       (ProcessingStatus.Succeeded),
+        failureCount (0)
       )
     }
 
@@ -207,8 +211,8 @@ class WorkItemRepositorySpec
       val id = findAll().futureValue.head.id
       repository.complete(id, ProcessingStatus.Failed).futureValue should be(true)
       repository.findById(id).futureValue.value should have(
-        'status (ProcessingStatus.Failed),
-        'failureCount (1)
+        status       (ProcessingStatus.Failed),
+        failureCount (1)
       )
     }
 
@@ -217,8 +221,8 @@ class WorkItemRepositorySpec
       val id = findAll().futureValue.head.id
       repository.complete(id, ProcessingStatus.Failed).futureValue should be(false)
       repository.findById(id).futureValue.value should have(
-        'status (ProcessingStatus.ToDo),
-        'failureCount (0)
+        status       (ProcessingStatus.ToDo),
+        failureCount (0)
       )
     }
 
@@ -239,8 +243,8 @@ class WorkItemRepositorySpec
       val id = findAll().futureValue.head.id
       repository.completeAndDelete(id).futureValue should be(false)
       repository.findById(id).futureValue.value should have(
-        'status (ProcessingStatus.ToDo),
-        'failureCount (0)
+        status       (ProcessingStatus.ToDo),
+        failureCount (0)
       )
     }
 
@@ -254,11 +258,11 @@ class WorkItemRepositorySpec
       val savedItem = findAll().futureValue.loneElement
 
       returnedItem should have(
-        'item (item1),
-        'status (ProcessingStatus.Deferred),
-        'failureCount (0),
-        'receivedAt (timeSource.now),
-        'updatedAt (timeSource.now)
+        item         (item1),
+        status       (ProcessingStatus.Deferred),
+        failureCount (0),
+        receivedAt   (timeSource.now),
+        updatedAt    (timeSource.now)
       )
 
       returnedItem should equal(savedItem)
@@ -271,18 +275,18 @@ class WorkItemRepositorySpec
       }
       val returnedItems = repository.pushNewBatch(Seq(item1, item2), timeSource.now, maybeDefer _).futureValue
       exactly(1, returnedItems) should have(
-        'item (item1),
-        'status (ProcessingStatus.Deferred),
-        'failureCount (0),
-        'receivedAt (timeSource.now),
-        'updatedAt (timeSource.now)
+        item         (item1),
+        status       (ProcessingStatus.Deferred),
+        failureCount (0),
+        receivedAt   (timeSource.now),
+        updatedAt    (timeSource.now)
       )
       exactly(1, returnedItems) should have(
-        'item (item2),
-        'status (ProcessingStatus.ToDo),
-        'failureCount (0),
-        'receivedAt (timeSource.now),
-        'updatedAt (timeSource.now)
+        item         (item2),
+        status       (ProcessingStatus.ToDo),
+        failureCount (0),
+        receivedAt   (timeSource.now),
+        updatedAt    (timeSource.now)
       )
 
       repository.pullOutstanding(
@@ -339,9 +343,9 @@ class WorkItemRepositorySpec
         failedBefore    = timeSource.now.plus(1, ChronoUnit.DAYS),
         availableBefore = timeSource.now.plus(10, ChronoUnit.DAYS)
       ).futureValue.value should have(
-        'item (item1),
-        'status (ProcessingStatus.InProgress),
-        'failureCount (0)
+        item         (item1),
+        status       (ProcessingStatus.InProgress),
+        failureCount (0)
       )
     }
 
@@ -362,16 +366,16 @@ class WorkItemRepositorySpec
         failedBefore    = timeSource.now.plus(1, ChronoUnit.DAYS),
         availableBefore = timeSource.now.plus(3, ChronoUnit.DAYS)
       ).futureValue.value should have(
-        'item (item1),
-        'status (ProcessingStatus.InProgress),
-        'failureCount (1)
+        item         (item1),
+        status       (ProcessingStatus.InProgress),
+        failureCount (1)
       )
     }
 
     "verify number of indexes created" in {
-      repository.collection.dropIndexes.toFuture.futureValue
+      repository.collection.dropIndexes().toFuture().futureValue
       repository.ensureIndexes.futureValue
-      repository.collection.listIndexes.toFuture.futureValue.size should be(3 + 1) //_id index is created by default
+      repository.collection.listIndexes().toFuture().futureValue.size should be(3 + 1) //_id index is created by default
     }
 
     "count the number of items in a specific state" in {
@@ -409,9 +413,9 @@ class WorkItemRepositorySpec
         availableBefore = timeSource.now.plus(10, ChronoUnit.DAYS)
       ).futureValue.value
       result should have(
-        'item (item3),
-        'status (ProcessingStatus.InProgress),
-        'failureCount (0)
+        item         (item3),
+        status       (ProcessingStatus.InProgress),
+        failureCount (0)
       )
     }
 
@@ -434,29 +438,29 @@ class WorkItemRepositorySpec
         availableBefore = timeSource.now.plus(3, ChronoUnit.DAYS)
       ).futureValue.value
       result should have(
-        'item (item2),
-        'status (ProcessingStatus.InProgress),
-        'failureCount (1)
+        item         (item2),
+        status       (ProcessingStatus.InProgress),
+        failureCount (1)
       )
     }
   }
 
   "Cancelling a notification" should {
-    for (status <- ProcessingStatus.cancellable) {
-      s"work if it is in the $status state" in {
+    for (cancellableStatus <- ProcessingStatus.cancellable) {
+      s"work if it is in the $cancellableStatus state" in {
         val id = repository.pushNew(item1, timeSource.now).futureValue.id
-        repository.markAs(id, status).futureValue should be(true)
-        repository.cancel(id).futureValue should be(StatusUpdateResult.Updated(previousStatus = status, newStatus = ProcessingStatus.Cancelled))
-        repository.findById(id).futureValue.value should have('status (ProcessingStatus.Cancelled))
+        repository.markAs(id, cancellableStatus).futureValue should be(true)
+        repository.cancel(id).futureValue should be(StatusUpdateResult.Updated(previousStatus = cancellableStatus, newStatus = ProcessingStatus.Cancelled))
+        repository.findById(id).futureValue.value should have(status (ProcessingStatus.Cancelled))
       }
     }
 
-    for (status <- ProcessingStatus.values -- ProcessingStatus.cancellable) {
-      s"not work if it is in the $status state" in {
+    for (notCancellableStatus <- ProcessingStatus.values -- ProcessingStatus.cancellable) {
+      s"not work if it is in the $notCancellableStatus state" in {
         val id = repository.pushNew(item1, timeSource.now).futureValue.id
-        repository.markAs(id, status).futureValue should be(true)
-        repository.cancel(id).futureValue should be(StatusUpdateResult.NotUpdated(currentState = status))
-        repository.findById(id).futureValue.value should have('status (status))
+        repository.markAs(id, notCancellableStatus).futureValue should be(true)
+        repository.cancel(id).futureValue should be(StatusUpdateResult.NotUpdated(currentState = notCancellableStatus))
+        repository.findById(id).futureValue.value should have(status (notCancellableStatus))
       }
     }
 
@@ -464,4 +468,33 @@ class WorkItemRepositorySpec
       repository.cancel(new ObjectId()).futureValue should be(StatusUpdateResult.NotFound)
     }
   }
+}
+
+trait CustomMatchers {
+
+  def item(expected: ExampleItem): HavePropertyMatcher[WorkItem[ExampleItem], ExampleItem] =
+    workItemPropMatcher("item", _.item, expected)
+
+  def failureCount(expected: Int): HavePropertyMatcher[WorkItem[ExampleItem], Int] =
+    workItemPropMatcher("failureCount", _.failureCount, expected)
+
+  def status(expected: ProcessingStatus): HavePropertyMatcher[WorkItem[ExampleItem], ProcessingStatus] =
+    workItemPropMatcher("status", _.status, expected)
+
+  def receivedAt(expected: Instant): HavePropertyMatcher[WorkItem[ExampleItem], Instant] =
+    workItemPropMatcher("receivedAt", _.receivedAt, expected)
+
+  def updatedAt(expected: Instant): HavePropertyMatcher[WorkItem[ExampleItem], Instant] =
+    workItemPropMatcher("updatedAt", _.updatedAt, expected)
+
+  private def workItemPropMatcher[A](name: String, getter: WorkItem[ExampleItem] => A, expected: A) =
+    new HavePropertyMatcher[WorkItem[ExampleItem], A] {
+      def apply(item: WorkItem[ExampleItem]) =
+        HavePropertyMatchResult(
+          getter(item) == expected,
+          name,
+          expected,
+          getter(item)
+        )
+    }
 }

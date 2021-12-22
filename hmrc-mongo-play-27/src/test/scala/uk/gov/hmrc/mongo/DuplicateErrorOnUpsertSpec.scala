@@ -28,11 +28,13 @@ import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.tagobjects.Retryable
 import org.scalacheck.Arbitrary._
-import scala.collection.parallel.ExecutionContextTaskSupport
-import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
 import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
+
+import scala.collection.parallel.ExecutionContextTaskSupport
+import scala.collection.parallel.immutable.ParRange
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class DuplicateErrorOnUpsertSpec
   extends WordSpecLikeWithRetries
@@ -85,17 +87,18 @@ class DuplicateErrorOnUpsertSpec
   // but can be quite easily reproduced over a number of iterations
   "upsert" should {
     "fail with DuplicateError" taggedAs Retryable in {
-      val id = "id_" + arbitrary[Long].sample.get.toString //Use a random ID
+      val id = "id_" + arbitrary[Long].sample.get.toString // Use a random ID
       val data = arbitrary[Long].sample.get
 
-      val fixedPool = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50)) //Use a lot of threads
+      val fixedPool = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(50)) // Use a lot of threads
       val taskSupport = new ExecutionContextTaskSupport(fixedPool)
 
-      val expectedToFail = Future.sequence {
-        val parRange = (0 to 1000).par
-        parRange.tasksupport = taskSupport
-        parRange.map(_ => upsert(id, data)).toList
-      }(implicitly, executor = fixedPool)
+      val expectedToFail: Future[List[MyObject]] =
+        Future.sequence {
+          val parRange = new ParRange(0 to 1000)
+          parRange.tasksupport = taskSupport
+          parRange.map(_ => upsert(id, data)).toList
+        }(implicitly, executor = fixedPool)
 
       whenReady(expectedToFail.failed) { ex =>
         ex shouldBe a[MongoServerException] withClue "If no exception was thrown, the test was not aggressive enough to trigger the race condition on upsert"

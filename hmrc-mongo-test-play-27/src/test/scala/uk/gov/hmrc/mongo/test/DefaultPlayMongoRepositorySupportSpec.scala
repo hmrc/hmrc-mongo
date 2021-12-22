@@ -35,13 +35,13 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
     "throw and exception in a unindexed query" in {
       repository.collection
         .insertOne(Json.obj("unindexed" -> "value"))
-        .toFuture
+        .toFuture()
         .futureValue
 
       whenReady {
         repository.collection
           .find(mongoEq("unindexed", "value"))
-          .toFuture
+          .toFuture()
           .failed
       } { exception =>
         exception shouldBe a[MongoQueryException]
@@ -52,13 +52,13 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
     "not throw an exception in indexed query" in {
       repository.collection
         .insertOne(Json.obj("indexed" -> "value"))
-        .toFuture
+        .toFuture()
         .futureValue
 
       repository.collection
         .find(mongoEq("indexed", "value"))
         .first()
-        .toFuture
+        .toFuture()
         .futureValue
         .value
         .get("indexed")
@@ -83,14 +83,14 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
       repository
         .collection
         .insertMany(items)
-        .toFuture
+        .toFuture()
         .futureValue
 
       def repositoryItems() =
         repository
         .collection
           .find()
-          .toFuture
+          .toFuture()
           .futureValue
 
       repositoryItems().size shouldBe 99

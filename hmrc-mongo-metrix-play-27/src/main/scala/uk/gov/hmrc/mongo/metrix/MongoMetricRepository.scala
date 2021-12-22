@@ -48,7 +48,7 @@ class MongoMetricRepository @Inject() (
     with MetricRepository {
 
   override def findAll(): Future[List[PersistedMetric]] =
-    collection.withReadPreference(ReadPreference.secondaryPreferred)
+    collection.withReadPreference(ReadPreference.secondaryPreferred())
       .find()
       .toFuture()
       .map(_.toList)
@@ -67,6 +67,6 @@ class MongoMetricRepository @Inject() (
     collection
       .deleteOne(
         filter = equal("name", metricName)
-      ).toFuture
+      ).toFuture()
       .map(_ => ())
 }

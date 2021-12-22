@@ -27,6 +27,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.Reads
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.language.reflectiveCalls
 
 class WorkItemModuleRepositorySpec
   extends AnyWordSpec
@@ -53,7 +54,7 @@ class WorkItemModuleRepositorySpec
                     WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
                   ),
         options = UpdateOptions().upsert(true)
-      ).toFuture
+      ).toFuture()
        .map(res => Some(res.getUpsertedId).isDefined shouldBe true)
        .futureValue
 
@@ -117,7 +118,7 @@ class WorkItemModuleRepositorySpec
                     WorkItemModuleRepository.upsertModuleQuery("testModule", workItemModuleCreationTime)
                   ),
         options = UpdateOptions().upsert(true)
-      ).toFuture
+      ).toFuture()
        .map(res => Some(res.getUpsertedId).isDefined shouldBe true)
        .futureValue
 
@@ -126,7 +127,7 @@ class WorkItemModuleRepositorySpec
       val Some(workItem: WorkItem[ExampleItemWithModule]) =
         repository.collection.find(
           filter = Filters.equal("_id", _id)
-        ).toFuture
+        ).toFuture()
          .map(_.headOption)
          .futureValue
       workItem.id shouldBe _id
