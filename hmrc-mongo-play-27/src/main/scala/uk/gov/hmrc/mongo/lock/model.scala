@@ -22,16 +22,22 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json.{Format, __}
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
-case class Lock(id: String, owner: String, timeCreated: Instant, expiryTime: Instant)
+case class Lock(
+  id         : String,
+  owner      : String,
+  timeCreated: Instant,
+  expiryTime : Instant
+)
 
 object Lock {
 
   implicit val format: Format[Lock] = {
     implicit val dtf: Format[Instant] = MongoJavatimeFormats.instantFormat
-    ((__ \ "_id").format[String]
-      ~ (__ \ "owner").format[String]
-      ~ (__ \ "timeCreated").format[Instant]
-      ~ (__ \ "expiryTime").format[Instant])(Lock.apply, unlift(Lock.unapply))
+    ( (__ \ "_id"        ).format[String]
+    ~ (__ \ "owner"      ).format[String]
+    ~ (__ \ "timeCreated").format[Instant]
+    ~ (__ \ "expiryTime" ).format[Instant]
+    )(Lock.apply, unlift(Lock.unapply))
   }
 
   val id          = "_id"

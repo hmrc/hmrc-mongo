@@ -78,7 +78,7 @@ trait Codecs {
     js match {
       case JsNull       => BsonNull.VALUE
       case JsBoolean(b) => BsonBoolean.valueOf(b)
-      case JsNumber(n) =>
+      case JsNumber(n)  =>
         if (legacyNumbers) toBsonNumberLegacy(n)
         else toBsonNumber(n)
       case JsString(s) => new BsonString(s)

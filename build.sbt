@@ -2,12 +2,16 @@
 // https://www.scala-sbt.org/1.x/docs/Parallel-Execution.html
 Global / concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.Untagged)
 
+val scala2_12 = "2.12.15"
+val scala2_13 = "2.13.7"
+
 
 lazy val commonSettings = Seq(
   organization := "uk.gov.hmrc.mongo",
   majorVersion := 0,
-  scalaVersion := "2.12.14",
-  isPublicArtefact := true
+  scalaVersion := scala2_12,
+  isPublicArtefact := true,
+  scalacOptions ++= Seq("-feature")
 )
 
 lazy val library = Project("hmrc-mongo", file("."))
@@ -30,44 +34,51 @@ lazy val library = Project("hmrc-mongo", file("."))
 lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"))
   .settings(
     commonSettings,
+    crossScalaVersions := Seq(scala2_12, scala2_13),
     libraryDependencies ++= AppDependencies.mongoCommon(scalaBinaryVersion.value)
   )
 
 lazy val hmrcMongoPlay27 = Project("hmrc-mongo-play-27", file("hmrc-mongo-play-27"))
   .settings(
     commonSettings,
-    libraryDependencies ++= AppDependencies.hmrcMongoPlay27
+    crossScalaVersions := Seq(scala2_12, scala2_13),
+    libraryDependencies ++= AppDependencies.hmrcMongoPlay27(scalaVersion.value)
   ).dependsOn(hmrcMongoCommon)
 
 lazy val hmrcMongoPlay28 = Project("hmrc-mongo-play-28", file("hmrc-mongo-play-28"))
   .settings(
     commonSettings,
+    crossScalaVersions := Seq(scala2_12, scala2_13),
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-play-27/src/main/scala",
-    libraryDependencies ++= AppDependencies.hmrcMongoPlay28
+    libraryDependencies ++= AppDependencies.hmrcMongoPlay28(scalaVersion.value)
   ).dependsOn(hmrcMongoCommon)
 
 lazy val hmrcMongoTestPlay27 = Project("hmrc-mongo-test-play-27", file("hmrc-mongo-test-play-27"))
   .settings(
     commonSettings,
-    libraryDependencies ++= AppDependencies.hmrcMongoTestPlay27
+    crossScalaVersions := Seq(scala2_12, scala2_13),
+    libraryDependencies ++= AppDependencies.hmrcMongoTestPlay27(scalaVersion.value)
   ).dependsOn(hmrcMongoPlay27)
 
 lazy val hmrcMongoTestPlay28 = Project("hmrc-mongo-test-play-28", file("hmrc-mongo-test-play-28"))
   .settings(
     commonSettings,
+    crossScalaVersions := Seq(scala2_12, scala2_13),
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-test-play-27/src/main/scala",
-    libraryDependencies ++= AppDependencies.hmrcMongoTestPlay28
+    libraryDependencies ++= AppDependencies.hmrcMongoTestPlay28(scalaVersion.value)
   ).dependsOn(hmrcMongoPlay28)
 
 lazy val hmrcMongoMetrixPlay27 = Project("hmrc-mongo-metrix-play-27", file("hmrc-mongo-metrix-play-27"))
   .settings(
     commonSettings,
+    crossScalaVersions := Seq(scala2_12, scala2_13),
     libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay27
   ).dependsOn(hmrcMongoPlay27, hmrcMongoTestPlay27 % "compile->test")
 
 lazy val hmrcMongoMetrixPlay28 = Project("hmrc-mongo-metrix-play-28", file("hmrc-mongo-metrix-play-28"))
   .settings(
     commonSettings,
+    crossScalaVersions := Seq(scala2_12, scala2_13),
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-metrix-play-27/src/main/scala",
     libraryDependencies ++= AppDependencies.hmrcMongoMetrixPlay28
   ).dependsOn(hmrcMongoPlay28, hmrcMongoTestPlay28 % "compile->test")
@@ -75,12 +86,14 @@ lazy val hmrcMongoMetrixPlay28 = Project("hmrc-mongo-metrix-play-28", file("hmrc
 lazy val hmrcMongoWorkItemRepoPlay27 = Project("hmrc-mongo-work-item-repo-play-27", file("hmrc-mongo-work-item-repo-play-27"))
   .settings(
     commonSettings,
+    crossScalaVersions := Seq(scala2_12, scala2_13),
     libraryDependencies ++= AppDependencies.hmrcMongoWorkItemRepoPlay27
   ).dependsOn(hmrcMongoMetrixPlay27)
 
 lazy val hmrcMongoWorkItemRepoPlay28 = Project("hmrc-mongo-work-item-repo-play-28", file("hmrc-mongo-work-item-repo-play-28"))
   .settings(
     commonSettings,
+    crossScalaVersions := Seq(scala2_12, scala2_13),
     unmanagedSourceDirectories in Compile += baseDirectory.value / "../hmrc-mongo-work-item-repo-play-27/src/main/scala",
     libraryDependencies ++= AppDependencies.hmrcMongoWorkItemRepoPlay28
   ).dependsOn(hmrcMongoMetrixPlay28)

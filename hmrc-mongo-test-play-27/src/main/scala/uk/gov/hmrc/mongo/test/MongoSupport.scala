@@ -37,7 +37,7 @@ trait MongoSupport extends ScalaFutures {
   protected def dropDatabase(): Unit =
     mongoDatabase
       .drop()
-      .toFuture
+      .toFuture()
       .futureValue
 
   protected def prepareDatabase(): Unit =
@@ -56,7 +56,7 @@ trait MongoSupport extends ScalaFutures {
         "setParameter" -> 1,
         "notablescan"  -> notablescan
       ))
-      .toFuture
+      .toFuture()
       .map(_.getBoolean("was"))
   }
 }

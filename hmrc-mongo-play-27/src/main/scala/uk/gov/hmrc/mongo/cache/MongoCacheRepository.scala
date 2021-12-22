@@ -68,7 +68,7 @@ class MongoCacheRepository[CacheId] @Inject() (
     val id = cacheIdType.run(cacheId)
     this.collection
       .find(Filters.equal("_id", id))
-      .headOption
+      .headOption()
       .map(_.flatMap(cache => (cache.data \ dataKey.unwrap).asOpt[A]))
   }
 
@@ -104,7 +104,7 @@ class MongoCacheRepository[CacheId] @Inject() (
           Updates.set("modifiedDetails.lastUpdated", timestampSupport.timestamp())
         )
       )
-      .toFuture
+      .toFuture()
       .map(_ => ())
   }
 

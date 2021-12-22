@@ -51,39 +51,39 @@ trait PlayMongoRepositorySupport[A] extends MongoSupport {
   protected def findAll()(implicit ev: ClassTag[A]): Future[Seq[A]] =
     repository.collection
       .find()
-      .toFuture
+      .toFuture()
 
   protected def count(): Future[Long] =
     repository.collection
       .countDocuments()
-      .toFuture
+      .toFuture()
 
   protected def find(filter: Bson)(implicit ev: ClassTag[A]): Future[Seq[A]] =
     repository.collection
       .find(filter)
-      .toFuture
+      .toFuture()
 
   protected def insert(a: A): Future[InsertOneResult] =
     repository.collection
       .insertOne(a)
-      .toFuture
+      .toFuture()
 
   protected def deleteAll(): Future[DeleteResult] =
     repository
       .collection
       .deleteMany(filter = Document())
-      .toFuture
+      .toFuture()
 
   protected def createCollection(): Unit =
     mongoDatabase
       .createCollection(collectionName)
-      .toFuture
+      .toFuture()
       .futureValue
 
   protected def dropCollection(): Unit =
     repository.collection
       .drop()
-      .toFuture
+      .toFuture()
       .futureValue
 
   protected def ensureIndexes(): Seq[String] =

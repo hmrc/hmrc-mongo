@@ -64,7 +64,7 @@ class TransactionSpec
         res.size shouldBe 1
 
         // confirm committed
-        val list = collection.find().toFuture
+        val list = collection.find().toFuture()
         list.futureValue.size shouldBe 1
       }
 
@@ -82,7 +82,7 @@ class TransactionSpec
         }.failed.futureValue
 
         // confirm rolled back
-        val list = collection.find().toFuture
+        val list = collection.find().toFuture()
         list.futureValue.size shouldBe 0
 
         attempts.get shouldBe 1 // no retries
@@ -105,7 +105,7 @@ class TransactionSpec
         }.futureValue
 
         // confirm committed
-        val list = collection.find().toFuture
+        val list = collection.find().toFuture()
         list.futureValue.size shouldBe 2
 
         attempts.get shouldBe 2 // retried once
@@ -129,7 +129,7 @@ class TransactionSpec
         res.size shouldBe 1
 
         // confirm committed
-        val list = collection.find().toFuture
+        val list = collection.find().toFuture()
         list.futureValue.size shouldBe 1
       }
 
@@ -147,7 +147,7 @@ class TransactionSpec
         }.toFuture().failed.futureValue
 
         // confirm rolled back
-        val list = collection.find().toFuture
+        val list = collection.find().toFuture()
         list.futureValue.size shouldBe 0
 
         attempts.get shouldBe 1 // no retries
@@ -172,7 +172,7 @@ class TransactionSpec
         }.toFuture().futureValue
 
         // confirm committed
-        val list = collection.find().toFuture
+        val list = collection.find().toFuture()
         list.futureValue.size shouldBe 2
 
         attempts.get shouldBe 2 // retried once
@@ -183,10 +183,10 @@ class TransactionSpec
   def prepareDatabase(): Unit =
     (for {
       exists <- MongoUtils.existsCollection(mongoComponent, collection)
-      _      <- if (exists) collection.deleteMany(BsonDocument()).toFuture
+      _      <- if (exists) collection.deleteMany(BsonDocument()).toFuture()
                 // until Mongo 4.4 implicit collection creation (on insert/upsert) will fail when in a transaction
                 // create explicitly
-                else mongoComponent.database.createCollection(collectionName).toFuture
+                else mongoComponent.database.createCollection(collectionName).toFuture()
      } yield ()
     ).futureValue
 

@@ -97,7 +97,7 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
            equal(Lock.owner, owner)
          )
        )
-      .toFuture
+      .toFuture()
       .map(_ => ())
   }
 
@@ -115,7 +115,7 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
                  ),
         update = Updates.set(Lock.expiryTime, expiryTime)
       )
-      .toFutureOption
+      .toFutureOption()
       .map {
         case Some(_) =>
           logger.debug(s"Could not renew lock '$lockId' for '$owner' that does not exist or has expired")
@@ -140,6 +140,6 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
           gt(Lock.expiryTime, timestampSupport.timestamp())
         )
        )
-      .toFuture
+      .toFuture()
       .map(_.nonEmpty)
 }

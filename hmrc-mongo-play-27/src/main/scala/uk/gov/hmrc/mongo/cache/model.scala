@@ -20,9 +20,9 @@ import java.time.Instant
 import play.api.libs.json.JsObject
 
 final case class CacheItem(
-  id: String,
-  data: JsObject,
-  createdAt: Instant,
+  id        : String,
+  data      : JsObject,
+  createdAt : Instant,
   modifiedAt: Instant
 )
 
