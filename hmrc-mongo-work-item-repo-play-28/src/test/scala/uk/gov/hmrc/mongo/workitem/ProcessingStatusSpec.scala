@@ -59,28 +59,28 @@ class ProcessingStatusSpec extends AnyWordSpec with Matchers {
   "writing processing status to JSON" should {
     implicit val psf = ProcessingStatus.format
     "handle ToDo" in {
-      Json.toJson(ToDo) should be (JsString("todo"))
+      Json.toJson(ToDo: ProcessingStatus) should be (JsString("todo"))
     }
     "handle InProgress" in {
-      Json.toJson(InProgress) should be (JsString("in-progress"))
+      Json.toJson(InProgress: ProcessingStatus) should be (JsString("in-progress"))
     }
     "handle Succeeded" in {
-      Json.toJson(Succeeded) should be (JsString("succeeded"))
+      Json.toJson(Succeeded: ProcessingStatus) should be (JsString("succeeded"))
     }
     "handle Failed" in {
-      Json.toJson(Failed) should be (JsString("failed"))
+      Json.toJson(Failed: ProcessingStatus) should be (JsString("failed"))
     }
     "handle PermanentlyFailed" in {
-      Json.toJson(PermanentlyFailed) should be (JsString("permanently-failed"))
+      Json.toJson(PermanentlyFailed: ProcessingStatus) should be (JsString("permanently-failed"))
     }
     "handle Ignored" in {
-      Json.toJson(Ignored) should be (JsString("ignored"))
+      Json.toJson(Ignored: ProcessingStatus) should be (JsString("ignored"))
     }
     "handle Duplicate" in {
-      Json.toJson(Duplicate) should be (JsString("duplicate"))
+      Json.toJson(Duplicate: ProcessingStatus) should be (JsString("duplicate"))
     }
     "handle Cancelled" in {
-      Json.toJson(Cancelled) should be (JsString("cancelled"))
+      Json.toJson(Cancelled: ProcessingStatus) should be (JsString("cancelled"))
     }
   }
 
