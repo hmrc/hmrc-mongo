@@ -58,7 +58,7 @@ e.g.
 def process: Future[Unit] =
   workItemRepository.pullOutstanding(failedBefore = now.minus(1, day), availableBefore = now) // grab the next WorkItem
     .flatMap {
-      case None => Future.successful(()) // there is no more - we've finished
+      case None => Future.unit // there is no more - we've finished
       case Some(wi) => processWorkItem(wi.item).flatMap { // call your function to process a WorkItem
         case Success => workItemRepository.complete(wi.id, ProcessingStatus.Succeeded) // mark as completed
                         workItemRepository.completeAndDelete(wi.id) // alternatively, remove from mongo

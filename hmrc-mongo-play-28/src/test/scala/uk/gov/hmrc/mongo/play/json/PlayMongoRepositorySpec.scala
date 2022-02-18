@@ -306,7 +306,7 @@ class PlayMongoRepositorySpec
     (for {
       exists <- MongoUtils.existsCollection(mongoComponent, playMongoRepository.collection)
       _      <- if (exists) playMongoRepository.collection.deleteMany(BsonDocument()).toFuture()
-                else Future.successful(())
+                else Future.unit
      } yield ()
     ).futureValue
 

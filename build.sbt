@@ -35,7 +35,7 @@ lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"
   .settings(
     commonSettings,
     crossScalaVersions := Seq(scala2_12, scala2_13),
-    libraryDependencies ++= AppDependencies.mongoCommon(scalaBinaryVersion.value)
+    libraryDependencies ++= AppDependencies.mongoCommon(scalaVersion.value)
   )
 
 lazy val hmrcMongoPlay28 = Project("hmrc-mongo-play-28", file("hmrc-mongo-play-28"))

@@ -27,40 +27,49 @@ trait MongoUtils {
   private val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
 
   def ensureIndexes[A](
-    collection: MongoCollection[A],
-    indexes: Seq[IndexModel],
+    collection    : MongoCollection[A],
+    indexes       : Seq[IndexModel],
     replaceIndexes: Boolean
   )(implicit ec: ExecutionContext
   ): Future[Seq[String]] =
     for {
-      currentIndices <- collection.listIndexes().toFuture().map(_.map(_("name").asString.getValue))
-      res <- Future.traverse(indexes) { index =>
-               collection
-                 .createIndex(index.getKeys, index.getOptions)
-                 .toFuture()
-                 .recoverWith {
-                   case IndexConflict(e) if replaceIndexes =>
-                     logger.warn("Conflicting Mongo index found. This index will be updated")
-                     for {
-                       _      <- collection.dropIndex(index.getOptions.getName).toFuture()
-                       result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
-                     } yield result
-                 }
-               }
-      indicesToDrop = if (replaceIndexes) currentIndices.toSet.diff(res.toSet + "_id_") else Set.empty
-      _   <- Future.traverse(indicesToDrop) { indexName =>
-               logger.warn(s"Index '$indexName' is not longer defined, removing")
-               collection.dropIndex(indexName).toFuture()
-                 .recoverWith {
-                   // could be caused by race conditions between server instances
-                   case IndexNotFound(e) => Future.successful(())
-                 }
-             }
+      currentIndices   <- collection.listIndexes().toFuture().map(_.map(_("name").asString.getValue))
+      requestedIndices =  indexes.map(_.getOptions.getName)
+      orphanedIndices  =  currentIndices.toSet.diff(requestedIndices.toSet + "_id_")
+      _                <- if (orphanedIndices.nonEmpty)
+                            if (replaceIndexes)
+                              Future.traverse(orphanedIndices) { indexName =>
+                                logger.warn(s"Index '$indexName' is not longer defined for ${collection.namespace}, removing")
+                                collection.dropIndex(indexName).toFuture()
+                                  .recoverWith {
+                                    // could be caused by race conditions between server instances
+                                    case IndexNotFound(e) => Future.unit
+                                  }
+                              }
+                            else
+                              Future.successful(logger.warn(s"The following indices exist in mongo for ${collection.namespace}, but are (no longer) provided to ensureIndexes: ${orphanedIndices.mkString(", ")}"))
+                          else
+                            Future.unit
+      res              <- Future.traverse(indexes) { index =>
+                            collection
+                              .createIndex(index.getKeys, index.getOptions)
+                              .toFuture()
+                              .recoverWith {
+                                // we recover from `IndexConflict` rather than predicting if requested IndexModel matches the existing Index
+                                // since the returned Index is a BsonDocument - and also not all fields cause conflicts.
+                                case IndexConflict(e) if replaceIndexes =>
+                                  logger.warn(s"Conflicting Mongo index found. Index '${index.getOptions.getName}' in ${collection.namespace} will be updated")
+                                  for {
+                                    _      <- collection.dropIndex(index.getOptions.getName).toFuture()
+                                    result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
+                                  } yield result
+                              }
+                            }
     } yield res
 
   def existsCollection[A](
       mongoComponent: MongoComponent,
-      collection: MongoCollection[A]
+      collection    : MongoCollection[A]
     )(implicit ec: ExecutionContext
     ): Future[Boolean] =
       for {
@@ -80,9 +89,10 @@ trait MongoUtils {
       for {
         _       <- Future.successful(logger.info(s"Ensuring ${collection.namespace} has ${optSchema.fold("no")(_ => "a")} jsonSchema"))
         exists  <- existsCollection(mongoComponent, collection)
-        _       <- if (!exists) {
+        _       <- if (!exists)
                      mongoComponent.database.createCollection(collection.namespace.getCollectionName).toFuture()
-                   } else Future.successful(())
+                   else
+                     Future.unit
         collMod =  optSchema.fold(
                      Document(
                        "collMod"          -> collection.namespace.getCollectionName,
@@ -117,7 +127,7 @@ trait MongoUtils {
   }
 
   object IndexConflict {
-    val IndexOptionsConflict  = 85 // e.g. change of ttl option
+    val IndexOptionsConflict  = 85 // e.g. change of index name or ttl option
     val IndexKeySpecsConflict = 86 // e.g. change of field name
     def unapply(e: MongoCommandException): Option[MongoCommandException] =
       e.getErrorCode match {

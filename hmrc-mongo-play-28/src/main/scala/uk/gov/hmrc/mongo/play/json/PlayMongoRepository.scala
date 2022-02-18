@@ -68,5 +68,5 @@ class PlayMongoRepository[A: ClassTag](
     if (optSchema.isDefined)
       MongoUtils.ensureSchema(mongoComponent, collection, optSchema)
     else
-      Future.successful(())
+      Future.unit
 }

@@ -33,7 +33,7 @@ import scala.concurrent.duration.DurationInt
   *  - some commands return `Observable[Void]` which will ignore any following map/flatMap (e.g. for-comprehension steps)
   */
 trait Transactions {
-  def mongoComponent: MongoComponent
+  protected def mongoComponent: MongoComponent
 
   private val logger = Logger(this.getClass)
 

@@ -10,7 +10,6 @@ object AppDependencies {
     "org.scalatestplus"      %% "scalatestplus-scalacheck"   % "3.1.0.0-RC2"  % Test,
     "com.vladsch.flexmark"   %  "flexmark-all"               % "0.35.10"      % Test,
     "ch.qos.logback"         %  "logback-classic"            % "1.2.3"        % Test
-
   ) ++
     (CrossVersion.partialVersion(scalaVersion) match {
       case Some((2, n)) if n >= 13 => // spilt out into it's own jar in 2.13
@@ -18,10 +17,10 @@ object AppDependencies {
       case _                       => Seq.empty
     })
 
-  def mongoCommon(scalaBinaryVersionValue: String): Seq[ModuleID] = Seq(
+  def mongoCommon(scalaVersion: String): Seq[ModuleID] = Seq(
     "org.mongodb.scala" %% "mongo-scala-driver" % "4.5.0",
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
-  )
+  ) ++ test(scalaVersion)
 
   lazy val metrixCommon: Seq[ModuleID] =
     Seq("io.dropwizard.metrics" % "metrics-graphite" % "3.2.6")
