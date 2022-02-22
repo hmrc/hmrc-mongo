@@ -33,22 +33,31 @@ trait MongoUtils {
   )(implicit ec: ExecutionContext
   ): Future[Seq[String]] =
     for {
-      currentIndices   <- collection.listIndexes().toFuture().map(_.map(_("name").asString.getValue))
-      requestedIndices =  indexes.map(_.getOptions.getName)
-      orphanedIndices  =  currentIndices.toSet.diff(requestedIndices.toSet + "_id_")
-      _                <- if (orphanedIndices.nonEmpty)
-                            if (replaceIndexes)
-                              Future.traverse(orphanedIndices) { indexName =>
-                                logger.warn(s"Index '$indexName' is not longer defined for ${collection.namespace}, removing")
-                                collection.dropIndex(indexName).toFuture()
-                                  .recoverWith {
-                                    // could be caused by race conditions between server instances
-                                    case IndexNotFound(e) => Future.unit
-                                  }
-                              }
-                            else
-                              Future.successful(logger.warn(s"The following indices exist in mongo for ${collection.namespace}, but are (no longer) provided to ensureIndexes: ${orphanedIndices.mkString(", ")}"))
-                          else
+      existingIndexes  <- collection.listIndexes().toFuture()
+      existingIndexMap =  existingIndexes.map(d => d("name").asString.getValue -> d).toMap
+      requestedIndexes =  indexes.map(_.getOptions.getName)
+      orphanedIndexes  =  existingIndexes
+                            .map(_("name").asString.getValue)
+                            .toSet
+                            .diff(requestedIndexes.toSet + "_id_")
+      _                <- if (orphanedIndexes.nonEmpty && replaceIndexes)
+                            Future.traverse(orphanedIndexes) { orphanName =>
+                              logger.warn(s"Index '$orphanName' key: '${existingIndexMap(orphanName)("key")}' is no longer defined for ${collection.namespace}, removing")
+                              collection
+                                .dropIndex(orphanName)
+                                .toFuture()
+                                .recoverWith {
+                                  // could be caused by race conditions between server instances
+                                  case IndexNotFound(e) => Future.unit
+                                }
+                             }
+                          else if (orphanedIndexes.nonEmpty) {
+                            val str =
+                              orphanedIndexes
+                                .map(orphanName => s"index: '$orphanName' key: '${existingIndexMap(orphanName)("key")}'")
+                                .mkString(", ")
+                            Future.successful(logger.warn(s"The following indexes exist in mongo for ${collection.namespace}, but are (no longer) provided to ensure: $str"))
+                          } else
                             Future.unit
       res              <- Future.traverse(indexes) { index =>
                             collection
