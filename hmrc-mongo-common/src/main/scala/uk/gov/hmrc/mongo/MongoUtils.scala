@@ -26,6 +26,9 @@ import scala.concurrent.{ExecutionContext, Future}
 trait MongoUtils {
   private val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
 
+  private def indexName(index: Document): String =
+    index("name").asString.getValue
+
   def ensureIndexes[A](
     collection    : MongoCollection[A],
     indexes       : Seq[IndexModel],
@@ -34,17 +37,14 @@ trait MongoUtils {
   ): Future[Seq[String]] =
     for {
       existingIndexes  <- collection.listIndexes().toFuture()
-      existingIndexMap =  existingIndexes.map(d => d("name").asString.getValue -> d).toMap
-      requestedIndexes =  indexes.map(_.getOptions.getName)
-      orphanedIndexes  =  existingIndexes
-                            .map(_("name").asString.getValue)
-                            .toSet
-                            .diff(requestedIndexes.toSet + "_id_")
+      orphanedIndexes  =  { val indexNames = indexes.map(_.getOptions.getName) :+ "_id_"
+                            existingIndexes.filterNot(existingIndex => indexNames.contains(indexName(existingIndex)))
+                          }
       _                <- if (orphanedIndexes.nonEmpty && replaceIndexes)
-                            Future.traverse(orphanedIndexes) { orphanName =>
-                              logger.warn(s"Index '$orphanName' key: '${existingIndexMap(orphanName)("key")}' is no longer defined for ${collection.namespace}, removing")
+                            Future.traverse(orphanedIndexes) { orphanIdx =>
+                              logger.warn(s"Index '${indexName(orphanIdx)}' key: '${orphanIdx("key")}' is no longer defined for ${collection.namespace} - dropping index")
                               collection
-                                .dropIndex(orphanName)
+                                .dropIndex(indexName(orphanIdx))
                                 .toFuture()
                                 .recoverWith {
                                   // could be caused by race conditions between server instances
@@ -54,9 +54,9 @@ trait MongoUtils {
                           else if (orphanedIndexes.nonEmpty) {
                             val str =
                               orphanedIndexes
-                                .map(orphanName => s"index: '$orphanName' key: '${existingIndexMap(orphanName)("key")}'")
+                                .map(orphanIdx => s"index: '${indexName(orphanIdx)}' key: '${orphanIdx("key")}'")
                                 .mkString(", ")
-                            Future.successful(logger.warn(s"The following indexes exist in mongo for ${collection.namespace}, but are (no longer) provided to ensure: $str"))
+                            Future.successful(logger.warn(s"The following indexes exist in mongo for ${collection.namespace}, but are (no longer) provided to ensureIndexes: $str"))
                           } else
                             Future.unit
       res              <- Future.traverse(indexes) { index =>
