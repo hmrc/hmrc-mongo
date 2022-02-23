@@ -14,20 +14,16 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.cache
 
-import com.mongodb.ConnectionString
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+import java.time.Instant
+import play.api.libs.json.JsObject
 
-trait MongoComponent {
-  def client: MongoClient
-  def database: MongoDatabase
-}
+final case class CacheItem(
+  id        : String,
+  data      : JsObject,
+  createdAt : Instant,
+  modifiedAt: Instant
+)
 
-object MongoComponent {
-  def apply(mongoUri: String): MongoComponent =
-    new MongoComponent {
-      override val client: MongoClient     = MongoClient(mongoUri)
-      override val database: MongoDatabase = client.getDatabase(new ConnectionString(mongoUri).getDatabase)
-    }
-}
+case class DataKey[A](unwrap: String) extends AnyVal

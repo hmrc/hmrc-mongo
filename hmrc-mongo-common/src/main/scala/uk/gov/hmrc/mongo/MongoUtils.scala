@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 HM Revenue & Customs
+ * Copyright 2022 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,41 +26,59 @@ import scala.concurrent.{ExecutionContext, Future}
 trait MongoUtils {
   private val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
 
+  private def indexName(index: Document): String =
+    index("name").asString.getValue
+
   def ensureIndexes[A](
-    collection: MongoCollection[A],
-    indexes: Seq[IndexModel],
+    collection    : MongoCollection[A],
+    indexes       : Seq[IndexModel],
     replaceIndexes: Boolean
   )(implicit ec: ExecutionContext
   ): Future[Seq[String]] =
     for {
-      currentIndices <- collection.listIndexes().toFuture().map(_.map(_("name").asString.getValue))
-      res <- Future.traverse(indexes) { index =>
-               collection
-                 .createIndex(index.getKeys, index.getOptions)
-                 .toFuture()
-                 .recoverWith {
-                   case IndexConflict(e) if replaceIndexes =>
-                     logger.warn("Conflicting Mongo index found. This index will be updated")
-                     for {
-                       _      <- collection.dropIndex(index.getOptions.getName).toFuture()
-                       result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
-                     } yield result
-                 }
-               }
-      indicesToDrop = if (replaceIndexes) currentIndices.toSet.diff(res.toSet + "_id_") else Set.empty
-      _   <- Future.traverse(indicesToDrop) { indexName =>
-               logger.warn(s"Index '$indexName' is not longer defined, removing")
-               collection.dropIndex(indexName).toFuture()
-                 .recoverWith {
-                   // could be caused by race conditions between server instances
-                   case IndexNotFound(e) => Future.successful(())
-                 }
-             }
+      existingIndexes  <- collection.listIndexes().toFuture()
+      orphanedIndexes  =  { val indexNames = indexes.map(_.getOptions.getName) :+ "_id_"
+                            existingIndexes.filterNot(existingIndex => indexNames.contains(indexName(existingIndex)))
+                          }
+      _                <- if (orphanedIndexes.nonEmpty && replaceIndexes)
+                            Future.traverse(orphanedIndexes) { orphanIdx =>
+                              logger.warn(s"Index '${indexName(orphanIdx)}' key: '${orphanIdx("key")}' is no longer defined for ${collection.namespace} - dropping index")
+                              collection
+                                .dropIndex(indexName(orphanIdx))
+                                .toFuture()
+                                .recoverWith {
+                                  // could be caused by race conditions between server instances
+                                  case IndexNotFound(e) => Future.unit
+                                }
+                             }
+                          else if (orphanedIndexes.nonEmpty) {
+                            val str =
+                              orphanedIndexes
+                                .map(orphanIdx => s"index: '${indexName(orphanIdx)}' key: '${orphanIdx("key")}'")
+                                .mkString(", ")
+                            Future.successful(logger.warn(s"The following indexes exist in mongo for ${collection.namespace}, but are (no longer) provided to ensureIndexes: $str"))
+                          } else
+                            Future.unit
+      res              <- Future.traverse(indexes) { index =>
+                            collection
+                              .createIndex(index.getKeys, index.getOptions)
+                              .toFuture()
+                              .recoverWith {
+                                // we recover from `IndexConflict` rather than predicting if requested IndexModel matches the existing Index
+                                // since the returned Index is a BsonDocument - and also not all fields cause conflicts.
+                                case IndexConflict(e) if replaceIndexes =>
+                                  logger.warn(s"Conflicting Mongo index found. Index '${index.getOptions.getName}' in ${collection.namespace} will be updated")
+                                  for {
+                                    _      <- collection.dropIndex(index.getOptions.getName).toFuture()
+                                    result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
+                                  } yield result
+                              }
+                            }
     } yield res
 
   def existsCollection[A](
       mongoComponent: MongoComponent,
-      collection: MongoCollection[A]
+      collection    : MongoCollection[A]
     )(implicit ec: ExecutionContext
     ): Future[Boolean] =
       for {
@@ -80,9 +98,10 @@ trait MongoUtils {
       for {
         _       <- Future.successful(logger.info(s"Ensuring ${collection.namespace} has ${optSchema.fold("no")(_ => "a")} jsonSchema"))
         exists  <- existsCollection(mongoComponent, collection)
-        _       <- if (!exists) {
+        _       <- if (!exists)
                      mongoComponent.database.createCollection(collection.namespace.getCollectionName).toFuture()
-                   } else Future.successful(())
+                   else
+                     Future.unit
         collMod =  optSchema.fold(
                      Document(
                        "collMod"          -> collection.namespace.getCollectionName,
@@ -117,7 +136,7 @@ trait MongoUtils {
   }
 
   object IndexConflict {
-    val IndexOptionsConflict  = 85 // e.g. change of ttl option
+    val IndexOptionsConflict  = 85 // e.g. change of index name or ttl option
     val IndexKeySpecsConflict = 86 // e.g. change of field name
     def unapply(e: MongoCommandException): Option[MongoCommandException] =
       e.getErrorCode match {

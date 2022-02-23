@@ -14,20 +14,10 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.metrix
 
-import com.mongodb.ConnectionString
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+import org.scalatest.OptionValues
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpecLike
 
-trait MongoComponent {
-  def client: MongoClient
-  def database: MongoDatabase
-}
-
-object MongoComponent {
-  def apply(mongoUri: String): MongoComponent =
-    new MongoComponent {
-      override val client: MongoClient     = MongoClient(mongoUri)
-      override val database: MongoDatabase = client.getDatabase(new ConnectionString(mongoUri).getDatabase)
-    }
-}
+trait UnitSpec extends AnyWordSpecLike with Matchers with OptionValues

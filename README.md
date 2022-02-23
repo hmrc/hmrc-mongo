@@ -37,7 +37,7 @@ libraryDependencies ++= Seq(
 )
 ```
 
-Where play-xx is play-26, play-27 or play-28 depending on your version of Play.
+Where play-xx is your version of Play (e.g. play-28).
 
 ## PlayMongoRepository
 
@@ -264,6 +264,13 @@ class ModelRepository @Inject() (val mongoComponent: MongoComponent)(implicit ec
 
 You may see `com.mongodb.MongoCommandException, with message: Command failed with error 263 (OperationNotSupportedInTransaction): 'Cannot create namespace ... in multi-document transaction.'` if collections are created implicitly on insert/upsert from a transaction, which is not supported until Mongo 4.4. You will need to ensure that the collection is created before the transaction runs. This especially applies to tests.
 
-### License
+
+## Changes
+
+### Version 0.60.0
+
+Drops support for Play 2.7. Only Play 2.8 is supported.
+
+## License
 
 This code is open source software licensed under the [Apache 2.0 License]("http://www.apache.org/licenses/LICENSE-2.0.html").

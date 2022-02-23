@@ -14,20 +14,17 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.metrix
 
-import com.mongodb.ConnectionString
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+import play.api.libs.functional.syntax._
+import play.api.libs.json.{Format, __}
 
-trait MongoComponent {
-  def client: MongoClient
-  def database: MongoDatabase
-}
+final case class PersistedMetric(name: String, count: Int)
 
-object MongoComponent {
-  def apply(mongoUri: String): MongoComponent =
-    new MongoComponent {
-      override val client: MongoClient     = MongoClient(mongoUri)
-      override val database: MongoDatabase = client.getDatabase(new ConnectionString(mongoUri).getDatabase)
-    }
+object PersistedMetric {
+
+  val format: Format[PersistedMetric] =
+    ((__ \ "name").format[String]
+      ~ (__ \ "count").format[Int])(PersistedMetric.apply, unlift(PersistedMetric.unapply))
+
 }

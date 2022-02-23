@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.cache
+import play.api.libs.functional.syntax.{unlift, _}
+import play.api.libs.json.{OFormat, __}
 
-import com.mongodb.ConnectionString
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+final case class Person(
+  name: String,
+  age: Int,
+  sex: String
+)
 
-trait MongoComponent {
-  def client: MongoClient
-  def database: MongoDatabase
-}
-
-object MongoComponent {
-  def apply(mongoUri: String): MongoComponent =
-    new MongoComponent {
-      override val client: MongoClient     = MongoClient(mongoUri)
-      override val database: MongoDatabase = client.getDatabase(new ConnectionString(mongoUri).getDatabase)
-    }
+object Person {
+  val format: OFormat[Person] =
+    ((__ \ "name").format[String]
+      ~ (__ \ "age").format[Int]
+      ~ (__ \ "sex").format[String])(Person.apply, unlift(Person.unapply))
 }

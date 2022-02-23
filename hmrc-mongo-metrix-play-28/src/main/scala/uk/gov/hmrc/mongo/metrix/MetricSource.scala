@@ -14,20 +14,13 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.metrix
 
-import com.mongodb.ConnectionString
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+import scala.concurrent.{ExecutionContext, Future}
 
-trait MongoComponent {
-  def client: MongoClient
-  def database: MongoDatabase
-}
-
-object MongoComponent {
-  def apply(mongoUri: String): MongoComponent =
-    new MongoComponent {
-      override val client: MongoClient     = MongoClient(mongoUri)
-      override val database: MongoDatabase = client.getDatabase(new ConnectionString(mongoUri).getDatabase)
-    }
+/**
+  * A source of metrics to collect from your application
+  */
+trait MetricSource {
+  def metrics(implicit ec: ExecutionContext): Future[Map[String, Int]]
 }

@@ -14,20 +14,12 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo
+package uk.gov.hmrc.mongo.workitem
 
-import com.mongodb.ConnectionString
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+sealed trait StatusUpdateResult
 
-trait MongoComponent {
-  def client: MongoClient
-  def database: MongoDatabase
-}
-
-object MongoComponent {
-  def apply(mongoUri: String): MongoComponent =
-    new MongoComponent {
-      override val client: MongoClient     = MongoClient(mongoUri)
-      override val database: MongoDatabase = client.getDatabase(new ConnectionString(mongoUri).getDatabase)
-    }
+object StatusUpdateResult {
+  case class Updated(previousStatus: ProcessingStatus, newStatus: ProcessingStatus) extends StatusUpdateResult
+  case class NotUpdated(currentState: ProcessingStatus) extends StatusUpdateResult
+  case object NotFound extends StatusUpdateResult
 }
