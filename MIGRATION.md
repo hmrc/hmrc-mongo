@@ -20,6 +20,8 @@ This guide is for migrating from [simple-reactivemongo](https://github.com/hmrc/
 - [Deployment](#deployment)
 - [Lock](#lock)
 - [Cache](#cache)
+- [Metrixs](#metrixs)
+- [Work Item Repo](#work-item-repo)
 - [Primary Elections and Failover](#primary-elections-and-failover)
 
 
@@ -35,13 +37,13 @@ In `build.sbt/AppDependencies.scala` remove:
 and replace with:
 
 ```scala
- "uk.gov.hmrc.mongo" %% "hmrc-mongo-play-27"      % "[latest version]"
- "uk.gov.hmrc.mongo" %% "hmrc-mongo-test-play-27" % "[latest version]"
+ "uk.gov.hmrc.mongo" %% "hmrc-mongo-play-28"      % "[latest version]"
+ "uk.gov.hmrc.mongo" %% "hmrc-mongo-test-play-28" % "[latest version]"
  ```
 
 Latest versions can be found at: https://github.com/hmrc/hmrc-mongo/releases
 
-If you are pulling in reactivemongo via a feature dependency like cache or lock, replace with the library provided by hmrc-mongo (see [README](https://github.com/hmrc/hmrc-mongo/blob/master/README.md)).
+If you are pulling in reactivemongo via a feature dependency like cache or lock, replace with the library provided by hmrc-mongo (see [README](https://github.com/hmrc/hmrc-mongo/blob/main/README.md)).
 
 ## Update Configuration
 
@@ -90,7 +92,7 @@ Note, the scope of the PlayMongoRepository is reduced in comparison to the React
 
 For this reason, you do not need to pass the id type any longer.
 
-Also see [scalafix](https://github.com/hmrc/scalafix-rules/tree/master/hmrc-mongo) for some examples.
+Also see [scalafix](https://github.com/hmrc/scalafix-rules/tree/main/hmrc-mongo) for some examples.
 
 ## Migrate index definitions
 
@@ -492,6 +494,14 @@ class LockClient @Inject()(mongoLockRepository: MongoLockRepository) {
 `uk.gov.hmrc.cache.model.Cache` replaced with `uk.gov.hmrc.mongo.cache.CacheItem`.
 
 `uk.gov.hmrc.mongo.cache.SessionCacheRepository` and `uk.gov.hmrc.mongo.cache.EntityCache` are new and may mean you can avoid some boilerplate.
+
+## Metrixs
+
+See [metrix](https://github.com/hmrc/hmrc-mongo/tree/main/hmrc-mongo-metrix-play-28)
+
+## Work Item Repo
+
+See [work-item-repo](https://github.com/hmrc/hmrc-mongo/tree/main/hmrc-mongo-work-item-repo-play-28)
 
 ## Primary Elections and Failover
 

@@ -16,11 +16,11 @@ resolvers += "HMRC-open-artefacts-maven2" at "https://open.artefacts.tax.service
 libraryDependencies += "uk.gov.hmrc.mongo" %% "hmrc-mongo-work-item-repo-play-xx" % "[INSERT-VERSION]"
 ```
 
-Where play-xx is play-26, play-27 or play-28 depending on your version of Play.
+Where `play-xx` is your version of Play (e.g. `play-28`).
 
 ## How to Use
 
-See [How to Use](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-work-item-repo-play-27/HOW_TO_USE.md)
+See [How to Use](https://github.com/hmrc/hmrc-mongo/tree/main/hmrc-mongo-work-item-repo-play-28/HOW_TO_USE.md)
 
 ### License
 
