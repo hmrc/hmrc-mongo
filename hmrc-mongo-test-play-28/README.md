@@ -44,8 +44,10 @@ Include the following dependency in your SBT build
 ``` scala
 resolvers += "HMRC-open-artefacts-maven2" at "https://open.artefacts.tax.service.gov.uk/maven2"
 
-libraryDependencies += "uk.gov.hmrc.mongo" %% "hmrc-mongo-test-play-26" % "[INSERT-VERSION]"
+libraryDependencies += "uk.gov.hmrc.mongo" %% "hmrc-mongo-test-play-xx" % "[INSERT-VERSION]"
 ```
+
+Where `play-xx` is your version of Play (e.g. `play-28`)
 
 ### License
 

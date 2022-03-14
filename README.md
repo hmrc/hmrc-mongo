@@ -17,9 +17,9 @@ Other included features are:
 - [lock](#lock)
 - [cache](#cache)
 - [transactions](#transactions)
-- [test support](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-test-play-27)
-- [metrix](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-metrix-play-27)
-- [work-item-repo](https://github.com/hmrc/hmrc-mongo/tree/master/hmrc-mongo-work-item-repo-play-27)
+- [test support](https://github.com/hmrc/hmrc-mongo/tree/main/hmrc-mongo-test-play-28)
+- [metrix](https://github.com/hmrc/hmrc-mongo/tree/main/hmrc-mongo-metrix-play-28)
+- [work-item-repo](https://github.com/hmrc/hmrc-mongo/tree/main/hmrc-mongo-work-item-repo-play-28)
 
 ## Migration
 
@@ -37,7 +37,7 @@ libraryDependencies ++= Seq(
 )
 ```
 
-Where play-xx is your version of Play (e.g. play-28).
+Where `play-xx` is your version of Play (e.g. `play-28`).
 
 ## PlayMongoRepository
 
@@ -45,7 +45,7 @@ Create a case class to represent the data model to be serialised/deserialised to
 
 Create [JSON Format](https://www.playframework.com/documentation/2.8.x/ScalaJsonCombinators) to map the data model to JSON.
 
-Extend [PlayMongoRepository](https://github.com/hmrc/hmrc-mongo/blob/main/hmrc-mongo-play-27/src/main/scala/uk/gov/hmrc/mongo/play/PlayMongoComponent.scala), providing the collectionName, the mongoComponent, and domainFormat.
+Extend [PlayMongoRepository](https://github.com/hmrc/hmrc-mongo/blob/main/hmrc-mongo-play-28/src/main/scala/uk/gov/hmrc/mongo/play/PlayMongoComponent.scala), providing the collectionName, the mongoComponent, and domainFormat.
 
 The mongoComponent can be injected if you register the PlayMongoModule with play. In `application.conf`:
 ```scala

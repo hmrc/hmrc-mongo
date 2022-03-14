@@ -18,7 +18,7 @@ collecting, and will be shipped out by whatever method you are using.
 > `T getValue();`
 
 ## How data gathering works
-<img src="https://github.com/hmrc/hmrc-mongo/blob/master/hmrc-mongo-metrix-play-26/diagrams/metrixDataGathering.png" width="500" alt="Metric Gathering">
+<img src="https://github.com/hmrc/hmrc-mongo/blob/main/hmrc-mongo-metrix-play-28/diagrams/metrixDataGathering.png" width="500" alt="Metric Gathering">
 
 Metrix has a very simple interface, and all metrics collected are a simple integer count.
 
@@ -37,7 +37,7 @@ for this operation. They also control the creation and registration of individua
 
 ## How reporting works
 
-<img src="https://github.com/hmrc/hmrc-mongo/blob/master/hmrc-mongo-metrix-play-26/diagrams/metricReportingMechanism.png" width="250" alt="Metric Reporting">
+<img src="https://github.com/hmrc/hmrc-mongo/blob/main/hmrc-mongo-metrix-play-28/diagrams/metricReportingMechanism.png" width="250" alt="Metric Reporting">
 
 There is a CacheGauge registered in the MetricRegistry for each metric gathered from metric sources.
 
@@ -85,8 +85,11 @@ Include the following dependency in your SBT build
 ``` scala
 resolvers += "HMRC-open-artefacts-maven2" at "https://open.artefacts.tax.service.gov.uk/maven2"
 
-libraryDependencies += "uk.gov.hmrc.mongo" %% "hmrc-mongo-metrix-play-26" % "[INSERT-VERSION]"
+libraryDependencies += "uk.gov.hmrc.mongo" %% "hmrc-mongo-metrix-play-xx" % "[INSERT-VERSION]"
 ```
+
+Where `play-xx` is your version of Play (e.g. `play-28`)
+
 ## Compatibility
 Metrix uses the official [mongo-scala](https://mongodb.github.io/mongo-scala-driver/) driver, instead of [ReactiveMongo](https://github.com/ReactiveMongo/ReactiveMongo)
 which was used in [previous (now deprecated) releases](https://github.com/hmrc/metrix) under the `metrix` (instead of `hmrc-mongo-metrix`) artifact ID.
