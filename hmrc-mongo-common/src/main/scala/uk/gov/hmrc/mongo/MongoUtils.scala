@@ -26,8 +26,16 @@ import scala.concurrent.{ExecutionContext, Future}
 trait MongoUtils {
   private val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
 
-  private def indexName(index: Document): String =
+  private[mongo] def indexName(index: Document): String =
     index("name").asString.getValue
+
+  // this replicates the default naming in mongo
+  private[mongo] def defaultName(index: IndexModel): String = {
+    import scala.collection.JavaConverters._
+    index.getKeys.toBsonDocument.entrySet.iterator.asScala
+      .map(entry => entry.getKey + "_" + entry.getValue.asInt32.getValue)
+      .mkString("_")
+  }
 
   def ensureIndexes[A](
     collection    : MongoCollection[A],
@@ -36,6 +44,13 @@ trait MongoUtils {
   )(implicit ec: ExecutionContext
   ): Future[Seq[String]] =
     for {
+      indexes          <- // IndexModel name will be null if wasn't set; ensure all indexes have names for the orphan check
+                          Future.successful(indexes.map(idx =>
+                            IndexModel(
+                              keys         = idx.getKeys,
+                              indexOptions = idx.getOptions.name(Option(idx.getOptions.getName).getOrElse(defaultName(idx)))
+                            )
+                          ))
       existingIndexes  <- collection.listIndexes().toFuture()
       orphanedIndexes  =  { val indexNames = indexes.map(_.getOptions.getName) :+ "_id_"
                             existingIndexes.filterNot(existingIndex => indexNames.contains(indexName(existingIndex)))

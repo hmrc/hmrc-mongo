@@ -20,21 +20,25 @@ import com.mongodb.MongoCommandException
 import org.mongodb.scala.Document
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.{Indexes, IndexModel, IndexOptions}
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import ExecutionContext.Implicits.global
+import org.bson.conversions.Bson
 
 class MongoUtilsSpec
   extends AnyWordSpecLike
      with Matchers
      with ScalaFutures
      with IntegrationPatience
-     with BeforeAndAfterEach {
+     with BeforeAndAfterEach
+     with ScalaCheckDrivenPropertyChecks {
 
   val mongoComponent = {
     val databaseName: String = "test-" + this.getClass.getSimpleName
@@ -176,6 +180,46 @@ class MongoUtilsSpec
       ).futureValue
     }
   }
+
+  "MongoUtils.defaultName" should {
+    "create the same names as mongo" in {
+      forAll(indexKeyGen) { indexKey =>
+        val index = IndexModel(indexKey, IndexOptions())
+        (for {
+           // clean up from last index test
+           existingIndexes <- collection.listIndexes().toFuture().map(_.filterNot(MongoUtils.indexName(_) == "_id_"))
+           _               <- Future.traverse(existingIndexes)(existing =>
+                                collection
+                                  .dropIndex(MongoUtils.indexName(existing))
+                                  .toFuture()
+                              )
+           // the check
+           _               <- collection
+                                .createIndex(index.getKeys, index.getOptions)
+                                .toFuture()
+           createdIndexes  <- collection.listIndexes().toFuture()
+         } yield MongoUtils.defaultName(index) shouldBe createdIndexes.map(MongoUtils.indexName).filterNot(_ == "_id_").head
+        ).futureValue
+      }
+    }
+  }
+
+  def singleIndexKeyGen: Gen[Bson] =
+    for {
+      field1      <- Gen.alphaNumStr.suchThat(_.nonEmpty)
+      field2      <- Gen.alphaNumStr.suchThat(_.nonEmpty)
+      isMultikey  <- Arbitrary.arbitrary[Boolean]
+      isAscending <- Arbitrary.arbitrary[Boolean]
+      field = if (isMultikey) field1 + "." + field2 else field1
+    } yield
+      if (isAscending) Indexes.ascending(field) else Indexes.descending(field)
+
+  def indexKeyGen: Gen[Bson] =
+    for {
+      n         <- Gen.choose(1, 10)
+      indexKeys <- Gen.listOfN(n, singleIndexKeyGen)
+    } yield
+      Indexes.compoundIndex(indexKeys: _*)
 
   def prepareDatabase(): Unit =
     (for {
