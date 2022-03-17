@@ -20,25 +20,21 @@ import com.mongodb.MongoCommandException
 import org.mongodb.scala.Document
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.{Indexes, IndexModel, IndexOptions}
-import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import ExecutionContext.Implicits.global
-import org.bson.conversions.Bson
 
 class MongoUtilsSpec
   extends AnyWordSpecLike
      with Matchers
      with ScalaFutures
      with IntegrationPatience
-     with BeforeAndAfterEach
-     with ScalaCheckDrivenPropertyChecks {
+     with BeforeAndAfterEach {
 
   val mongoComponent = {
     val databaseName: String = "test-" + this.getClass.getSimpleName
@@ -53,13 +49,73 @@ class MongoUtilsSpec
     "recreate indexes when dropping some indexes" in {
       val indexes1 =
         Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions())
+        )
+      val indexes2 =
+        Seq(
+          IndexModel(Indexes.ascending("field2"), IndexOptions()),
+          IndexModel(Indexes.ascending("field3"), IndexOptions())
+        )
+      (for {
+         _               <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         createdIndexes1 <- collection.listIndexes().toFuture()
+         _               =  createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
+                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
+                              BsonDocument("name" -> "field1_1", "key" -> BsonDocument("field1" -> 1)),
+                              BsonDocument("name" -> "field2_1", "key" -> BsonDocument("field2" -> 1))
+                            )
+         _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
+         createdIndexes2 <- collection.listIndexes().toFuture()
+         _               =  createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
+                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
+                              BsonDocument("name" -> "field2_1", "key" -> BsonDocument("field2" -> 1)),
+                              BsonDocument("name" -> "field3_1", "key" -> BsonDocument("field3" -> 1))
+                            )
+       } yield ()
+      ).futureValue
+    }
+
+    "recreate indexes when changing index key" in {
+      val indexes1 =
+        Seq(
           IndexModel(Indexes.ascending("field1"), IndexOptions().name("idx1")),
           IndexModel(Indexes.ascending("field2"), IndexOptions().name("idx2"))
         )
       val indexes2 =
         Seq(
-          IndexModel(Indexes.ascending("field2"), IndexOptions().name("idx2")),
-          IndexModel(Indexes.ascending("field3"), IndexOptions().name("idx3"))
+          IndexModel(Indexes.ascending("field1"), IndexOptions().name("idx1")),
+          IndexModel(Indexes.ascending("field3"), IndexOptions().name("idx2"))
+        )
+      (for {
+         _               <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         createdIndexes1 <- collection.listIndexes().toFuture()
+         _               =  createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
+                              BsonDocument("key" -> BsonDocument("_id"    -> 1), "name" -> "_id_"),
+                              BsonDocument("key" -> BsonDocument("field1" -> 1), "name" -> "idx1"),
+                              BsonDocument("key" -> BsonDocument("field2" -> 1), "name" -> "idx2")
+                            )
+         _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
+         createdIndexes2 <- collection.listIndexes().toFuture()
+         _               =  createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
+                              BsonDocument("key" -> BsonDocument("_id"    -> 1), "name" -> "_id_"),
+                              BsonDocument("key" -> BsonDocument("field1" -> 1), "name" -> "idx1"),
+                              BsonDocument("key" -> BsonDocument("field3" -> 1), "name" -> "idx2")
+                            )
+       } yield ()
+      ).futureValue
+    }
+
+    "recreate indexes when changing index name" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions().name("idx1")),
+          IndexModel(Indexes.ascending("field2"), IndexOptions().name("idx2"))
+        )
+      val indexes2 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions().name("idx3")),
+          IndexModel(Indexes.ascending("field2"), IndexOptions().name("idx2"))
         )
       (for {
          _               <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
@@ -72,9 +128,9 @@ class MongoUtilsSpec
          _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
          createdIndexes2 <- collection.listIndexes().toFuture()
          _               =  createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "idx2", "key" -> BsonDocument("field2" -> 1)),
-                              BsonDocument("name" -> "idx3", "key" -> BsonDocument("field3" -> 1))
+                              BsonDocument("key" -> BsonDocument("_id"    -> 1), "name" -> "_id_"),
+                              BsonDocument("key" -> BsonDocument("field2" -> 1), "name" -> "idx2"),
+                              BsonDocument("key" -> BsonDocument("field1" -> 1), "name" -> "idx3")
                             )
        } yield ()
       ).futureValue
@@ -180,68 +236,6 @@ class MongoUtilsSpec
       ).futureValue
     }
   }
-
-  "MongoUtils.defaultName" should {
-    "create the same names as mongo" in {
-      forAll(indexKeyGen) { indexKey =>
-        val index = IndexModel(indexKey, IndexOptions())
-        (for {
-           // clean up from last index test
-           existingIndexes <- collection.listIndexes().toFuture().map(_.filterNot(MongoUtils.indexName(_) == "_id_"))
-           _               <- Future.traverse(existingIndexes)(existing =>
-                                collection
-                                  .dropIndex(MongoUtils.indexName(existing))
-                                  .toFuture()
-                              )
-           // the check
-           _               <- collection
-                                .createIndex(index.getKeys, index.getOptions)
-                                .toFuture()
-           createdIndexes  <- collection.listIndexes().toFuture()
-         } yield MongoUtils.defaultName(index) shouldBe createdIndexes.map(MongoUtils.indexName).filterNot(_ == "_id_").head
-        ).futureValue
-      }
-    }
-  }
-
-  def fieldGen: Gen[String] =
-    for {
-      field1      <- Gen.alphaNumStr.suchThat(_.nonEmpty)
-      field2      <- Gen.alphaNumStr.suchThat(_.nonEmpty)
-      isMultikey  <- Arbitrary.arbitrary[Boolean]
-    } yield
-      if (isMultikey) field1 + "." + field2 else field1
-
-  def singleIndexKeyGen: Gen[Bson] =
-    for {
-      field    <- fieldGen
-      indexKey <- Gen.oneOf(
-                    Indexes.ascending(field),
-                    Indexes.descending(field)
-                  )
-    } yield indexKey
-
-  // these cannot be combined with each other
-  def indexPluginKeyGen: Gen[Bson] =
-    for {
-      field    <- fieldGen
-      field2   <- fieldGen
-      indexKey <- Gen.oneOf(
-                    Indexes.geo2d(field),
-                    Indexes.geo2dsphere(field),
-                    Indexes.geo2dsphere(field, field2),
-                    Indexes.text(field),
-                    Indexes.hashed(field) // this can be combined with ascending, descending, but we can only have one
-                  )
-    } yield indexKey
-
-  def indexKeyGen: Gen[Bson] =
-    for {
-      isSingleIndexKey <- Arbitrary.arbitrary[Boolean]
-      n                <- Gen.choose(1, 10)
-      indexKeys        <- if (isSingleIndexKey) Gen.listOfN(n, singleIndexKeyGen) else indexPluginKeyGen.map(Seq(_))
-    } yield
-      Indexes.compoundIndex(indexKeys: _*)
 
   def prepareDatabase(): Unit =
     (for {

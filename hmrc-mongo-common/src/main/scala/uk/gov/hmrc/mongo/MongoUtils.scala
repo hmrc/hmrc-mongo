@@ -26,16 +26,8 @@ import scala.concurrent.{ExecutionContext, Future}
 trait MongoUtils {
   private val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
 
-  private[mongo] def indexName(index: Document): String =
+  private def indexName(index: Document): String =
     index("name").asString.getValue
-
-  // this replicates the default naming in mongo
-  private[mongo] def defaultName(index: IndexModel): String = {
-    import scala.collection.JavaConverters._
-    index.getKeys.toBsonDocument.entrySet.iterator.asScala
-      .map(entry => entry.getKey + "_" + (if (entry.getValue.isInt32) entry.getValue.asInt32.getValue else entry.getValue.asString.getValue))
-      .mkString("_")
-  }
 
   def ensureIndexes[A](
     collection    : MongoCollection[A],
@@ -44,16 +36,10 @@ trait MongoUtils {
   )(implicit ec: ExecutionContext
   ): Future[Seq[String]] =
     for {
-      indexes          <- // IndexModel name will be null if wasn't set; ensure all indexes have names for the orphan check
-                          Future.successful(indexes.map(idx =>
-                            IndexModel(
-                              keys         = idx.getKeys,
-                              indexOptions = idx.getOptions.name(Option(idx.getOptions.getName).getOrElse(defaultName(idx)))
-                            )
-                          ))
       existingIndexes  <- collection.listIndexes().toFuture()
-      orphanedIndexes  =  { val indexNames = indexes.map(_.getOptions.getName) :+ "_id_"
-                            existingIndexes.filterNot(existingIndex => indexNames.contains(indexName(existingIndex)))
+      orphanedIndexes  =  { // compare keys, since idx.getOptions.getName will be null if not set
+                            val indexKeys = indexes.map(_.getKeys) :+ BsonDocument("_id" -> 1)
+                            existingIndexes.filterNot(existingIndex => indexKeys.contains(existingIndex("key").asDocument))
                           }
       _                <- if (orphanedIndexes.nonEmpty && replaceIndexes)
                             Future.traverse(orphanedIndexes) { orphanIdx =>
@@ -82,9 +68,13 @@ trait MongoUtils {
                                 // we recover from `IndexConflict` rather than predicting if requested IndexModel matches the existing Index
                                 // since the returned Index is a BsonDocument - and also not all fields cause conflicts.
                                 case IndexConflict(e) if replaceIndexes =>
-                                  logger.warn(s"Conflicting Mongo index found. Index '${index.getOptions.getName}' in ${collection.namespace} will be updated")
+                                  val conflictingIdxName =
+                                    existingIndexes.find(idx => idx("key").asDocument == index.getKeys).map(indexName)
+                                      // this shouldn't happen
+                                      .getOrElse(sys.error(s"Could not find the conflicting index ${index.getKeys}"))
+                                  logger.warn(s"Conflicting Mongo index found. Index '${conflictingIdxName}' in ${collection.namespace} will be recreated")
                                   for {
-                                    _      <- collection.dropIndex(index.getOptions.getName).toFuture()
+                                    _      <- collection.dropIndex(conflictingIdxName).toFuture()
                                     result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
                                   } yield result
                               }
