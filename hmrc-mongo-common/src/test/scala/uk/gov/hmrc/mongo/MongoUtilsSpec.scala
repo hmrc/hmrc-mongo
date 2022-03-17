@@ -204,20 +204,42 @@ class MongoUtilsSpec
     }
   }
 
-  def singleIndexKeyGen: Gen[Bson] =
+  def fieldGen: Gen[String] =
     for {
       field1      <- Gen.alphaNumStr.suchThat(_.nonEmpty)
       field2      <- Gen.alphaNumStr.suchThat(_.nonEmpty)
       isMultikey  <- Arbitrary.arbitrary[Boolean]
-      isAscending <- Arbitrary.arbitrary[Boolean]
-      field = if (isMultikey) field1 + "." + field2 else field1
     } yield
-      if (isAscending) Indexes.ascending(field) else Indexes.descending(field)
+      if (isMultikey) field1 + "." + field2 else field1
+
+  def singleIndexKeyGen: Gen[Bson] =
+    for {
+      field    <- fieldGen
+      indexKey <- Gen.oneOf(
+                    Indexes.ascending(field),
+                    Indexes.descending(field)
+                  )
+    } yield indexKey
+
+  // these cannot be combined with each other
+  def indexPluginKeyGen: Gen[Bson] =
+    for {
+      field    <- fieldGen
+      field2   <- fieldGen
+      indexKey <- Gen.oneOf(
+                    Indexes.geo2d(field),
+                    Indexes.geo2dsphere(field),
+                    Indexes.geo2dsphere(field, field2),
+                    Indexes.text(field),
+                    Indexes.hashed(field) // this can be combined with ascending, descending, but we can only have one
+                  )
+    } yield indexKey
 
   def indexKeyGen: Gen[Bson] =
     for {
-      n         <- Gen.choose(1, 10)
-      indexKeys <- Gen.listOfN(n, singleIndexKeyGen)
+      isSingleIndexKey <- Arbitrary.arbitrary[Boolean]
+      n                <- Gen.choose(1, 10)
+      indexKeys        <- if (isSingleIndexKey) Gen.listOfN(n, singleIndexKeyGen) else indexPluginKeyGen.map(Seq(_))
     } yield
       Indexes.compoundIndex(indexKeys: _*)
 

@@ -33,7 +33,7 @@ trait MongoUtils {
   private[mongo] def defaultName(index: IndexModel): String = {
     import scala.collection.JavaConverters._
     index.getKeys.toBsonDocument.entrySet.iterator.asScala
-      .map(entry => entry.getKey + "_" + entry.getValue.asInt32.getValue)
+      .map(entry => entry.getKey + "_" + (if (entry.getValue.isInt32) entry.getValue.asInt32.getValue else entry.getValue.asString.getValue))
       .mkString("_")
   }
 
