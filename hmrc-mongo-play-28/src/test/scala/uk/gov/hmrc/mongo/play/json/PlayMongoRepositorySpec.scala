@@ -22,14 +22,10 @@ import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
 import org.bson.types.ObjectId
 import org.joda.{time => jot}
-import org.mongodb.scala.Document
-import org.mongodb.scala.ReadPreference
-import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.bson.BsonString
-import org.mongodb.scala.model.Filters
-import org.mongodb.scala.model.Updates
-import org.scalacheck.Arbitrary
-import org.scalacheck.Gen
+import org.mongodb.scala.{Document, ReadPreference}
+import org.mongodb.scala.bson.{BsonDocument, BsonString}
+import org.mongodb.scala.model.{Filters, Updates}
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.compatible.Assertion
 import org.scalatest.concurrent.ScalaFutures
@@ -38,28 +34,22 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import uk.gov.hmrc.mongo.MongoComponent
-import uk.gov.hmrc.mongo.MongoUtils
-import uk.gov.hmrc.mongo.play.json.formats.MongoBinaryFormats
-import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
-import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
-import uk.gov.hmrc.mongo.play.json.formats.MongoJodaFormats
-import uk.gov.hmrc.mongo.play.json.formats.MongoUuidFormats
+import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
+import uk.gov.hmrc.mongo.play.json.formats.{MongoBinaryFormats, MongoFormats, MongoJavatimeFormats, MongoJodaFormats, MongoUuidFormats}
 
 import java.util.UUID
 import java.{time => jat}
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
 import ExecutionContext.Implicits.global
 
 class PlayMongoRepositorySpec
-    extends AnyWordSpecLike
-    with Matchers
-    with ScalaFutures
-    with ScalaCheckDrivenPropertyChecks
-    with BeforeAndAfterAll {
+  extends AnyWordSpecLike
+     with Matchers
+     with ScalaFutures
+     with ScalaCheckDrivenPropertyChecks
+     with BeforeAndAfterAll {
 
   import Codecs.toBson
   import PlayMongoRepositorySpec._

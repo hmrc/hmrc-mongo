@@ -37,8 +37,9 @@ trait MongoUtils {
   ): Future[Seq[String]] =
     for {
       existingIndexes  <- collection.listIndexes().toFuture()
-      orphanedIndexes  =  { val indexNames = indexes.map(_.getOptions.getName) :+ "_id_"
-                            existingIndexes.filterNot(existingIndex => indexNames.contains(indexName(existingIndex)))
+      orphanedIndexes  =  { // compare keys, since idx.getOptions.getName will be null if not set
+                            val indexKeys = indexes.map(_.getKeys) :+ BsonDocument("_id" -> 1)
+                            existingIndexes.filterNot(existingIndex => indexKeys.contains(existingIndex("key").asDocument))
                           }
       _                <- if (orphanedIndexes.nonEmpty && replaceIndexes)
                             Future.traverse(orphanedIndexes) { orphanIdx =>
@@ -67,9 +68,13 @@ trait MongoUtils {
                                 // we recover from `IndexConflict` rather than predicting if requested IndexModel matches the existing Index
                                 // since the returned Index is a BsonDocument - and also not all fields cause conflicts.
                                 case IndexConflict(e) if replaceIndexes =>
-                                  logger.warn(s"Conflicting Mongo index found. Index '${index.getOptions.getName}' in ${collection.namespace} will be updated")
+                                  val conflictingIdxName =
+                                    existingIndexes.find(idx => idx("key").asDocument == index.getKeys).map(indexName)
+                                      // this shouldn't happen
+                                      .getOrElse(sys.error(s"Could not find the conflicting index ${index.getKeys}"))
+                                  logger.warn(s"Conflicting Mongo index found. Index '${conflictingIdxName}' in ${collection.namespace} will be recreated")
                                   for {
-                                    _      <- collection.dropIndex(index.getOptions.getName).toFuture()
+                                    _      <- collection.dropIndex(conflictingIdxName).toFuture()
                                     result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
                                   } yield result
                               }
