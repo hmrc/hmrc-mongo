@@ -38,7 +38,7 @@ trait MongoUtils {
     for {
       existingIndexes  <- collection.listIndexes().toFuture()
       orphanedIndexes  =  { // compare keys, since idx.getOptions.getName will be null if not set
-                            val indexKeys = indexes.map(_.getKeys) :+ BsonDocument("_id" -> 1)
+                            val indexKeys = indexes.map(_.getKeys.toBsonDocument) :+ BsonDocument("_id" -> 1)
                             existingIndexes.filterNot(existingIndex => indexKeys.contains(existingIndex("key").asDocument))
                           }
       _                <- if (orphanedIndexes.nonEmpty && replaceIndexes)
@@ -69,9 +69,9 @@ trait MongoUtils {
                                 // since the returned Index is a BsonDocument - and also not all fields cause conflicts.
                                 case IndexConflict(e) if replaceIndexes =>
                                   val conflictingIdxName =
-                                    existingIndexes.find(idx => idx("key").asDocument == index.getKeys).map(indexName)
+                                    existingIndexes.find(idx => idx("key").asDocument == index.getKeys.toBsonDocument).map(indexName)
                                       // this shouldn't happen
-                                      .getOrElse(sys.error(s"Could not find the conflicting index ${index.getKeys}"))
+                                      .getOrElse(sys.error(s"Could not find the conflicting index ${index.getKeys.toBsonDocument}"))
                                   logger.warn(s"Conflicting Mongo index found. Index '${conflictingIdxName}' in ${collection.namespace} will be recreated")
                                   for {
                                     _      <- collection.dropIndex(conflictingIdxName).toFuture()
