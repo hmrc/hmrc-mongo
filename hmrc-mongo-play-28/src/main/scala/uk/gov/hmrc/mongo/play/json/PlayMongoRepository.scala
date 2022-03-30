@@ -58,8 +58,10 @@ class PlayMongoRepository[A: ClassTag](
   Await.result(ensureSchema, 5.seconds)
 
   def ensureIndexes: Future[Seq[String]] = {
-    if (indexes.isEmpty)
+    if (indexes.isEmpty) {
       logger.info(s"Skipping Mongo index creation for collection '$collectionName' as no indexes supplied")
+      Future.successful(Seq())
+    } 
     else 
       MongoUtils.ensureIndexes(collection, indexes, replaceIndexes)
   }
