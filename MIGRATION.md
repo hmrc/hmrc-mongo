@@ -253,6 +253,39 @@ It's also worth pointing out that Dates in hmrc-mongo will be represented in jso
 
 Numbers have special representation in mongoDB extended JSON, but for compatibility with play-json, the numbers will be converted by the registered Codec to JsNumber, as they were in simple-reactivemongo.
 
+#### ADTs
+
+If you have a model defined as
+
+```scala
+sealed trait A
+case class B() extends A
+case class C() extends A
+
+val aFormat: Format[A] = ???
+```
+
+and register your `Format[A]` to `domainFormat` of `PlayMongoRepository` - you may see `Can't find a codec for class B` when trying to store instances of `B` or `C`.
+
+This is because the mongo driver looks up the codec by reflection (`b.getClass`) which returns `B` rather than `A`.
+
+You can register codecs explicitly for `B` and `C` with `extraCodecs`
+
+(Note, you can get a `Format[B]` with `aFormat.inmap(_.asInstanceOf[B], identity)` or redefine `Format[A]` in terms of `Format[B]` and `Format[C]`)
+
+e.g.
+```scala
+import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
+
+PlayMongoRepository(
+  domainFormat = aFormat,
+  extraCodecs  = Seq(
+                   Codecs.playFormatCodec(bFormat),
+                   Codecs.playFormatCodec(cFormat),
+                 )
+)
+```
+
 ### Filters/Updates
 
 The codec registered for the collection entity from the provided domain format only applies to the whole entity. When using leaf data values in filters/updates, a codec is looked up at runtime for the data values.
