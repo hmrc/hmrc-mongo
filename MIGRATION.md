@@ -427,7 +427,15 @@ The underlying collection can be accessed via `repository.collection`.
 
 If you’re going to use a schema in your test suite we recommend writing it upfront (tooling exists to automate the generation of bson/json-schema from example objects), applying it manually to your local database to confirm it works with the service prior to upgrading it.
 
-## Deployment
+## Uri connection options
+
+:warning: Many connection options are different from reactivemongo. If you fail to use the correct key for the official driver, the configuration will be ignored, giving different behaviour to intended.
+
+Pay attention to warnings like `Connection string contains unsupported option 'writeconcernj'` from logger `org.mongodb.driver.uri`.
+
+See [official mongo docs](https://www.mongodb.com/docs/drivers/java/sync/current/fundamentals/connection/connection-options/) for the list of acceptable connection options.
+
+### ssl
 
 Before deploying your upgraded service you must check that the mongodb.uri uses
 ```scala
@@ -445,8 +453,20 @@ If you don’t replace it in your environment config your service will likely fa
 
 At the time of writing there are still some 200 services using the old sslEnabled flag.
 
-It would be sensible to re-run performance tests after upgrading keeping an eye on memory and cpu usage. Our benchmarking indicates that the official driver is as performant as reactive-mongo and has a smaller memory overhead but it’s worth validating this holds true for your own service.
+### write concerns
 
+Configuration like
+```scala
+writeConcernW=2&writeConcernJ=true&writeConcernTimeout=20000
+```
+will need replacing with the equivalent
+```scala
+w=2&journal=true&wtimeoutMS=20000
+```
+
+## Deployment
+
+It would be sensible to re-run performance tests after upgrading keeping an eye on memory and cpu usage. Our benchmarking indicates that the official driver is as performant as reactive-mongo and has a smaller memory overhead but it’s worth validating this holds true for your own service.
 
 ## Lock
 
