@@ -44,7 +44,7 @@ object WorkItemFields {
       id           = "_id",
       receivedAt   = "receivedAt",
       updatedAt    = "updatedAt",
-      availableAt  = "receivedAt",
+      availableAt  = "availableAt",
       status       = "status",
       failureCount = "failureCount",
       item         = "item"
