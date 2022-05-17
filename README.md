@@ -62,8 +62,8 @@ class UserRepository @Inject()(
   mongoComponent = mongoComponent,
   domainFormat   = User.mongoFormat,
   indexes        = Seq(
-                     IndexModel(ascending("name"), IndexOptions.name("nameIdx").unique(true))
-                   ))),
+                     IndexModel(Indexes.ascending("name"), IndexOptions().name("nameIdx").unique(true))
+                   ),
   extraCodecs    = Seq(
                      new UuidCodec(UuidRepresentation.STANDARD),
                      Codecs.playFormatCodec(AdminUser.mongoFormat),
@@ -71,8 +71,8 @@ class UserRepository @Inject()(
                    )
 ) {
   // queries and updates can now be implemented with the available `collection: org.mongodb.scala.MongoCollection`
-  def findAll(): Future[User] =
-    collection.find().toFuture
+  def findAll(): Future[Seq[User]] =
+    collection.find().toFuture()
 }
 ```
 
