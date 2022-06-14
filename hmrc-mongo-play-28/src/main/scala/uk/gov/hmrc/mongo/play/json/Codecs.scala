@@ -132,9 +132,9 @@ trait Codecs {
     else new BsonInt64(bd.toLong)
 
   private def toBsonNumber(bd: BigDecimal): BsonValue =
-    if (bd.isValidInt) new BsonInt32(bd.intValue)
+    if (!bd.ulp.isWhole && bd.isDecimalDouble) new BsonDouble(bd.doubleValue)
+    else if (bd.isValidInt) new BsonInt32(bd.intValue)
     else if (bd.isValidLong) new BsonInt64(bd.longValue)
-    else if (bd.isDecimalDouble) new BsonDouble(bd.doubleValue)
     else // Not all bigDecimals are representable as Decimal128. Will throw [java.lang.NumberFormatException] with message: `Conversion to Decimal128 would require inexact rounding of -4.2176255923279509728936555398034786404E-54.`
       new BsonDecimal128(new Decimal128(bd.bigDecimal))
 
