@@ -43,19 +43,45 @@ trait Codecs {
     * modified in unexpected ways.
     */
   def playFormatCodec[A](
-    format: Format[A],
+    format       : Format[A],
     legacyNumbers: Boolean = false
-  )(implicit ct: ClassTag[A]): Codec[A] = new Codec[A] {
+  )(implicit ct: ClassTag[A]): Codec[A] =
+    playFormatSumCodec[A, A](format, legacyNumbers)
 
-    override def getEncoderClass: Class[A] =
-      ct.runtimeClass.asInstanceOf[Class[A]]
+  /** This variant of `playFormatCodec` allows to register a formatter for type `B` which is defined more generally for type `A`.
+    * This helps with sum types where the formatter to be used is defined at the trait level, and needs to be registered for the instances.
+    * E.g.
+    * ```
+    *   sealed trait Sum
+    *   case class Sum1() extends Sum
+    *   case class Sum2() extends Sum
+    *   val sumFormat: Format[Sum] = ...
+    *   // provide codecs for Sum1 and Sum2 (both defined by sumFormat) explicitly to extraCodecs,
+    *   // since they are looked up by reflection
+    *   new PlayMongoRepository[Sum](
+    *   domainFormat   = sumFormat,
+    *   extraCodecs    = Seq(
+    *                     Codecs.playFormatSumCodec[Sum, Sum1](sumFormat),
+    *                     Codecs.playFormatSumCodec[Sum, Sum2](sumFormat)
+    *                   )
+    *   )
+    * ```
+    * @param legacyNumbers see `playFormatCodec`
+    */
+  def playFormatSumCodec[A, B <: A](
+    format       : Format[A],
+    legacyNumbers: Boolean = false
+  )(implicit ct: ClassTag[B]): Codec[B] = new Codec[B] {
 
-    override def encode(writer: BsonWriter, value: A, encoderContext: EncoderContext): Unit = {
+    override def getEncoderClass: Class[B] =
+      ct.runtimeClass.asInstanceOf[Class[B]]
+
+    override def encode(writer: BsonWriter, value: B, encoderContext: EncoderContext): Unit = {
       val bs: BsonValue = jsonToBson(legacyNumbers)(format.writes(value))
       bsonValueCodec.encode(writer, bs, encoderContext)
     }
 
-    override def decode(reader: BsonReader, decoderContext: DecoderContext): A = {
+    override def decode(reader: BsonReader, decoderContext: DecoderContext): B = {
       val bs: BsonValue =
         bsonValueCodec
           .decode(reader, decoderContext)
@@ -63,8 +89,9 @@ trait Codecs {
       val json = bsonToJson(bs)
 
       format.reads(json) match {
-        case JsSuccess(v, _) => v
-        case JsError(errors) => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} '$json': $errors")
+        case JsSuccess(v: B, _) => v
+        case JsSuccess(v, _)    => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} - it was ${v.getClass.getName}")
+        case JsError(errors)    => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} '$json': $errors")
       }
     }
   }
