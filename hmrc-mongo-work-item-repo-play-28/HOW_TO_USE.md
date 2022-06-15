@@ -4,9 +4,9 @@
 
 ### WorkItemRepository
 
-See Scaladoc for [WorkItemRepository](../main/src/main/scala/uk/gov/hmrc/workitem/WorkItemRepository.scala)
+See Scaladoc for [WorkItemRepository](src/main/scala/uk/gov/hmrc/mongo/workitem/WorkItemRepository.scala)
 
-Typically you will use `uk.gov.hmrc.hmrc.mongo.workitem.WorkItemRepository` to create and retrieve `WorkItem`s for processing.
+Typically you will use `uk.gov.hmrc.mongo.workitem.WorkItemRepository` to create and retrieve `WorkItem`s for processing.
 It is parameterised by your PAYLOAD representation.
 
 It is an abstract class, so you will have to extend it to define the following:
