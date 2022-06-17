@@ -16,25 +16,17 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import akka.util.ByteString
-import org.bson.types.ObjectId
-import org.joda.{time => jot}
 import org.mongodb.scala.{Document, ReadPreference}
-import org.mongodb.scala.bson.{BsonDocument, BsonString}
-import org.mongodb.scala.model.{Filters, Updates}
-import org.scalacheck.{Arbitrary, Gen}
+import org.mongodb.scala.bson.BsonDocument
+import org.scalacheck.Arbitrary
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.compatible.Assertion
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 
-import java.util.UUID
-import java.{time => jat}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -46,8 +38,6 @@ class PlayMongoRepositoryADTSpec
      with ScalaFutures
      with ScalaCheckDrivenPropertyChecks
      with BeforeAndAfterAll {
-
-  import Codecs.toBson
   import PlayMongoRepositoryADTSpec._
 
   import org.scalacheck.Shrink.shrinkAny // disable shrinking here - will just generate invalid inputs
@@ -59,21 +49,18 @@ class PlayMongoRepositoryADTSpec
     MongoComponent(mongoUri = s"mongodb://localhost:27017/$databaseName")
   }
 
-  val playMongoRepository = new PlayMongoRepository[Sum](
-    mongoComponent = mongoComponent,
-    collectionName = "sum",
-    domainFormat   = sumFormat,
-    indexes        = Seq.empty,
-    extraCodecs    = Seq(
-                       Codecs.playFormatSumCodec[Sum, Sum1](sumFormat),
-                       Codecs.playFormatSumCodec[Sum, Sum2](sumFormat)
-                     )
-  )
+  "Codecs.playFormatCodecsBuilder" should {
+    val playMongoRepository = new PlayMongoRepository[Sum](
+      mongoComponent = mongoComponent,
+      collectionName = "sum",
+      domainFormat   = sumFormat,
+      indexes        = Seq.empty,
+      extraCodecs    = Codecs.playFormatCodecsBuilder(sumFormat).forType[Sum1].forType[Sum2].build
+    )
 
-  "PlayMongoRepository.collection" should {
-    "read and write object with fields" in {
+    "enable registering codecs for read and write" in {
       forAll(sumGen) { sum =>
-        prepareDatabase()
+        prepareDatabase(playMongoRepository)
 
         val result = playMongoRepository.collection.insertOne(sum).toFuture()
         result.futureValue.wasAcknowledged shouldBe true
@@ -84,7 +71,7 @@ class PlayMongoRepositoryADTSpec
     }
   }
 
-  def prepareDatabase(): Unit =
+  def prepareDatabase(playMongoRepository: PlayMongoRepository[_]): Unit =
     (for {
       exists <- MongoUtils.existsCollection(mongoComponent, playMongoRepository.collection)
       _      <- if (exists) playMongoRepository.collection.deleteMany(BsonDocument()).toFuture()

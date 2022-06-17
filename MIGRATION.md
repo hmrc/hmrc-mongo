@@ -269,9 +269,9 @@ and register your `Format[A]` to `domainFormat` of `PlayMongoRepository` - you m
 
 This is because the mongo driver looks up the codec by reflection (`b.getClass`) which returns `B` rather than `A`.
 
-You can register codecs explicitly for `B` and `C` with `extraCodecs`
+You can register codecs explicitly for `B` and `C` with `Codecs.extraCodecs`
 
-(Note, you can get a `Format[B]` with `aFormat.inmap(_.asInstanceOf[B], identity)` or redefine `Format[A]` in terms of `Format[B]` and `Format[C]`)
+If you can have formats for `B` and `C`, you can register then with extraCodecs using `playFormatCodec`
 
 e.g.
 ```scala
@@ -283,6 +283,17 @@ PlayMongoRepository(
                    Codecs.playFormatCodec(bFormat),
                    Codecs.playFormatCodec(cFormat),
                  )
+)
+```
+
+Or you can register the `Format[A]` for the subclasses explicitly with `Codecs.playFormatCodecsBuilder`
+e.g.
+```scala
+import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
+
+PlayMongoRepository(
+  domainFormat = aFormat,
+  extraCodecs  = Codecs.playFormatCodecsBuilder(aFormat).forType[B].forType[C].build
 )
 ```
 
