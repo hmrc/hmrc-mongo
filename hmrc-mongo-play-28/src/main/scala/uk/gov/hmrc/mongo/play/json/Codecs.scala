@@ -48,29 +48,17 @@ trait Codecs {
   )(implicit ct: ClassTag[A]): Codec[A] =
     playFormatSumCodec[A, A](format, legacyNumbers)
 
-  /** This variant of `playFormatCodec` allows to register a formatter for type `B` which is defined more generally for type `A`.
-    * This helps with sum types where the formatter to be used is defined at the trait level, and needs to be registered for the instances.
-    * E.g.
-    * ```
-    *   sealed trait Sum
-    *   case class Sum1() extends Sum
-    *   case class Sum2() extends Sum
-    *   val sumFormat: Format[Sum] = ...
-    *   // provide codecs for Sum1 and Sum2 (both defined by sumFormat) explicitly to extraCodecs,
-    *   // since they are looked up by reflection
-    *   new PlayMongoRepository[Sum](
-    *   domainFormat   = sumFormat,
-    *   extraCodecs    = Seq(
-    *                     Codecs.playFormatSumCodec[Sum, Sum1](sumFormat),
-    *                     Codecs.playFormatSumCodec[Sum, Sum2](sumFormat)
-    *                   )
-    *   )
-    * ```
+
+  /** This variant of `playFormatCodec` allows to register a codec for subclasses, which are defined by a play format for a supertype.
+    * This is helpful when writing an instance of the subclass to mongo, since codecs are looked up by reflection, and the format will need to be registered explicitly for the subclass.
+    *
+    * See @playFormatSumCodecsBuilder for a simplified notation when registering for multiple subclasses.
+    *
     * @param legacyNumbers see `playFormatCodec`
     */
-  def playFormatSumCodec[A, B <: A](
+  private def playFormatSumCodec[A, B <: A](
     format       : Format[A],
-    legacyNumbers: Boolean = false
+    legacyNumbers: Boolean
   )(implicit ct: ClassTag[B]): Codec[B] = new Codec[B] {
 
     override def getEncoderClass: Class[B] =
@@ -94,6 +82,46 @@ trait Codecs {
         case JsError(errors)    => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} '$json': $errors")
       }
     }
+  }
+
+  /** This variant of `playFormatCodec` allows to register a codec for subclasses, which are defined by a play format for a supertype.
+    * This is helpful when writing an instance of the subclass to mongo, since codecs are looked up by reflection, and the format will need to be registered explicitly for the subclass.
+    *
+    * It makes it easier to register for multiple subclasses together.
+    *
+    * E.g.
+    * ```
+    * sealed trait Sum
+    * case class Sum1() extends Sum
+    * case class Sum2() extends Sum
+    * val sumFormat: Format[Sum] = ...
+    *   new PlayMongoRepository[Sum](
+    *     domainFormat = sumFormat,
+    *     extraCodecs  = Codecs.playFormatCodecsBuilder(sumFormat).forType[Sum1].forType[Sum2].build
+    *   )
+    * ```
+    * @param legacyNumbers see `playFormatCodec`
+    */
+  def playFormatCodecsBuilder[A](
+    format       : Format[A],
+    legacyNumbers: Boolean   = false
+  )(implicit ct: ClassTag[A]) =
+    new SumCodecsBuilder(format, legacyNumbers, Seq(playFormatSumCodec[A, A](format, legacyNumbers)))
+
+  class SumCodecsBuilder[A] private[json](
+    format       : Format[A],
+    legacyNumbers: Boolean       = false,
+    acc          : Seq[Codec[_]]
+  ) {
+    def forType[B <: A](implicit ct: ClassTag[B]): SumCodecsBuilder[A] =
+      new SumCodecsBuilder[A](
+        format,
+        legacyNumbers,
+        acc :+ playFormatSumCodec[A, B](format, legacyNumbers)
+      )
+
+    def build: Seq[Codec[_]] =
+      acc
   }
 
   def toBson[A: Writes](a: A, legacyNumbers: Boolean = false): BsonValue =
