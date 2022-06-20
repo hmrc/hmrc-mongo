@@ -18,7 +18,8 @@ object AppDependencies {
     })
 
   def mongoCommon(scalaVersion: String): Seq[ModuleID] = Seq(
-    "org.mongodb.scala" %% "mongo-scala-driver" % "4.5.0",
+    "org.mongodb.scala" %% "mongo-scala-driver" % "4.6.1",
+    "org.mongodb"       %  "mongodb-crypt"      % "1.4.0", // compatible with mongo-driver 4.6.1
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
   ) ++ test(scalaVersion)
 
