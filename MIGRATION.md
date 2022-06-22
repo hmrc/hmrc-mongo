@@ -297,6 +297,17 @@ PlayMongoRepository(
 )
 ```
 
+Or more simply, you can register additional codecs for all subclasses of `A` automatically with `Codecs.playFormatSumCodecs`
+e.g.
+```scala
+import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
+
+PlayMongoRepository(
+  domainFormat = aFormat,
+  extraCodecs  = Codecs.playFormatSumCodecs(aFormat)
+)
+```
+
 ### Filters/Updates
 
 The codec registered for the collection entity from the provided domain format only applies to the whole entity. When using leaf data values in filters/updates, a codec is looked up at runtime for the data values.

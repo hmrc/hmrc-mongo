@@ -25,6 +25,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import play.api.libs.json._
 import org.mongodb.scala.{Document => ScalaDocument}
 
+import scala.reflect.runtime.universe._
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
@@ -82,6 +83,39 @@ trait Codecs {
         case JsError(errors)    => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} '$json': $errors")
       }
     }
+  }
+
+  /** This variant of `playFormatCodec` allows to register codecs for all direct subclasses, which are defined by a play format for a supertype.
+    * This is helpful when writing an instance of the subclass to mongo, since codecs are looked up by reflection, and the format will need to be registered explicitly for the subclass.
+    *
+    * E.g.
+    * ```
+    * sealed trait Sum
+    * case class Sum1() extends Sum
+    * case class Sum2() extends Sum
+    * val sumFormat: Format[Sum] = ...
+    *   new PlayMongoRepository[Sum](
+    *     domainFormat = sumFormat,
+    *     extraCodecs  = Codecs.playFormatSumCodecs(sumFormat)
+    *   )
+    * ```
+    * @param legacyNumbers see `playFormatCodec`
+    * @throws IllegalArgumentException if the class is not a sealed trait
+    */
+  def playFormatSumCodecs[A](
+    format       : OFormat[A],
+    legacyNumbers: Boolean    = false
+  )(implicit tt: TypeTag[A]): Seq[Codec[_]] = {
+    val clazz: ClassSymbol =
+      tt.tpe.typeSymbol.asClass
+
+    require(clazz.isSealed)
+    require(clazz.isTrait)
+
+    clazz.knownDirectSubclasses
+      .collect { case c: ClassSymbol => c }
+      .map(subclassSymbol => playFormatSumCodec(format, legacyNumbers)(ClassTag(tt.mirror.runtimeClass(subclassSymbol))))
+      .toSeq
   }
 
   /** This variant of `playFormatCodec` allows to register a codec for subclasses, which are defined by a play format for a supertype.
