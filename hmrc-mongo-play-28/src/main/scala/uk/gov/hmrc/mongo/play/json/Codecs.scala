@@ -43,19 +43,33 @@ trait Codecs {
     * modified in unexpected ways.
     */
   def playFormatCodec[A](
-    format: Format[A],
+    format       : Format[A],
     legacyNumbers: Boolean = false
-  )(implicit ct: ClassTag[A]): Codec[A] = new Codec[A] {
+  )(implicit ct: ClassTag[A]): Codec[A] =
+    playFormatSumCodec[A, A](format, legacyNumbers)
 
-    override def getEncoderClass: Class[A] =
-      ct.runtimeClass.asInstanceOf[Class[A]]
 
-    override def encode(writer: BsonWriter, value: A, encoderContext: EncoderContext): Unit = {
+  /** This variant of `playFormatCodec` allows to register a codec for subclasses, which are defined by a play format for a supertype.
+    * This is helpful when writing an instance of the subclass to mongo, since codecs are looked up by reflection, and the format will need to be registered explicitly for the subclass.
+    *
+    * See @playFormatSumCodecsBuilder for a simplified notation when registering for multiple subclasses.
+    *
+    * @param legacyNumbers see `playFormatCodec`
+    */
+  private def playFormatSumCodec[A, B <: A](
+    format       : Format[A],
+    legacyNumbers: Boolean
+  )(implicit ct: ClassTag[B]): Codec[B] = new Codec[B] {
+
+    override def getEncoderClass: Class[B] =
+      ct.runtimeClass.asInstanceOf[Class[B]]
+
+    override def encode(writer: BsonWriter, value: B, encoderContext: EncoderContext): Unit = {
       val bs: BsonValue = jsonToBson(legacyNumbers)(format.writes(value))
       bsonValueCodec.encode(writer, bs, encoderContext)
     }
 
-    override def decode(reader: BsonReader, decoderContext: DecoderContext): A = {
+    override def decode(reader: BsonReader, decoderContext: DecoderContext): B = {
       val bs: BsonValue =
         bsonValueCodec
           .decode(reader, decoderContext)
@@ -63,10 +77,51 @@ trait Codecs {
       val json = bsonToJson(bs)
 
       format.reads(json) match {
-        case JsSuccess(v, _) => v
-        case JsError(errors) => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} '$json': $errors")
+        case JsSuccess(v: B, _) => v
+        case JsSuccess(v, _)    => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} - it was ${v.getClass.getName}")
+        case JsError(errors)    => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} '$json': $errors")
       }
     }
+  }
+
+  /** This variant of `playFormatCodec` allows to register a codec for subclasses, which are defined by a play format for a supertype.
+    * This is helpful when writing an instance of the subclass to mongo, since codecs are looked up by reflection, and the format will need to be registered explicitly for the subclass.
+    *
+    * It makes it easier to register for multiple subclasses together.
+    *
+    * E.g.
+    * ```
+    * sealed trait Sum
+    * case class Sum1() extends Sum
+    * case class Sum2() extends Sum
+    * val sumFormat: Format[Sum] = ...
+    *   new PlayMongoRepository[Sum](
+    *     domainFormat = sumFormat,
+    *     extraCodecs  = Codecs.playFormatCodecsBuilder(sumFormat).forType[Sum1].forType[Sum2].build
+    *   )
+    * ```
+    * @param legacyNumbers see `playFormatCodec`
+    */
+  def playFormatCodecsBuilder[A](
+    format       : Format[A],
+    legacyNumbers: Boolean   = false
+  )(implicit ct: ClassTag[A]) =
+    new SumCodecsBuilder(format, legacyNumbers, Seq(playFormatSumCodec[A, A](format, legacyNumbers)))
+
+  class SumCodecsBuilder[A] private[json](
+    format       : Format[A],
+    legacyNumbers: Boolean       = false,
+    acc          : Seq[Codec[_]]
+  ) {
+    def forType[B <: A](implicit ct: ClassTag[B]): SumCodecsBuilder[A] =
+      new SumCodecsBuilder[A](
+        format,
+        legacyNumbers,
+        acc :+ playFormatSumCodec[A, B](format, legacyNumbers)
+      )
+
+    def build: Seq[Codec[_]] =
+      acc
   }
 
   def toBson[A: Writes](a: A, legacyNumbers: Boolean = false): BsonValue =
@@ -132,9 +187,9 @@ trait Codecs {
     else new BsonInt64(bd.toLong)
 
   private def toBsonNumber(bd: BigDecimal): BsonValue =
-    if (bd.isValidInt) new BsonInt32(bd.intValue)
+    if (!bd.ulp.isWhole && bd.isDecimalDouble) new BsonDouble(bd.doubleValue)
+    else if (bd.isValidInt) new BsonInt32(bd.intValue)
     else if (bd.isValidLong) new BsonInt64(bd.longValue)
-    else if (bd.isDecimalDouble) new BsonDouble(bd.doubleValue)
     else // Not all bigDecimals are representable as Decimal128. Will throw [java.lang.NumberFormatException] with message: `Conversion to Decimal128 would require inexact rounding of -4.2176255923279509728936555398034786404E-54.`
       new BsonDecimal128(new Decimal128(bd.bigDecimal))
 
