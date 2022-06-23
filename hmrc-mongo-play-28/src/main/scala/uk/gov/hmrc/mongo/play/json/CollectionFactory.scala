@@ -21,7 +21,7 @@ import org.bson.codecs.configuration.CodecRegistries
 import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.MongoDatabase
-import play.api.libs.json.Format
+import play.api.libs.json.{Format, JsValue}
 
 import scala.reflect.ClassTag
 
@@ -30,12 +30,14 @@ trait CollectionFactory {
     db: MongoDatabase,
     collectionName: String,
     domainFormat: Format[A],
-    extraCodecs: Seq[Codec[_]] = Seq.empty
+    extraCodecs: Seq[Codec[_]] = Seq.empty,
+    encoderTransform: JsValue => JsValue = identity,
+    decoderTransform: JsValue => JsValue = identity
   ): MongoCollection[A] =
     db.getCollection[A](collectionName)
       .withCodecRegistry(
         CodecRegistries.fromRegistries(
-          CodecRegistries.fromCodecs(Codecs.playFormatCodec(domainFormat)),
+          CodecRegistries.fromCodecs(Codecs.playFormatCodec(domainFormat, encoderTransform = encoderTransform, decoderTransform = decoderTransform)),
           CodecRegistries.fromCodecs(extraCodecs: _*),
           DEFAULT_CODEC_REGISTRY
         )
