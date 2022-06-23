@@ -20,7 +20,7 @@ import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.bson.BsonDocument
 import play.api.Logger
-import play.api.libs.json.Format
+import play.api.libs.json.{Format, JsValue}
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
 
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -44,14 +44,16 @@ class PlayMongoRepository[A: ClassTag](
   final val indexes: Seq[IndexModel],
   final val optSchema: Option[BsonDocument] = None,
   replaceIndexes: Boolean = false,
-  extraCodecs: Seq[Codec[_]] = Seq.empty
+  extraCodecs: Seq[Codec[_]] = Seq.empty,
+  encoderTransform: JsValue => JsValue = identity,
+  decoderTransform: JsValue => JsValue = identity
 )(implicit ec: ExecutionContext)
     extends MongoDatabaseCollection {
 
   private val logger = Logger(getClass)
 
   lazy val collection: MongoCollection[A] =
-    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs)
+    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs, encoderTransform, decoderTransform)
 
   Await.result(ensureIndexes, 5.seconds)
 
