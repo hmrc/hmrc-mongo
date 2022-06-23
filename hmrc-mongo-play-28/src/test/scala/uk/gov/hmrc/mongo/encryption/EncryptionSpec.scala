@@ -16,21 +16,15 @@
 
 package uk.gov.hmrc.mongo.encryption
 
-import com.mongodb.ClientEncryptionSettings
-import org.mongodb.scala.{ConnectionString, MongoClientSettings, MongoNamespace}
 import org.mongodb.scala.bson.{BsonDocument, BsonString}
-import org.mongodb.scala.model.{Filters, Indexes, IndexOptions}
 import org.mongodb.scala.model.vault.{DataKeyOptions, EncryptOptions}
-import org.mongodb.scala.vault.ClientEncryptions
 import org.scalatest.{BeforeAndAfterEach, OptionValues}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 
-import java.security.SecureRandom
-import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import ExecutionContext.Implicits.global
 
 
@@ -40,80 +34,21 @@ class EncryptionSpec
      with ScalaFutures
      with IntegrationPatience
      with BeforeAndAfterEach
-     with OptionValues {
+     with OptionValues
+     with Encryption {
 
   val databaseName: String =
     "test-" + this.getClass.getSimpleName
 
-  val mongoComponent =
+  override lazy val mongoComponent =
     MongoComponent(mongoUri = s"mongodb://localhost:27017/$databaseName")
 
-  val collectionName = "myobject"
   val collection =
-    mongoComponent.database.getCollection[BsonDocument](collectionName = collectionName)
-
-  val keyVaultNamespace = new MongoNamespace(s"$databaseName.keyVault")
-  // The following exists to add `keyAltNames` unique index, which we are not using
-  // and to wipe any existing keys (would be recreated on each instance restart?)
-  // otherwise, the number of entries would grow on each instance restart
-  val keyVaultCollection = {
-
-    // Set up the key vault for this example
-    val keyVaultCollection =
-      mongoComponent.database
-      .getCollection(keyVaultNamespace.getCollectionName)
-
-    //keyVaultCollection.drop().headOption()
-
-    // Ensure that two data keys cannot share the same keyAltName.
-    keyVaultCollection.createIndex(
-      Indexes.ascending("keyAltNames"),
-      new IndexOptions().unique(true).partialFilterExpression(Filters.exists("keyAltNames"))
-    )
-  }
-
-
-  val clientEncryption = {
-    // This would have to be the same master key as was used to create the encryption key
-    // using a local key is only for development since it is stored in mongo
-    // aws provider will be more appropriate for deploying
-    val localMasterKey = {
-      val localMasterKey = new Array[Byte](96)
-      new SecureRandom().nextBytes(localMasterKey)
-      localMasterKey
-
-      // must be 96 bytes
-      //"O6y5Pm0g2ZTuwm%r7tdFM+ADGdCakr&j0wNWKBmech+JjYadveJGPY&veeyzO7Sk&yaRfgG%$Uke!ajR4kS4q$%26N=uZKUm".getBytes
-    }
-
-    val kmsProviders =
-      Map("local" ->
-        Map[String, AnyRef]("key" ->
-          localMasterKey
-        ).asJava
-      ).asJava
-
-
-
-    // Create the ClientEncryption instance
-    val clientEncryptionSettings = ClientEncryptionSettings.builder()
-      .keyVaultMongoClientSettings(
-        MongoClientSettings.builder()
-          .applyConnectionString(ConnectionString("mongodb://localhost"))
-          .build()
-      )
-      .keyVaultNamespace(keyVaultNamespace.getFullName)
-      .kmsProviders(kmsProviders)
-      .build()
-
-    ClientEncryptions.create(clientEncryptionSettings)
-  }
-
+    mongoComponent.database.getCollection[BsonDocument]("myobject")
 
   "Encryption" should {
-
     // Explicit Client Side encryption
-    "store" in {
+    "encrypt and decrypt manually" in {
       val unencryptedString = BsonString("123456789")
       (for {
          dataKeyId           <- clientEncryption.createDataKey("local", DataKeyOptions()).toFuture()
@@ -136,9 +71,7 @@ class EncryptionSpec
     (for {
       exists <- MongoUtils.existsCollection(mongoComponent, collection)
       _      <- if (exists) collection.deleteMany(BsonDocument()).toFuture()
-                // until Mongo 4.4 implicit collection creation (on insert/upsert) will fail when in a transaction
-                // create explicitly
-                else mongoComponent.database.createCollection(collectionName).toFuture()
+                else Future.unit
      } yield ()
     ).futureValue
 
