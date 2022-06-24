@@ -25,7 +25,7 @@ class Encrypter(
   secureGCMCipher    : SecureGCMCipher
 )(
   associatedDataPath : JsPath,
-  encryptedFieldPaths: Seq[JsPath],
+  encryptedFieldPaths: Seq[(JsPath, Boolean)],
   aesKey             : String
 ) {
   private def associatedData(jsValue: JsValue) =
@@ -44,12 +44,16 @@ class Encrypter(
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
       encryptedValueFormat.writes(secureGCMCipher.encrypt(js.toString, ad, aesKey))
-    encryptedFieldPaths.foldLeft(jsValue)((js, encryptedFieldPath) =>
-      js.transform(encryptedFieldPath.json.update(implicitly[Reads[JsValue]].map(transform _))) match {
-        case JsSuccess(r, _) => r
-        case JsError(errors) => sys.error(s"Could not encrypt at $encryptedFieldPath: $errors")
-      }
-    )
+    encryptedFieldPaths.foldLeft(jsValue){ case (js, (encryptedFieldPath, required)) =>
+      println(s"Encrypting $encryptedFieldPath in $jsValue")
+      if (required || encryptedFieldPath(jsValue).nonEmpty)
+        js.transform(encryptedFieldPath.json.update(implicitly[Reads[JsValue]].map(transform _))) match {
+          case JsSuccess(r, _) => r
+          case JsError(errors) => sys.error(s"Could not encrypt at $encryptedFieldPath: $errors")
+        }
+      else
+        js
+    }
   }
 
   def decrypt(jsValue: JsValue): JsValue = {
@@ -59,11 +63,13 @@ class Encrypter(
         case JsSuccess(ev, _) => Json.parse(secureGCMCipher.decrypt(ev, ad, aesKey))
         case JsError(errors)  => sys.error(s"Failed to decrypt value: $errors")
       }
-    encryptedFieldPaths.foldLeft(jsValue)((js, encryptedFieldPath) =>
-      js.transform(encryptedFieldPath.json.update(implicitly[Reads[JsValue]].map(transform _))) match {
-        case JsSuccess(r, _) => r
-        case JsError(errors) => sys.error(s"Could not decrypt at $encryptedFieldPath: $errors")
-      }
-    )
+    encryptedFieldPaths.foldLeft(jsValue) { case (js, (encryptedFieldPath, required)) =>
+      if (required || encryptedFieldPath(jsValue).nonEmpty)
+        js.transform(encryptedFieldPath.json.update(implicitly[Reads[JsValue]].map(transform _))) match {
+          case JsSuccess(r, _) => r
+          case JsError(errors) => sys.error(s"Could not decrypt at $encryptedFieldPath: $errors")
+        }
+      else js
+    }
   }
 }

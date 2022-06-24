@@ -54,9 +54,10 @@ class EncryptionCodecSpec
     new Encrypter(new SecureGCMCipher)(
       associatedDataPath  = __ \ "_id",
       encryptedFieldPaths = Seq(
-                              __ \ "sensitiveString",
-                              __ \ "sensitiveBoolean",
-                              __ \ "sensitiveLong"
+                              (__ \ "sensitiveString"  , true ),
+                              (__ \ "sensitiveBoolean" , true ),
+                              (__ \ "sensitiveLong"    , true ),
+                              (__ \ "sensitiveOptional", false) // should we specify if the type should be optional? Is this just use of normal schema (which would have to use `$object {value, nonce}` rather than encrypted binary)?
                             ),
       aesKey              = { val aesKey = new Array[Byte](32)
                               new SecureRandom().nextBytes(aesKey)
@@ -80,10 +81,11 @@ class EncryptionCodecSpec
       val unencryptedLong    = 123456789L
       (for {
          _                    <- playMongoRepository.collection.insertOne(MyObject(
-                                   id               = ObjectId.get().toString,
-                                   sensitiveString  = unencryptedString,
-                                   sensitiveBoolean = unencryptedBoolean,
-                                   sensitiveLong    = unencryptedLong
+                                   id                = ObjectId.get().toString,
+                                   sensitiveString   = unencryptedString,
+                                   sensitiveBoolean  = unencryptedBoolean,
+                                   sensitiveLong     = unencryptedLong,
+                                   sensitiveOptional = None
                                  )).headOption()
          res                  <- playMongoRepository.collection.find().headOption().map(_.value)
          _                    =  res.sensitiveString  shouldBe unencryptedString
@@ -114,19 +116,21 @@ class EncryptionCodecSpec
 
 object EncryptionCodecSpec {
   case class MyObject(
-    id              : String,
-    sensitiveString : String,
-    sensitiveBoolean: Boolean,
-    sensitiveLong   : Long
+    id               : String,
+    sensitiveString  : String,
+    sensitiveBoolean : Boolean,
+    sensitiveLong    : Long,
+    sensitiveOptional: Option[String]
   )
 
   object MyObject {
     implicit val oif = MongoFormats.Implicits.objectIdFormat
     val format =
-      ( (__ \ "_id"             ).format[String]
-      ~ (__ \ "sensitiveString" ).format[String]
-      ~ (__ \ "sensitiveBoolean").format[Boolean]
-      ~ (__ \ "sensitiveLong"   ).format[Long]
+      ( (__ \ "_id"              ).format[String]
+      ~ (__ \ "sensitiveString"  ).format[String]
+      ~ (__ \ "sensitiveBoolean" ).format[Boolean]
+      ~ (__ \ "sensitiveLong"    ).format[Long]
+      ~ (__ \ "sensitiveOptional").formatNullable[String]
       )(MyObject.apply, unlift(MyObject.unapply))
   }
 }
