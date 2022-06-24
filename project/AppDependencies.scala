@@ -42,4 +42,9 @@ object AppDependencies {
   )
 
   lazy val hmrcMongoWorkItemRepoPlay28: Seq[ModuleID] = Seq()
+
+  def hmrcMongoEncryptionPlay28(scalaVersion: String): Seq[ModuleID] = Seq(
+    "com.typesafe.play" %% "play"   % play28Version, // TODO really only need play-json
+    "uk.gov.hmrc"       %% "crypto" % "6.2.0-SNAPSHOT"
+  ) ++ test(scalaVersion)
 }

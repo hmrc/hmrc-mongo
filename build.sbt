@@ -28,7 +28,8 @@ lazy val library = Project("hmrc-mongo", file("."))
     hmrcMongoPlay28,
     hmrcMongoTestPlay28,
     hmrcMongoMetrixPlay28,
-    hmrcMongoWorkItemRepoPlay28
+    hmrcMongoWorkItemRepoPlay28,
+    hmrcMongoEncryptionPlay28
   )
 
 lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"))
@@ -65,3 +66,10 @@ lazy val hmrcMongoWorkItemRepoPlay28 = Project("hmrc-mongo-work-item-repo-play-2
     crossScalaVersions := Seq(scala2_12, scala2_13),
     libraryDependencies ++= AppDependencies.hmrcMongoWorkItemRepoPlay28
   ).dependsOn(hmrcMongoMetrixPlay28)
+
+lazy val hmrcMongoEncryptionPlay28 = Project("hmrc-mongo-encryption-play-28", file("hmrc-mongo-encryption-play-28"))
+  .settings(
+    commonSettings,
+    crossScalaVersions := Seq(scala2_12, scala2_13),
+    libraryDependencies ++= AppDependencies.hmrcMongoEncryptionPlay28(scalaVersion.value)
+  ).dependsOn(hmrcMongoPlay28)

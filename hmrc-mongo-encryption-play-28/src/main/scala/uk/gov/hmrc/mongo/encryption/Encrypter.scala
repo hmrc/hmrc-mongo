@@ -16,16 +16,18 @@
 
 package uk.gov.hmrc.mongo.encryption
 
+import play.api.libs.functional.syntax._
 import play.api.libs.json._
+import uk.gov.hmrc.crypto.{EncryptedValue, SecureGCMCipher}
 
 
 class Encrypter(
+  secureGCMCipher    : SecureGCMCipher
+)(
   associatedDataPath : JsPath,
   encryptedFieldPaths: Seq[JsPath],
   aesKey             : String
 ) {
-  val secureGCMCipher = new SecureGCMCipher()
-
   private def associatedData(jsValue: JsValue) =
     associatedDataPath(jsValue) match {
       case List(associatedData) => associatedData.as[String] // TODO only supports associatedDataPath as a String - so can't use "_id" if it's an ObjectId
@@ -33,11 +35,16 @@ class Encrypter(
       case _                    => sys.error(s"Multiple associatedData was found with $associatedDataPath")
     }
 
+  private val encryptedValueFormat: OFormat[EncryptedValue] =
+    ( (__ \ "value").format[String]
+    ~ (__ \ "nonce").format[String]
+    )(EncryptedValue.apply, unlift(EncryptedValue.unapply))
+
   def encrypt(jsValue: JsValue): JsValue = {
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
       js match {
-        case JsString(s) => EncryptedValue.format.writes(secureGCMCipher.encrypt(s, ad, aesKey))
+        case JsString(s) => encryptedValueFormat.writes(secureGCMCipher.encrypt(s, ad, aesKey))
         case other       => other
       }
     encryptedFieldPaths.foldLeft(jsValue)((js, encryptedFieldPath) =>
@@ -51,7 +58,7 @@ class Encrypter(
   def decrypt(jsValue: JsValue): JsValue = {
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
-      EncryptedValue.format.reads(js) match {
+      encryptedValueFormat.reads(js) match {
         case JsSuccess(ev, _) => JsString(secureGCMCipher.decrypt(ev, ad, aesKey))
         case JsError(errors)  => sys.error(s"Failed to decrypt value: $errors")
       }

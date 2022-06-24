@@ -24,6 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
+import uk.gov.hmrc.crypto.{EncryptedValue, SecureGCMCipher}
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
@@ -50,7 +51,7 @@ class EncryptionCodecSpec
     MongoComponent(mongoUri = s"mongodb://localhost:27017/$databaseName")
 
   val encrypter =
-    new Encrypter(
+    new Encrypter(new SecureGCMCipher)(
       associatedDataPath  = __ \ "_id",
       encryptedFieldPaths = Seq(__ \ "sensitive"),
       aesKey              = { val aesKey = new Array[Byte](32)
@@ -80,7 +81,7 @@ class EncryptionCodecSpec
          _                    =  res.sensitive shouldBe unencryptedString
          // and confirm it is stored as an EncryptedValue
          raw                  <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
-         readEncryptedField   =  println(EncryptedValue.format.reads(Json.parse(raw.getDocument("sensitive").toJson)))
+         readEncryptedField   =  println(Json.parse(raw.getDocument("sensitive").toJson))
 
        } yield ()
       ).futureValue
