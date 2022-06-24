@@ -53,7 +53,11 @@ class EncryptionCodecSpec
   val encrypter =
     new Encrypter(new SecureGCMCipher)(
       associatedDataPath  = __ \ "_id",
-      encryptedFieldPaths = Seq(__ \ "sensitive"),
+      encryptedFieldPaths = Seq(
+                              __ \ "sensitiveString",
+                              __ \ "sensitiveBoolean",
+                              __ \ "sensitiveLong"
+                            ),
       aesKey              = { val aesKey = new Array[Byte](32)
                               new SecureRandom().nextBytes(aesKey)
                               Base64.getEncoder.encodeToString(aesKey)
@@ -71,17 +75,23 @@ class EncryptionCodecSpec
 
   "Encryption" should {
     "encrypt and decrypt model" in {
-      val unencryptedString = "123456789"
+      val unencryptedString  = "123456789"
+      val unencryptedBoolean = true
+      val unencryptedLong    = 123456789L
       (for {
          _                    <- playMongoRepository.collection.insertOne(MyObject(
-                                   id        = ObjectId.get().toString,
-                                   sensitive = unencryptedString
+                                   id               = ObjectId.get().toString,
+                                   sensitiveString  = unencryptedString,
+                                   sensitiveBoolean = unencryptedBoolean,
+                                   sensitiveLong    = unencryptedLong
                                  )).headOption()
          res                  <- playMongoRepository.collection.find().headOption().map(_.value)
-         _                    =  res.sensitive shouldBe unencryptedString
+         _                    =  res.sensitiveString  shouldBe unencryptedString
+         _                    =  res.sensitiveBoolean shouldBe unencryptedBoolean
+         _                    =  res.sensitiveLong    shouldBe unencryptedLong
          // and confirm it is stored as an EncryptedValue
          raw                  <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
-         readEncryptedField   =  println(Json.parse(raw.getDocument("sensitive").toJson))
+         readEncryptedField   =  println(Json.parse(raw.getDocument("sensitiveString").toJson))
 
        } yield ()
       ).futureValue
@@ -104,15 +114,19 @@ class EncryptionCodecSpec
 
 object EncryptionCodecSpec {
   case class MyObject(
-    id       : String,
-    sensitive: String
+    id              : String,
+    sensitiveString : String,
+    sensitiveBoolean: Boolean,
+    sensitiveLong   : Long
   )
 
   object MyObject {
     implicit val oif = MongoFormats.Implicits.objectIdFormat
     val format =
-      ( (__ \ "_id"      ).format[String]
-      ~ (__ \ "sensitive").format[String]
+      ( (__ \ "_id"             ).format[String]
+      ~ (__ \ "sensitiveString" ).format[String]
+      ~ (__ \ "sensitiveBoolean").format[Boolean]
+      ~ (__ \ "sensitiveLong"   ).format[Long]
       )(MyObject.apply, unlift(MyObject.unapply))
   }
 }

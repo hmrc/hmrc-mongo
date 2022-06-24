@@ -43,10 +43,7 @@ class Encrypter(
   def encrypt(jsValue: JsValue): JsValue = {
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
-      js match {
-        case JsString(s) => encryptedValueFormat.writes(secureGCMCipher.encrypt(s, ad, aesKey))
-        case other       => other
-      }
+      encryptedValueFormat.writes(secureGCMCipher.encrypt(js.toString, ad, aesKey))
     encryptedFieldPaths.foldLeft(jsValue)((js, encryptedFieldPath) =>
       js.transform(encryptedFieldPath.json.update(implicitly[Reads[JsValue]].map(transform _))) match {
         case JsSuccess(r, _) => r
@@ -59,7 +56,7 @@ class Encrypter(
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
       encryptedValueFormat.reads(js) match {
-        case JsSuccess(ev, _) => JsString(secureGCMCipher.decrypt(ev, ad, aesKey))
+        case JsSuccess(ev, _) => Json.parse(secureGCMCipher.decrypt(ev, ad, aesKey))
         case JsError(errors)  => sys.error(s"Failed to decrypt value: $errors")
       }
     encryptedFieldPaths.foldLeft(jsValue)((js, encryptedFieldPath) =>
