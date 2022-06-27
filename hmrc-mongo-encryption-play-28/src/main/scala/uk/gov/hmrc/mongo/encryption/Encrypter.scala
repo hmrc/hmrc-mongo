@@ -19,6 +19,7 @@ package uk.gov.hmrc.mongo.encryption
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.crypto.{EncryptedValue, SecureGCMCipher}
+import uk.gov.hmrc.mongo.play.json.JsonTransformer
 
 
 class Encrypter(
@@ -27,7 +28,7 @@ class Encrypter(
   associatedDataPath : JsPath,
   encryptedFieldPaths: Seq[(JsPath, Boolean)],
   aesKey             : String
-) {
+) extends JsonTransformer {
   private def associatedData(jsValue: JsValue) =
     associatedDataPath(jsValue) match {
       case List(associatedData) => associatedData.as[String] // TODO only supports associatedDataPath as a String - so can't use "_id" if it's an ObjectId
@@ -46,14 +47,14 @@ class Encrypter(
       .composeWith(path.json.update(implicitly[Reads[JsValue]].map(_ => JsNull)))
     )
 
-  def encrypt(jsValue: JsValue): JsValue = {
+  override def encoderTransform(jsValue: JsValue): JsValue = {
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
       encryptedValueFormat.writes(secureGCMCipher.encrypt(js.toString, ad, aesKey))
     encryptedFieldPaths.foldLeft(jsValue){ case (js, (encryptedFieldPath, required)) =>
       if (required || encryptedFieldPath(jsValue).nonEmpty)
         transformWithoutMerge(js, encryptedFieldPath, transform) match {
-          case JsSuccess(r, _) => println(s"$js becomes $r"); r
+          case JsSuccess(r, _) => r
           case JsError(errors) => sys.error(s"Could not encrypt at $encryptedFieldPath: $errors")
         }
       else
@@ -61,7 +62,7 @@ class Encrypter(
     }
   }
 
-  def decrypt(jsValue: JsValue): JsValue = {
+  override def decoderTransform(jsValue: JsValue): JsValue = {
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
       encryptedValueFormat.reads(js) match {

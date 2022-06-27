@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import uk.gov.hmrc.crypto.{EncryptedValue, SecureGCMCipher}
+import uk.gov.hmrc.crypto.SecureGCMCipher
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
@@ -71,8 +71,7 @@ class EncryptionCodecSpec
     collectionName   = "myobject",
     domainFormat     = MyObject.format,
     indexes          = Seq.empty,
-    encoderTransform = encrypter.encrypt,
-    decoderTransform = encrypter.decrypt
+    jsonTransformer  = encrypter,
   )
 
   "Encryption" should {
@@ -81,25 +80,36 @@ class EncryptionCodecSpec
       val unencryptedBoolean = true
       val unencryptedLong    = 123456789L
       val unencryptedNested  = Nested("n1", 2)
-      (for {
-         _                    <- playMongoRepository.collection.insertOne(MyObject(
-                                   id                = ObjectId.get().toString,
-                                   sensitiveString   = unencryptedString,
-                                   sensitiveBoolean  = unencryptedBoolean,
-                                   sensitiveLong     = unencryptedLong,
-                                   sensitiveNested   = unencryptedNested,
-                                   sensitiveOptional = None
-                                 )).headOption()
-         res                  <- playMongoRepository.collection.find().headOption().map(_.value)
-         _                    =  res.sensitiveString  shouldBe unencryptedString
-         _                    =  res.sensitiveBoolean shouldBe unencryptedBoolean
-         _                    =  res.sensitiveLong    shouldBe unencryptedLong
-         // and confirm it is stored as an EncryptedValue
-         raw                  <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
-         readEncryptedField   =  println(Json.parse(raw.toJson))
-         // TODO confirm each field is encrypted (has value and nonce, and no other fields!)
-         //readEncryptedField   =  println(Json.parse(raw.getDocument("sensitiveString").toJson))
 
+      def shouldBeEncrypted(raw: BsonDocument, path: JsPath, required: Boolean = true): Unit =
+        path(Json.parse(raw.toJson)) match {
+          case Seq(x)        => x.as[JsObject].keys shouldBe Set("value", "nonce")
+          case x :: _        => throw new AssertionError(s"$path resolved to more than one field in $raw")
+          case _ if required => throw new AssertionError(s"$path did not exist in $raw")
+          case _             => ()
+        }
+
+      (for {
+         _   <- playMongoRepository.collection.insertOne(MyObject(
+                  id                = ObjectId.get().toString,
+                  sensitiveString   = unencryptedString,
+                  sensitiveBoolean  = unencryptedBoolean,
+                  sensitiveLong     = unencryptedLong,
+                  sensitiveNested   = unencryptedNested,
+                  sensitiveOptional = None
+                )).headOption()
+         res <- playMongoRepository.collection.find().headOption().map(_.value)
+         _   =  res.sensitiveString  shouldBe unencryptedString
+         _   =  res.sensitiveBoolean shouldBe unencryptedBoolean
+         _   =  res.sensitiveLong    shouldBe unencryptedLong
+         // and confirm it is stored as an EncryptedValue
+         // TODO use a schema
+         raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
+         _   =  shouldBeEncrypted(raw, __ \ "sensitiveString"  )
+         _   =  shouldBeEncrypted(raw, __ \ "sensitiveBoolean" )
+         _   =  shouldBeEncrypted(raw, __ \ "sensitiveLong"    )
+         _   =  shouldBeEncrypted(raw, __ \ "sensitiveNested"  )
+         _   =  shouldBeEncrypted(raw, __ \ "sensitiveOptional", required = false)
        } yield ()
       ).futureValue
     }

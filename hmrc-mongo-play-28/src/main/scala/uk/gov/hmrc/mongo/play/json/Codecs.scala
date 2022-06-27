@@ -43,12 +43,11 @@ trait Codecs {
     * modified in unexpected ways.
     */
   def playFormatCodec[A](
-    format       : Format[A],
-    legacyNumbers: Boolean = false,
-    encoderTransform: JsValue => JsValue = identity,
-    decoderTransform: JsValue => JsValue = identity
+    format         : Format[A],
+    legacyNumbers  : Boolean         = false,
+    jsonTransformer: JsonTransformer = JsonTransformer.identity
   )(implicit ct: ClassTag[A]): Codec[A] =
-    playFormatSumCodec[A, A](format, legacyNumbers, encoderTransform, decoderTransform)
+    playFormatSumCodec[A, A](format, legacyNumbers, jsonTransformer)
 
 
   /** This variant of `playFormatCodec` allows to register a codec for subclasses, which are defined by a play format for a supertype.
@@ -59,17 +58,16 @@ trait Codecs {
     * @param legacyNumbers see `playFormatCodec`
     */
   private def playFormatSumCodec[A, B <: A](
-    format       : Format[A],
-    legacyNumbers: Boolean = false,
-    encoderTransform: JsValue => JsValue = identity,
-    decoderTransform: JsValue => JsValue = identity
+    format         : Format[A],
+    legacyNumbers  : Boolean         = false,
+    jsonTransformer: JsonTransformer = JsonTransformer.identity
   )(implicit ct: ClassTag[B]): Codec[B] = new Codec[B] {
 
     override def getEncoderClass: Class[B] =
       ct.runtimeClass.asInstanceOf[Class[B]]
 
     override def encode(writer: BsonWriter, value: B, encoderContext: EncoderContext): Unit = {
-      val bs: BsonValue = jsonToBson(legacyNumbers)(encoderTransform(format.writes(value)))
+      val bs: BsonValue = jsonToBson(legacyNumbers)(jsonTransformer.encoderTransform(format.writes(value)))
       bsonValueCodec.encode(writer, bs, encoderContext)
     }
 
@@ -78,7 +76,7 @@ trait Codecs {
         bsonValueCodec
           .decode(reader, decoderContext)
 
-      val json = decoderTransform(bsonToJson(bs))
+      val json = jsonTransformer.decoderTransform(bsonToJson(bs))
 
       format.reads(json) match {
         case JsSuccess(v: B, _) => v

@@ -45,15 +45,14 @@ class PlayMongoRepository[A: ClassTag](
   final val optSchema: Option[BsonDocument] = None,
   replaceIndexes: Boolean = false,
   extraCodecs: Seq[Codec[_]] = Seq.empty,
-  encoderTransform: JsValue => JsValue = identity,
-  decoderTransform: JsValue => JsValue = identity
+  jsonTransformer: JsonTransformer = JsonTransformer.identity
 )(implicit ec: ExecutionContext)
     extends MongoDatabaseCollection {
 
   private val logger = Logger(getClass)
 
   lazy val collection: MongoCollection[A] =
-    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs, encoderTransform, decoderTransform)
+    CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs, jsonTransformer)
 
   Await.result(ensureIndexes, 5.seconds)
 
