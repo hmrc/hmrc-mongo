@@ -57,6 +57,7 @@ class EncryptionCodecSpec
                               (__ \ "sensitiveString"  , true ),
                               (__ \ "sensitiveBoolean" , true ),
                               (__ \ "sensitiveLong"    , true ),
+                              (__ \ "sensitiveNested"  , true ),
                               (__ \ "sensitiveOptional", false) // should we specify if the type should be optional? Is this just use of normal schema (which would have to use `$object {value, nonce}` rather than encrypted binary)?
                             ),
       aesKey              = { val aesKey = new Array[Byte](32)
@@ -79,12 +80,14 @@ class EncryptionCodecSpec
       val unencryptedString  = "123456789"
       val unencryptedBoolean = true
       val unencryptedLong    = 123456789L
+      val unencryptedNested  = Nested("n1", 2)
       (for {
          _                    <- playMongoRepository.collection.insertOne(MyObject(
                                    id                = ObjectId.get().toString,
                                    sensitiveString   = unencryptedString,
                                    sensitiveBoolean  = unencryptedBoolean,
                                    sensitiveLong     = unencryptedLong,
+                                   sensitiveNested   = unencryptedNested,
                                    sensitiveOptional = None
                                  )).headOption()
          res                  <- playMongoRepository.collection.find().headOption().map(_.value)
@@ -93,7 +96,9 @@ class EncryptionCodecSpec
          _                    =  res.sensitiveLong    shouldBe unencryptedLong
          // and confirm it is stored as an EncryptedValue
          raw                  <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
-         readEncryptedField   =  println(Json.parse(raw.getDocument("sensitiveString").toJson))
+         readEncryptedField   =  println(Json.parse(raw.toJson))
+         // TODO confirm each field is encrypted (has value and nonce, and no other fields!)
+         //readEncryptedField   =  println(Json.parse(raw.getDocument("sensitiveString").toJson))
 
        } yield ()
       ).futureValue
@@ -115,21 +120,35 @@ class EncryptionCodecSpec
 }
 
 object EncryptionCodecSpec {
+  case class Nested(
+    n1: String,
+    n2: Int
+  )
+  object Nested {
+    val format =
+      ( (__ \ "n1").format[String]
+      ~ (__ \ "n2").format[Int]
+      )(Nested.apply, unlift(Nested.unapply))
+  }
+
   case class MyObject(
     id               : String,
     sensitiveString  : String,
     sensitiveBoolean : Boolean,
     sensitiveLong    : Long,
+    sensitiveNested  : Nested,
     sensitiveOptional: Option[String]
   )
 
   object MyObject {
     implicit val oif = MongoFormats.Implicits.objectIdFormat
+    implicit val nf  = Nested.format
     val format =
       ( (__ \ "_id"              ).format[String]
       ~ (__ \ "sensitiveString"  ).format[String]
       ~ (__ \ "sensitiveBoolean" ).format[Boolean]
       ~ (__ \ "sensitiveLong"    ).format[Long]
+      ~ (__ \ "sensitiveNested"  ).format[Nested]
       ~ (__ \ "sensitiveOptional").formatNullable[String]
       )(MyObject.apply, unlift(MyObject.unapply))
   }

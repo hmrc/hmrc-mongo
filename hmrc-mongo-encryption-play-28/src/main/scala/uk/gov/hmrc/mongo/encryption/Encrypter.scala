@@ -40,15 +40,20 @@ class Encrypter(
     ~ (__ \ "nonce").format[String]
     )(EncryptedValue.apply, unlift(EncryptedValue.unapply))
 
+  // calling js.transform(path.json.update(transformF)) actually merges the result of transform, so would leave the unencrypted data in the object!
+  def transformWithoutMerge(js: JsValue, path: JsPath, transformFn: JsValue => JsValue): JsResult[JsValue] =
+    js.transform(path.json.update(implicitly[Reads[JsValue]].map(_ => transformFn(path(js).head)))
+      .composeWith(path.json.update(implicitly[Reads[JsValue]].map(_ => JsNull)))
+    )
+
   def encrypt(jsValue: JsValue): JsValue = {
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
       encryptedValueFormat.writes(secureGCMCipher.encrypt(js.toString, ad, aesKey))
     encryptedFieldPaths.foldLeft(jsValue){ case (js, (encryptedFieldPath, required)) =>
-      println(s"Encrypting $encryptedFieldPath in $jsValue")
       if (required || encryptedFieldPath(jsValue).nonEmpty)
-        js.transform(encryptedFieldPath.json.update(implicitly[Reads[JsValue]].map(transform _))) match {
-          case JsSuccess(r, _) => r
+        transformWithoutMerge(js, encryptedFieldPath, transform) match {
+          case JsSuccess(r, _) => println(s"$js becomes $r"); r
           case JsError(errors) => sys.error(s"Could not encrypt at $encryptedFieldPath: $errors")
         }
       else
@@ -65,7 +70,7 @@ class Encrypter(
       }
     encryptedFieldPaths.foldLeft(jsValue) { case (js, (encryptedFieldPath, required)) =>
       if (required || encryptedFieldPath(jsValue).nonEmpty)
-        js.transform(encryptedFieldPath.json.update(implicitly[Reads[JsValue]].map(transform _))) match {
+        transformWithoutMerge(js, encryptedFieldPath, transform) match {
           case JsSuccess(r, _) => r
           case JsError(errors) => sys.error(s"Could not decrypt at $encryptedFieldPath: $errors")
         }
