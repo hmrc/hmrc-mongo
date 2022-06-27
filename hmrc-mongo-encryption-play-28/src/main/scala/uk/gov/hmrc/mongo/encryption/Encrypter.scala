@@ -21,13 +21,16 @@ import play.api.libs.json._
 import uk.gov.hmrc.crypto.{EncryptedValue, SecureGCMCipher}
 import uk.gov.hmrc.mongo.play.json.JsonTransformer
 
+import scala.util.{Success, Try}
+
 
 class Encrypter(
   secureGCMCipher    : SecureGCMCipher
 )(
   associatedDataPath : JsPath,
   encryptedFieldPaths: Seq[JsPath],
-  aesKey             : String
+  aesKey             : String,
+  previousAesKeys    : Seq[String] = Seq.empty
 ) extends JsonTransformer {
   private def associatedData(jsValue: JsValue) =
     associatedDataPath(jsValue) match {
@@ -66,7 +69,10 @@ class Encrypter(
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
       encryptedValueFormat.reads(js) match {
-        case JsSuccess(ev, _) => Json.parse(secureGCMCipher.decrypt(ev, ad, aesKey))
+        case JsSuccess(ev, _) => (aesKey +: previousAesKeys).toStream
+                                   .map(aesKey => Try(secureGCMCipher.decrypt(ev, ad, aesKey)))
+                                   .collectFirst { case Success(res) => Json.parse(res) }
+                                   .getOrElse(sys.error("Unable to decrypt value with any key"))
         case JsError(errors)  => sys.error(s"Failed to decrypt value: $errors")
       }
     encryptedFieldPaths.foldLeft(jsValue)((js, encryptedFieldPath) =>
