@@ -26,7 +26,7 @@ class Encrypter(
   secureGCMCipher    : SecureGCMCipher
 )(
   associatedDataPath : JsPath,
-  encryptedFieldPaths: Seq[(JsPath, Boolean)],
+  encryptedFieldPaths: Seq[JsPath],
   aesKey             : String
 ) extends JsonTransformer {
   private def associatedData(jsValue: JsValue) =
@@ -51,15 +51,15 @@ class Encrypter(
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
       encryptedValueFormat.writes(secureGCMCipher.encrypt(js.toString, ad, aesKey))
-    encryptedFieldPaths.foldLeft(jsValue){ case (js, (encryptedFieldPath, required)) =>
-      if (required || encryptedFieldPath(jsValue).nonEmpty)
+    encryptedFieldPaths.foldLeft(jsValue)((js, encryptedFieldPath) =>
+      if (encryptedFieldPath(jsValue).nonEmpty)
         transformWithoutMerge(js, encryptedFieldPath, transform) match {
           case JsSuccess(r, _) => r
           case JsError(errors) => sys.error(s"Could not encrypt at $encryptedFieldPath: $errors")
         }
       else
         js
-    }
+    )
   }
 
   override def decoderTransform(jsValue: JsValue): JsValue = {
@@ -69,13 +69,13 @@ class Encrypter(
         case JsSuccess(ev, _) => Json.parse(secureGCMCipher.decrypt(ev, ad, aesKey))
         case JsError(errors)  => sys.error(s"Failed to decrypt value: $errors")
       }
-    encryptedFieldPaths.foldLeft(jsValue) { case (js, (encryptedFieldPath, required)) =>
-      if (required || encryptedFieldPath(jsValue).nonEmpty)
+    encryptedFieldPaths.foldLeft(jsValue)((js, encryptedFieldPath) =>
+      if (encryptedFieldPath(jsValue).nonEmpty)
         transformWithoutMerge(js, encryptedFieldPath, transform) match {
           case JsSuccess(r, _) => r
           case JsError(errors) => sys.error(s"Could not decrypt at $encryptedFieldPath: $errors")
         }
       else js
-    }
+    )
   }
 }

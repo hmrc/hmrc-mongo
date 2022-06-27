@@ -53,17 +53,35 @@ class EncryptionCodecSpec
   val encrypter =
     new Encrypter(new SecureGCMCipher)(
       associatedDataPath  = __ \ "_id",
-      encryptedFieldPaths = Seq(
-                              (__ \ "sensitiveString"  , true ),
-                              (__ \ "sensitiveBoolean" , true ),
-                              (__ \ "sensitiveLong"    , true ),
-                              (__ \ "sensitiveNested"  , true ),
-                              (__ \ "sensitiveOptional", false) // should we specify if the type should be optional? Is this just use of normal schema (which would have to use `$object {value, nonce}` rather than encrypted binary)?
-                            ),
+      encryptedFieldPaths = Seq( __ \ "sensitiveString"
+                               , __ \ "sensitiveBoolean"
+                               , __ \ "sensitiveLong"
+                               , __ \ "sensitiveNested"
+                               , __ \ "sensitiveOptional"
+                               ),
       aesKey              = { val aesKey = new Array[Byte](32)
                               new SecureRandom().nextBytes(aesKey)
                               Base64.getEncoder.encodeToString(aesKey)
                             }
+    )
+
+
+  val myObjectSchema =
+    // schema doesn't catch if there are extra fields (e.g. if encryption has merged with unencrypted object)
+    BsonDocument(
+      """
+      { bsonType: "object"
+      , required: [ "_id", "sensitiveString", "sensitiveBoolean", "sensitiveLong", "sensitiveNested" ]
+      , properties:
+        { _id              : { bsonType: "string" }
+        , sensitiveString  : { bsonType: "object", required: [ "value", "nonce" ], properties: { value: { bsonType: "string" }, "nonce": { bsonType: "string"} } }
+        , sensitiveBoolean : { bsonType: "object", required: [ "value", "nonce" ], properties: { value: { bsonType: "string" }, "nonce": { bsonType: "string"} } }
+        , sensitiveLong    : { bsonType: "object", required: [ "value", "nonce" ], properties: { value: { bsonType: "string" }, "nonce": { bsonType: "string"} } }
+        , sensitiveNested  : { bsonType: "object", required: [ "value", "nonce" ], properties: { value: { bsonType: "string" }, "nonce": { bsonType: "string"} } }
+        , sensitiveOptional: { bsonType: "object", required: [ "value", "nonce" ], properties: { value: { bsonType: "string" }, "nonce": { bsonType: "string"} } }
+        }
+      }
+      """
     )
 
   val playMongoRepository = new PlayMongoRepository[MyObject](
@@ -72,6 +90,7 @@ class EncryptionCodecSpec
     domainFormat     = MyObject.format,
     indexes          = Seq.empty,
     jsonTransformer  = encrypter,
+    optSchema        = Some(myObjectSchema)
   )
 
   "Encryption" should {
@@ -103,8 +122,9 @@ class EncryptionCodecSpec
          _   =  res.sensitiveBoolean shouldBe unencryptedBoolean
          _   =  res.sensitiveLong    shouldBe unencryptedLong
          // and confirm it is stored as an EncryptedValue
-         // TODO use a schema
+         // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
          raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
+         _ = println(s"Stored: ${raw.toJson}")
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveString"  )
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveBoolean" )
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveLong"    )
