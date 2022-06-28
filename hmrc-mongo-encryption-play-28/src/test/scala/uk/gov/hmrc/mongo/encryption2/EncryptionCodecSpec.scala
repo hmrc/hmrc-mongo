@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.encryption
+package uk.gov.hmrc.mongo.encryption2
 
 import org.bson.types.ObjectId
 import org.mongodb.scala.bson.BsonDocument
@@ -55,17 +55,11 @@ class EncryptionCodecSpec
     val aesKey = new Array[Byte](32)
     new SecureRandom().nextBytes(aesKey)
     Base64.getEncoder.encodeToString(aesKey)
-   }
+  }
 
   val encrypter =
     new Encrypter(new SecureGCMCipher)(
       associatedDataPath  = __ \ "_id",
-      encryptedFieldPaths = Seq( __ \ "sensitiveString"
-                               , __ \ "sensitiveBoolean"
-                               , __ \ "sensitiveLong"
-                               , __ \ "sensitiveNested"
-                               , __ \ "sensitiveOptional"
-                               ),
       aesKey              = aesKey
     )
 
@@ -88,10 +82,9 @@ class EncryptionCodecSpec
       """
     )
 
-  val nestedEncrypter =
+  val sensitiveEncrypter =
     new Encrypter(new SecureGCMCipher)(
       associatedDataPath  = __ \ "_id", // FIXME This won't work...
-      encryptedFieldPaths = Seq( __ ), // the path relative to nested is this object
       aesKey              = aesKey
     )
 
@@ -102,15 +95,19 @@ class EncryptionCodecSpec
     indexes          = Seq.empty,
     jsonTransformer  = encrypter,
     optSchema        = Some(myObjectSchema),
-    extraCodecs      = Seq(Codecs.playFormatCodec(Nested.format, jsonTransformer = nestedEncrypter))
+    extraCodecs      = Seq(
+                         // Codec runtime lookup cannot distinguish between these - and will can the wrong one!
+                         Codecs.playFormatCodec(Sensitive.format[String], jsonTransformer = sensitiveEncrypter),
+                         Codecs.playFormatCodec(Sensitive.format[Nested](Nested.format), jsonTransformer = sensitiveEncrypter)
+                       )
   )
 
   "Encryption" should {
     "encrypt and decrypt model" in {
-      val unencryptedString  = "123456789"
-      val unencryptedBoolean = true
-      val unencryptedLong    = 123456789L
-      val unencryptedNested  = Nested("n1", 2)
+      val unencryptedString  = Sensitive("123456789")
+      val unencryptedBoolean = Sensitive(true)
+      val unencryptedLong    = Sensitive(123456789L)
+      val unencryptedNested  = Sensitive(Nested("n1", 2))
 
       def shouldBeEncrypted(raw: BsonDocument, path: JsPath, required: Boolean = true): Unit =
         path(Json.parse(raw.toJson)) match {
@@ -130,11 +127,9 @@ class EncryptionCodecSpec
                   sensitiveOptional = None
                 )).headOption()
          res <- playMongoRepository.collection.find().headOption().map(_.value)
-         _   =  res.sensitiveString   shouldBe unencryptedString
-         _   =  res.sensitiveBoolean  shouldBe unencryptedBoolean
-         _   =  res.sensitiveLong     shouldBe unencryptedLong
-         _   =  res.sensitiveNested   shouldBe unencryptedNested
-         _   =  res.sensitiveOptional shouldBe None
+         _   =  res.sensitiveString  shouldBe unencryptedString
+         _   =  res.sensitiveBoolean shouldBe unencryptedBoolean
+         _   =  res.sensitiveLong    shouldBe unencryptedLong
          // and confirm it is stored as an EncryptedValue
          // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
          raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
@@ -149,12 +144,12 @@ class EncryptionCodecSpec
     }
 
     "update primitive value" in {
-      val unencryptedString  = "123456789"
-      val unencryptedBoolean = true
-      val unencryptedLong    = 123456789L
-      val unencryptedNested  = Nested("n1", 2)
+      val unencryptedString  = Sensitive("123456789")
+      val unencryptedBoolean = Sensitive(true)
+      val unencryptedLong    = Sensitive(123456789L)
+      val unencryptedNested  = Sensitive(Nested("n1", 2))
 
-      val unencryptedString2 = "987654321"
+      val unencryptedString2 = Sensitive("987654321")
 
       def shouldBeEncrypted(raw: BsonDocument, path: JsPath, required: Boolean = true): Unit =
         path(Json.parse(raw.toJson)) match {
@@ -174,8 +169,6 @@ class EncryptionCodecSpec
                   sensitiveOptional = None
                 )).headOption()
 
-         // This uses standard string codec, which won't apply any transformations
-         // call will fail schema validation...
          _   <- playMongoRepository.collection.updateMany(BsonDocument(), Updates.set("sensitiveString", unencryptedString2)).headOption().map(_ => ())
 
          res <- playMongoRepository.collection.find().headOption().map(_.value)
@@ -198,12 +191,12 @@ class EncryptionCodecSpec
     }
 
     "update nested value" in {
-      val unencryptedString  = "123456789"
-      val unencryptedBoolean = true
-      val unencryptedLong    = 123456789L
-      val unencryptedNested  = Nested("n1", 2)
+      val unencryptedString  = Sensitive("123456789")
+      val unencryptedBoolean = Sensitive(true)
+      val unencryptedLong    = Sensitive(123456789L)
+      val unencryptedNested  = Sensitive(Nested("n1", 2))
 
-      val unencryptedNested2 = Nested("n2", 3)
+      val unencryptedNested2 = Sensitive(Nested("n2", 3))
 
       def shouldBeEncrypted(raw: BsonDocument, path: JsPath, required: Boolean = true): Unit =
         path(Json.parse(raw.toJson)) match {
@@ -274,23 +267,24 @@ object EncryptionCodecSpec {
 
   case class MyObject(
     id               : String,
-    sensitiveString  : String,
-    sensitiveBoolean : Boolean,
-    sensitiveLong    : Long,
-    sensitiveNested  : Nested,
-    sensitiveOptional: Option[String]
+    sensitiveString  : Sensitive[String],
+    sensitiveBoolean : Sensitive[Boolean],
+    sensitiveLong    : Sensitive[Long],
+    sensitiveNested  : Sensitive[Nested],
+    sensitiveOptional: Option[Sensitive[String]]
   )
 
   object MyObject {
     implicit val oif = MongoFormats.Implicits.objectIdFormat
     implicit val nf  = Nested.format
+    implicit def sf[A : Format]: Format[Sensitive[A]] = Sensitive.format
     val format =
       ( (__ \ "_id"              ).format[String]
-      ~ (__ \ "sensitiveString"  ).format[String]
-      ~ (__ \ "sensitiveBoolean" ).format[Boolean]
-      ~ (__ \ "sensitiveLong"    ).format[Long]
-      ~ (__ \ "sensitiveNested"  ).format[Nested]
-      ~ (__ \ "sensitiveOptional").formatNullable[String]
+      ~ (__ \ "sensitiveString"  ).format[Sensitive[String]]
+      ~ (__ \ "sensitiveBoolean" ).format[Sensitive[Boolean]]
+      ~ (__ \ "sensitiveLong"    ).format[Sensitive[Long]]
+      ~ (__ \ "sensitiveNested"  ).format[Sensitive[Nested]]
+      ~ (__ \ "sensitiveOptional").formatNullable[Sensitive[String]]
       )(MyObject.apply, unlift(MyObject.unapply))
   }
 }

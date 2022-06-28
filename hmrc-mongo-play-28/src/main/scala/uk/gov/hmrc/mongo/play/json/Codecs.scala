@@ -63,8 +63,10 @@ trait Codecs {
     jsonTransformer: JsonTransformer = JsonTransformer.identity
   )(implicit ct: ClassTag[B]): Codec[B] = new Codec[B] {
 
-    override def getEncoderClass: Class[B] =
+    override def getEncoderClass: Class[B] = {
+      println(s">>>>>>>> Registering codec as ${ct.runtimeClass}: ${ct.runtimeClass.asInstanceOf[Class[B]]}")
       ct.runtimeClass.asInstanceOf[Class[B]]
+    }
 
     override def encode(writer: BsonWriter, value: B, encoderContext: EncoderContext): Unit = {
       val bs: BsonValue = jsonToBson(legacyNumbers)(jsonTransformer.encoderTransform(format.writes(value)))
