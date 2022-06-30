@@ -37,14 +37,14 @@ import java.util.Base64
 import Sensitive._
 
 
-class EncryptionCodecSpec
+class ADEncrypterSpec
   extends AnyWordSpecLike
      with Matchers
      with ScalaFutures
      with IntegrationPatience
      with BeforeAndAfterEach
      with OptionValues {
-  import EncryptionCodecSpec._
+  import ADEncrypterSpec._
 
   val databaseName: String =
     "test-" + this.getClass.getSimpleName
@@ -59,7 +59,7 @@ class EncryptionCodecSpec
   }
 
   val encrypter =
-    new Encrypter(new SecureGCMCipher)(
+    new ADEncrypter(new SecureGCMCipher)(
       associatedDataPath  = __ \ "_id",
       aesKey              = aesKey
     )
@@ -84,7 +84,7 @@ class EncryptionCodecSpec
     )
 
   val sensitiveEncrypter =
-    new Encrypter(new SecureGCMCipher)(
+    new ADEncrypter(new SecureGCMCipher)(
       associatedDataPath  = __ \ "_id", // FIXME This won't work...
       aesKey              = aesKey
     )
@@ -97,26 +97,25 @@ class EncryptionCodecSpec
     jsonTransformer  = encrypter,
     optSchema        = Some(myObjectSchema),
     extraCodecs      = Seq(
-                         // Codec runtime lookup cannot distinguish between these - and will can the wrong one!
                          Codecs.playFormatCodec(Sensitive.format[String, SensitiveString](SensitiveString.apply, SensitiveString.unapply), jsonTransformer = sensitiveEncrypter),
                          Codecs.playFormatCodec(Sensitive.format[Nested, SensitiveNested](SensitiveNested.apply, SensitiveNested.unapply)(Nested.format), jsonTransformer = sensitiveEncrypter)
                        )
   )
 
   "Encryption" should {
+    def shouldBeEncrypted(raw: BsonDocument, path: JsPath, required: Boolean = true): Unit =
+      path(Json.parse(raw.toJson)) match {
+        case Seq(x)        => x.as[JsObject].keys shouldBe Set("value", "nonce")
+        case x :: _        => throw new AssertionError(s"$path resolved to more than one field in $raw")
+        case _ if required => throw new AssertionError(s"$path did not exist in $raw")
+        case _             => ()
+      }
+
     "encrypt and decrypt model" in {
       val unencryptedString  = SensitiveString("123456789")
       val unencryptedBoolean = SensitiveBoolean(true)
       val unencryptedLong    = SensitiveLong(123456789L)
       val unencryptedNested  = SensitiveNested(Nested("n1", 2))
-
-      def shouldBeEncrypted(raw: BsonDocument, path: JsPath, required: Boolean = true): Unit =
-        path(Json.parse(raw.toJson)) match {
-          case Seq(x)        => x.as[JsObject].keys shouldBe Set("value", "nonce")
-          case x :: _        => throw new AssertionError(s"$path resolved to more than one field in $raw")
-          case _ if required => throw new AssertionError(s"$path did not exist in $raw")
-          case _             => ()
-        }
 
       (for {
          _   <- playMongoRepository.collection.insertOne(MyObject(
@@ -134,7 +133,6 @@ class EncryptionCodecSpec
          // and confirm it is stored as an EncryptedValue
          // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
          raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
-         _ = println(s"Stored: ${raw.toJson}")
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveString"  )
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveBoolean" )
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveLong"    )
@@ -152,14 +150,6 @@ class EncryptionCodecSpec
 
       val unencryptedString2 = SensitiveString("987654321")
 
-      def shouldBeEncrypted(raw: BsonDocument, path: JsPath, required: Boolean = true): Unit =
-        path(Json.parse(raw.toJson)) match {
-          case Seq(x)        => x.as[JsObject].keys shouldBe Set("value", "nonce")
-          case x :: _        => throw new AssertionError(s"$path resolved to more than one field in $raw")
-          case _ if required => throw new AssertionError(s"$path did not exist in $raw")
-          case _             => ()
-        }
-
       (for {
          _   <- playMongoRepository.collection.insertOne(MyObject(
                   id                = ObjectId.get().toString,
@@ -171,7 +161,7 @@ class EncryptionCodecSpec
                 )).headOption()
 
          _   = try {
-           playMongoRepository.collection.updateMany(BsonDocument(), Updates.set("sensitiveString", unencryptedString2)).headOption().map(_ => ()).futureValue
+           playMongoRepository.collection.updateMany(BsonDocument(), Updates.set("sensitiveString", unencryptedString2)).headOption().map(_ => ())
          } catch { case e: Throwable => play.api.Logger("asd").error("Failed to update", e); throw e}
 
          res <- playMongoRepository.collection.find().headOption().map(_.value)
@@ -183,7 +173,6 @@ class EncryptionCodecSpec
          // and confirm it is stored as an EncryptedValue
          // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
          raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
-         _ = println(s"Stored: ${raw.toJson}")
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveString"  )
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveBoolean" )
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveLong"    )
@@ -201,14 +190,6 @@ class EncryptionCodecSpec
 
       val unencryptedNested2 = SensitiveNested(Nested("n2", 3))
 
-      def shouldBeEncrypted(raw: BsonDocument, path: JsPath, required: Boolean = true): Unit =
-        path(Json.parse(raw.toJson)) match {
-          case Seq(x)        => x.as[JsObject].keys shouldBe Set("value", "nonce")
-          case x :: _        => throw new AssertionError(s"$path resolved to more than one field in $raw")
-          case _ if required => throw new AssertionError(s"$path did not exist in $raw")
-          case _             => ()
-        }
-
       (for {
          _   <- playMongoRepository.collection.insertOne(MyObject(
                   id                = ObjectId.get().toString,
@@ -219,7 +200,7 @@ class EncryptionCodecSpec
                   sensitiveOptional = None
                 )).headOption()
 
-         _   <- playMongoRepository.collection.updateMany(BsonDocument(), Updates.set("unencryptedNested", unencryptedNested2)).headOption().map(_ => ())
+         _   <- playMongoRepository.collection.updateMany(BsonDocument(), Updates.set("sensitiveNested", unencryptedNested2)).headOption().map(_ => ())
 
          res <- playMongoRepository.collection.find().headOption().map(_.value)
          _   =  res.sensitiveString   shouldBe unencryptedString
@@ -231,7 +212,6 @@ class EncryptionCodecSpec
          // and confirm it is stored as an EncryptedValue
          // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
          raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
-         _ = println(s"Stored: ${raw.toJson}")
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveString"  )
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveBoolean" )
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveLong"    )
@@ -256,7 +236,7 @@ class EncryptionCodecSpec
   }
 }
 
-object EncryptionCodecSpec {
+object ADEncrypterSpec {
   case class Nested(
     n1: String,
     n2: Int
@@ -286,8 +266,6 @@ object EncryptionCodecSpec {
       implicit val nf  = Nested.format
       Sensitive.format[Nested , SensitiveNested](SensitiveNested.apply, SensitiveNested.unapply)
     }
-
-    //implicit def sf[A : Format]: Format[Sensitive[A]] = Sensitive.format
     val format =
       ( (__ \ "_id"              ).format[String]
       ~ (__ \ "sensitiveString"  ).format[SensitiveString]

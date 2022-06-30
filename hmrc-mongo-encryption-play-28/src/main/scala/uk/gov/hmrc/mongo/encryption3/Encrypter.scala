@@ -16,9 +16,10 @@
 
 package uk.gov.hmrc.mongo.encryption3
 
+import play.api.Configuration
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import uk.gov.hmrc.crypto.{EncryptedValue, SecureGCMCipher}
+import uk.gov.hmrc.crypto.{Crypted, CryptoGCMWithKeysFromConfig, EncryptedValue, PlainText, SecureGCMCipher }
 import uk.gov.hmrc.mongo.play.json.JsonTransformer
 
 import scala.util.{Success, Try}
@@ -57,7 +58,7 @@ object Sensitive {
   }
 }
 
-class Encrypter(
+class ADEncrypter(
   secureGCMCipher    : SecureGCMCipher
 )(
   associatedDataPath : JsPath,
@@ -111,6 +112,59 @@ class Encrypter(
     def decryptSubEncryptables(jsValue: JsValue): JsValue =
       jsValue match {
         case o: JsObject if o.keys.contains("nonce") && o.keys.contains("value") => transform(o)
+        case o: JsObject => o.fields.foldLeft(JsObject(Map.empty[String, JsValue])) {
+                              case (acc, (k, o: JsObject)) =>  acc + (k -> decryptSubEncryptables(o))
+                              case (acc, (k, v)) => acc + (k -> v)
+                            }
+        case v           => v
+      }
+    decryptSubEncryptables(jsValue)
+  }
+}
+
+
+class Encrypter(
+  config: Configuration
+) extends JsonTransformer {
+
+  private val crypto =
+    new CryptoGCMWithKeysFromConfig("crypto", config.underlying)
+
+  private val cryptedFormat: OFormat[Crypted] =
+    ( (__ \ "encrypted").format[Boolean]
+    ~ (__ \ "value"    ).format[String]
+    )((_, v) => Crypted.apply(v), unlift(Crypted.unapply).andThen(v => (true, v)))
+
+  // calling js.transform(path.json.update(transformF)) actually merges the result of transform, so would leave the unencrypted data in the object!
+  def transformWithoutMerge(js: JsValue, path: JsPath, transformFn: JsValue => JsValue): JsResult[JsValue] =
+    js.transform(path.json.update(implicitly[Reads[JsValue]].map(_ => transformFn(path(js).head)))
+      .composeWith(path.json.update(implicitly[Reads[JsValue]].map(_ => JsNull)))
+    )
+
+  override def encoderTransform(jsValue: JsValue): JsValue = {
+    def transform(js: JsValue): JsValue =
+      cryptedFormat.writes(crypto.encrypt(PlainText(js.toString)))
+    def encryptSubEncryptables(jsValue: JsValue): JsValue =
+      jsValue match {
+        case o: JsObject if o.keys.contains("sensitive") => transform(o)
+        case o: JsObject => o.fields.foldLeft(JsObject(Map.empty[String, JsValue])) {
+                              case (acc, (k, o: JsObject)) =>  acc + (k -> encryptSubEncryptables(o))
+                              case (acc, (k, v)) => acc + (k -> v)
+                            }
+        case v           => v
+      }
+    encryptSubEncryptables(jsValue)
+  }
+
+  override def decoderTransform(jsValue: JsValue): JsValue = {
+    def transform(js: JsValue): JsValue =
+      cryptedFormat.reads(js) match {
+        case JsSuccess(crypted, _) => Json.parse(crypto.decrypt(crypted).value)
+        case JsError(errors)       => sys.error(s"Failed to decrypt value: $errors")
+      }
+    def decryptSubEncryptables(jsValue: JsValue): JsValue =
+      jsValue match {
+        case o: JsObject if o.keys.contains("encrypted") && o.keys.contains("value") => transform(o)
         case o: JsObject => o.fields.foldLeft(JsObject(Map.empty[String, JsValue])) {
                               case (acc, (k, o: JsObject)) =>  acc + (k -> decryptSubEncryptables(o))
                               case (acc, (k, v)) => acc + (k -> v)
