@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.encryption2
+package uk.gov.hmrc.mongo.encryption3
 
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
@@ -23,16 +23,38 @@ import uk.gov.hmrc.mongo.play.json.JsonTransformer
 
 import scala.util.{Success, Try}
 
-case class Sensitive[A](value: A) {
+// we can't use a polymorphic implementation since Codecs are looked up by runtime type.
+// the client can implement own model to support any A
+// Could move Sensitive (and basic implementations) to crypto (to avoid client's model depending on mongo)
+trait Sensitive[A] {
+  def value: A
   override def toString() =
     "Sensitive(...)"
 }
 
 object Sensitive {
-  def format[A: Format]: OFormat[Sensitive[A]] =
+  case class SensitiveString(value: String) extends Sensitive[String]
+  case class SensitiveBoolean(value: Boolean) extends Sensitive[Boolean]
+  case class SensitiveLong(value: Long) extends Sensitive[Long]
+  case class SensitiveDouble(value: Double) extends Sensitive[Double]
+  // TODO Instant etc. ?
+
+  def format[A: Format, B <: Sensitive[A]](apply: A => B, unapply: B => Option[A]): OFormat[B] =
     ( (__ \ "sensitive").format[Boolean]
     ~ (__ \ "value"    ).format[A]
-    )((_, v) => Sensitive[A](v), unlift(Sensitive.unapply[A]).andThen(v => (true, v)))
+    )((_, v) => apply(v), unlift(unapply).andThen(v => (true, v)))
+
+  val sensitiveStringFormat : OFormat[SensitiveString ] = format[String , SensitiveString ](SensitiveString .apply, SensitiveString .unapply)
+  val sensitiveBooleanFormat: OFormat[SensitiveBoolean] = format[Boolean, SensitiveBoolean](SensitiveBoolean.apply, SensitiveBoolean.unapply)
+  val sensitiveLongFormat   : OFormat[SensitiveLong   ] = format[Long   , SensitiveLong   ](SensitiveLong   .apply, SensitiveLong   .unapply)
+  val sensitiveDoubleFormat : OFormat[SensitiveDouble ] = format[Double , SensitiveDouble ](SensitiveDouble .apply, SensitiveDouble .unapply)
+
+  object Implicits {
+    implicit val ssf = sensitiveStringFormat
+    implicit val sbf = sensitiveBooleanFormat
+    implicit val slf = sensitiveLongFormat
+    implicit val sdf = sensitiveDoubleFormat
+  }
 }
 
 class Encrypter(

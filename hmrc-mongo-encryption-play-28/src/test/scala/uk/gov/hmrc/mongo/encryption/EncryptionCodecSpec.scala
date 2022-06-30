@@ -59,7 +59,8 @@ class EncryptionCodecSpec
 
   val encrypter =
     new Encrypter(new SecureGCMCipher)(
-      associatedDataPath  = __ \ "_id",
+      //associatedDataPath  = (js => (__ \ "_id")(js).as[ObjectId].map(_.toString), // or better to provide a function (which can convert to String)
+      associatedDataPath  = __ \ "_id" \ "$oid", // or better to provide a function (which can convert to String)
       encryptedFieldPaths = Seq( __ \ "sensitiveString"
                                , __ \ "sensitiveBoolean"
                                , __ \ "sensitiveLong"
@@ -77,7 +78,7 @@ class EncryptionCodecSpec
       { bsonType: "object"
       , required: [ "_id", "sensitiveString", "sensitiveBoolean", "sensitiveLong", "sensitiveNested" ]
       , properties:
-        { _id              : { bsonType: "string" }
+        { _id              : { bsonType: "objectId" }
         , sensitiveString  : { bsonType: "object", required: [ "value", "nonce" ], properties: { value: { bsonType: "string" }, "nonce": { bsonType: "string"} } }
         , sensitiveBoolean : { bsonType: "object", required: [ "value", "nonce" ], properties: { value: { bsonType: "string" }, "nonce": { bsonType: "string"} } }
         , sensitiveLong    : { bsonType: "object", required: [ "value", "nonce" ], properties: { value: { bsonType: "string" }, "nonce": { bsonType: "string"} } }
@@ -90,7 +91,7 @@ class EncryptionCodecSpec
 
   val nestedEncrypter =
     new Encrypter(new SecureGCMCipher)(
-      associatedDataPath  = __ \ "_id", // FIXME This won't work...
+      associatedDataPath  = __ \ "_id" , // FIXME This won't work...
       encryptedFieldPaths = Seq( __ ), // the path relative to nested is this object
       aesKey              = aesKey
     )
@@ -122,7 +123,7 @@ class EncryptionCodecSpec
 
       (for {
          _   <- playMongoRepository.collection.insertOne(MyObject(
-                  id                = ObjectId.get().toString,
+                  id                = ObjectId.get(),
                   sensitiveString   = unencryptedString,
                   sensitiveBoolean  = unencryptedBoolean,
                   sensitiveLong     = unencryptedLong,
@@ -166,7 +167,7 @@ class EncryptionCodecSpec
 
       (for {
          _   <- playMongoRepository.collection.insertOne(MyObject(
-                  id                = ObjectId.get().toString,
+                  id                = ObjectId.get(),
                   sensitiveString   = unencryptedString,
                   sensitiveBoolean  = unencryptedBoolean,
                   sensitiveLong     = unencryptedLong,
@@ -215,7 +216,7 @@ class EncryptionCodecSpec
 
       (for {
          _   <- playMongoRepository.collection.insertOne(MyObject(
-                  id                = ObjectId.get().toString,
+                  id                = ObjectId.get(),
                   sensitiveString   = unencryptedString,
                   sensitiveBoolean  = unencryptedBoolean,
                   sensitiveLong     = unencryptedLong,
@@ -273,7 +274,7 @@ object EncryptionCodecSpec {
   }
 
   case class MyObject(
-    id               : String,
+    id               : ObjectId,
     sensitiveString  : String,
     sensitiveBoolean : Boolean,
     sensitiveLong    : Long,
@@ -285,7 +286,7 @@ object EncryptionCodecSpec {
     implicit val oif = MongoFormats.Implicits.objectIdFormat
     implicit val nf  = Nested.format
     val format =
-      ( (__ \ "_id"              ).format[String]
+      ( (__ \ "_id"              ).format[ObjectId]
       ~ (__ \ "sensitiveString"  ).format[String]
       ~ (__ \ "sensitiveBoolean" ).format[Boolean]
       ~ (__ \ "sensitiveLong"    ).format[Long]
