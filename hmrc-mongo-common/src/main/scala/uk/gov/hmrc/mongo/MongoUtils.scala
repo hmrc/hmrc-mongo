@@ -70,13 +70,16 @@ trait MongoUtils {
                                 case IndexConflict(e) if replaceIndexes =>
                                   val conflictingIdxName =
                                     existingIndexes.find(idx => idx("key").asDocument == index.getKeys.toBsonDocument).map(indexName)
-                                      // this shouldn't happen
+                                      // this shouldn't happen - if it was the same name, but different definition, it would have been dropped by now for replaceIndexes = true
                                       .getOrElse(sys.error(s"Could not find the conflicting index ${index.getKeys.toBsonDocument}"))
                                   logger.warn(s"Conflicting Mongo index found. Index '${conflictingIdxName}' in ${collection.namespace} will be recreated")
                                   for {
                                     _      <- collection.dropIndex(conflictingIdxName).toFuture()
                                     result <- collection.createIndex(index.getKeys, index.getOptions).toFuture()
                                   } yield result
+                                case IndexConflict(e) =>
+                                    logger.error(s"Conflicting Mongo index found", e)
+                                    throw e
                               }
                             }
     } yield res

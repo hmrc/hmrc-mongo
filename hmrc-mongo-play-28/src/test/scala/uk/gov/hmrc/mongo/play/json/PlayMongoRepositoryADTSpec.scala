@@ -50,15 +50,35 @@ class PlayMongoRepositoryADTSpec
   }
 
   "Codecs.playFormatCodecsBuilder" should {
-    val playMongoRepository = new PlayMongoRepository[Sum](
-      mongoComponent = mongoComponent,
-      collectionName = "sum",
-      domainFormat   = sumFormat,
-      indexes        = Seq.empty,
-      extraCodecs    = Codecs.playFormatCodecsBuilder(sumFormat).forType[Sum1].forType[Sum2].build
-    )
-
     "enable registering codecs for read and write" in {
+      val playMongoRepository = new PlayMongoRepository[Sum](
+        mongoComponent = mongoComponent,
+        collectionName = "sum",
+        domainFormat   = sumFormat,
+        indexes        = Seq.empty,
+        extraCodecs    = Codecs.playFormatCodecsBuilder(sumFormat).forType[Sum1].forType[Sum2].build
+      )
+
+      forAll(sumGen) { sum =>
+        prepareDatabase(playMongoRepository)
+
+        val result = playMongoRepository.collection.insertOne(sum).toFuture()
+        result.futureValue.wasAcknowledged shouldBe true
+
+        val writtenObj = playMongoRepository.collection.find().toFuture()
+        writtenObj.futureValue shouldBe List(sum)
+      }
+    }
+
+    "enable registering codecs for all subtypes" in {
+      val playMongoRepository = new PlayMongoRepository[Sum](
+        mongoComponent = mongoComponent,
+        collectionName = "sum",
+        domainFormat   = sumFormat,
+        indexes        = Seq.empty,
+        extraCodecs    = Codecs.playFormatSumCodecs(sumFormat)
+      )
+
       forAll(sumGen) { sum =>
         prepareDatabase(playMongoRepository)
 
