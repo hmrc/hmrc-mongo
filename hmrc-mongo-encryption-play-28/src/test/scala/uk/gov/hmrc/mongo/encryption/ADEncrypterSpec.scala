@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.encryption3
+package uk.gov.hmrc.mongo.encryption
 
 import org.bson.types.ObjectId
 import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.Updates
 import org.scalatest.{BeforeAndAfterEach, OptionValues}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
@@ -27,7 +26,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.crypto.SecureGCMCipher
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
-import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
+import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -83,23 +82,13 @@ class ADEncrypterSpec
       """
     )
 
-  val sensitiveEncrypter =
-    new ADEncrypter(new SecureGCMCipher)(
-      associatedDataPath  = __ \ "_id", // FIXME This won't work...
-      aesKey              = aesKey
-    )
-
   val playMongoRepository = new PlayMongoRepository[MyObject](
     mongoComponent   = mongoComponent,
     collectionName   = "myobject",
     domainFormat     = MyObject.format,
     indexes          = Seq.empty,
     jsonTransformer  = encrypter,
-    optSchema        = Some(myObjectSchema),
-    extraCodecs      = Seq(
-                         Codecs.playFormatCodec(Sensitive.format[String, SensitiveString](SensitiveString.apply, SensitiveString.unapply), jsonTransformer = sensitiveEncrypter),
-                         Codecs.playFormatCodec(Sensitive.format[Nested, SensitiveNested](SensitiveNested.apply, SensitiveNested.unapply)(Nested.format), jsonTransformer = sensitiveEncrypter)
-                       )
+    optSchema        = Some(myObjectSchema)
   )
 
   "Encryption" should {
@@ -142,84 +131,7 @@ class ADEncrypterSpec
       ).futureValue
     }
 
-    "update primitive value" in {
-      val unencryptedString  = SensitiveString("123456789")
-      val unencryptedBoolean = SensitiveBoolean(true)
-      val unencryptedLong    = SensitiveLong(123456789L)
-      val unencryptedNested  = SensitiveNested(Nested("n1", 2))
-
-      val unencryptedString2 = SensitiveString("987654321")
-
-      (for {
-         _   <- playMongoRepository.collection.insertOne(MyObject(
-                  id                = ObjectId.get().toString,
-                  sensitiveString   = unencryptedString,
-                  sensitiveBoolean  = unencryptedBoolean,
-                  sensitiveLong     = unencryptedLong,
-                  sensitiveNested   = unencryptedNested,
-                  sensitiveOptional = None
-                )).headOption()
-
-         _   = try {
-           playMongoRepository.collection.updateMany(BsonDocument(), Updates.set("sensitiveString", unencryptedString2)).headOption().map(_ => ())
-         } catch { case e: Throwable => play.api.Logger("asd").error("Failed to update", e); throw e}
-
-         res <- playMongoRepository.collection.find().headOption().map(_.value)
-         _   =  res.sensitiveString   shouldBe unencryptedString2
-         _   =  res.sensitiveBoolean  shouldBe unencryptedBoolean
-         _   =  res.sensitiveLong     shouldBe unencryptedLong
-         _   =  res.sensitiveNested   shouldBe unencryptedNested
-         _   =  res.sensitiveOptional shouldBe None
-         // and confirm it is stored as an EncryptedValue
-         // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
-         raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveString"  )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveBoolean" )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveLong"    )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveNested"  )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveOptional", required = false)
-       } yield ()
-      ).futureValue
-    }
-
-    "update nested value" in {
-      val unencryptedString  = SensitiveString("123456789")
-      val unencryptedBoolean = SensitiveBoolean(true)
-      val unencryptedLong    = SensitiveLong(123456789L)
-      val unencryptedNested  = SensitiveNested(Nested("n1", 2))
-
-      val unencryptedNested2 = SensitiveNested(Nested("n2", 3))
-
-      (for {
-         _   <- playMongoRepository.collection.insertOne(MyObject(
-                  id                = ObjectId.get().toString,
-                  sensitiveString   = unencryptedString,
-                  sensitiveBoolean  = unencryptedBoolean,
-                  sensitiveLong     = unencryptedLong,
-                  sensitiveNested   = unencryptedNested,
-                  sensitiveOptional = None
-                )).headOption()
-
-         _   <- playMongoRepository.collection.updateMany(BsonDocument(), Updates.set("sensitiveNested", unencryptedNested2)).headOption().map(_ => ())
-
-         res <- playMongoRepository.collection.find().headOption().map(_.value)
-         _   =  res.sensitiveString   shouldBe unencryptedString
-         _   =  res.sensitiveBoolean  shouldBe unencryptedBoolean
-         _   =  res.sensitiveLong     shouldBe unencryptedLong
-         _   =  res.sensitiveNested   shouldBe unencryptedNested2
-         _   =  res.sensitiveOptional shouldBe None
-
-         // and confirm it is stored as an EncryptedValue
-         // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
-         raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveString"  )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveBoolean" )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveLong"    )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveNested"  )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveOptional", required = false)
-       } yield ()
-      ).futureValue
-    }
+    // Attention! Cannot update (or search by) a leaf with associated data
   }
 
   def prepareDatabase(): Unit =
@@ -261,10 +173,10 @@ object ADEncrypterSpec {
 
   object MyObject {
     implicit val oif = MongoFormats.Implicits.objectIdFormat
-    import Sensitive.Implicits._
+    import ADEncrypter.Implicits._
     implicit val snf: OFormat[SensitiveNested] = {
       implicit val nf  = Nested.format
-      Sensitive.format[Nested , SensitiveNested](SensitiveNested.apply, SensitiveNested.unapply)
+      ADEncrypter.format[Nested , SensitiveNested](SensitiveNested.apply, SensitiveNested.unapply)
     }
     val format =
       ( (__ \ "_id"              ).format[String]

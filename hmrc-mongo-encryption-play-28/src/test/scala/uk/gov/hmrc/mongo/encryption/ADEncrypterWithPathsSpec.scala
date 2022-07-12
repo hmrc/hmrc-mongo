@@ -18,7 +18,6 @@ package uk.gov.hmrc.mongo.encryption
 
 import org.bson.types.ObjectId
 import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.Updates
 import org.scalatest.{BeforeAndAfterEach, OptionValues}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
@@ -27,7 +26,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.crypto.SecureGCMCipher
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
-import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
+import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -36,14 +35,14 @@ import java.security.SecureRandom
 import java.util.Base64
 
 
-class EncryptionCodecSpec
+class ADEncrypterWithPathsSpec
   extends AnyWordSpecLike
      with Matchers
      with ScalaFutures
      with IntegrationPatience
      with BeforeAndAfterEach
      with OptionValues {
-  import EncryptionCodecSpec._
+  import ADEncrypterWithPathsSpec._
 
   val databaseName: String =
     "test-" + this.getClass.getSimpleName
@@ -58,7 +57,7 @@ class EncryptionCodecSpec
    }
 
   val encrypter =
-    new Encrypter(new SecureGCMCipher)(
+    new ADEncrypterWithPaths(new SecureGCMCipher)(
       //associatedDataPath  = (js => (__ \ "_id")(js).as[ObjectId].map(_.toString), // or better to provide a function (which can convert to String)
       associatedDataPath  = __ \ "_id" \ "$oid", // or better to provide a function (which can convert to String)
       encryptedFieldPaths = Seq( __ \ "sensitiveString"
@@ -89,21 +88,13 @@ class EncryptionCodecSpec
       """
     )
 
-  val nestedEncrypter =
-    new Encrypter(new SecureGCMCipher)(
-      associatedDataPath  = __ \ "_id" , // FIXME This won't work...
-      encryptedFieldPaths = Seq( __ ), // the path relative to nested is this object
-      aesKey              = aesKey
-    )
-
   val playMongoRepository = new PlayMongoRepository[MyObject](
     mongoComponent   = mongoComponent,
     collectionName   = "myobject",
     domainFormat     = MyObject.format,
     indexes          = Seq.empty,
     jsonTransformer  = encrypter,
-    optSchema        = Some(myObjectSchema),
-    extraCodecs      = Seq(Codecs.playFormatCodec(Nested.format, jsonTransformer = nestedEncrypter))
+    optSchema        = Some(myObjectSchema)
   )
 
   "Encryption" should {
@@ -148,84 +139,7 @@ class EncryptionCodecSpec
       ).futureValue
     }
 
-    "update primitive value" in {
-      val unencryptedString  = "123456789"
-      val unencryptedBoolean = true
-      val unencryptedLong    = 123456789L
-      val unencryptedNested  = Nested("n1", 2)
-
-      val unencryptedString2 = "987654321"
-
-      (for {
-         _   <- playMongoRepository.collection.insertOne(MyObject(
-                  id                = ObjectId.get(),
-                  sensitiveString   = unencryptedString,
-                  sensitiveBoolean  = unencryptedBoolean,
-                  sensitiveLong     = unencryptedLong,
-                  sensitiveNested   = unencryptedNested,
-                  sensitiveOptional = None
-                )).headOption()
-
-         // This uses standard string codec, which won't apply any transformations
-         // call will fail schema validation...
-         _   <- playMongoRepository.collection.updateMany(BsonDocument(), Updates.set("sensitiveString", unencryptedString2)).headOption().map(_ => ())
-
-         res <- playMongoRepository.collection.find().headOption().map(_.value)
-         _   =  res.sensitiveString   shouldBe unencryptedString2
-         _   =  res.sensitiveBoolean  shouldBe unencryptedBoolean
-         _   =  res.sensitiveLong     shouldBe unencryptedLong
-         _   =  res.sensitiveNested   shouldBe unencryptedNested
-         _   =  res.sensitiveOptional shouldBe None
-         // and confirm it is stored as an EncryptedValue
-         // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
-         raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveString"  )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveBoolean" )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveLong"    )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveNested"  )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveOptional", required = false)
-       } yield ()
-      ).futureValue
-    }
-
-    "update nested value" in {
-      val unencryptedString  = "123456789"
-      val unencryptedBoolean = true
-      val unencryptedLong    = 123456789L
-      val unencryptedNested  = Nested("n1", 2)
-
-      val unencryptedNested2 = Nested("n2", 3)
-
-      (for {
-         _   <- playMongoRepository.collection.insertOne(MyObject(
-                  id                = ObjectId.get(),
-                  sensitiveString   = unencryptedString,
-                  sensitiveBoolean  = unencryptedBoolean,
-                  sensitiveLong     = unencryptedLong,
-                  sensitiveNested   = unencryptedNested,
-                  sensitiveOptional = None
-                )).headOption()
-
-         _   <- playMongoRepository.collection.updateMany(BsonDocument(), Updates.set("sensitiveNested", unencryptedNested2)).headOption().map(_ => ())
-
-         res <- playMongoRepository.collection.find().headOption().map(_.value)
-         _   =  res.sensitiveString   shouldBe unencryptedString
-         _   =  res.sensitiveBoolean  shouldBe unencryptedBoolean
-         _   =  res.sensitiveLong     shouldBe unencryptedLong
-         _   =  res.sensitiveNested   shouldBe unencryptedNested2
-         _   =  res.sensitiveOptional shouldBe None
-
-         // and confirm it is stored as an EncryptedValue
-         // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
-         raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveString"  )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveBoolean" )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveLong"    )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveNested"  )
-         _   =  shouldBeEncrypted(raw, __ \ "sensitiveOptional", required = false)
-       } yield ()
-      ).futureValue
-    }
+    // Attention! We can't update encrypted leaves (or search by them) with associated data
   }
 
   def prepareDatabase(): Unit =
@@ -242,7 +156,7 @@ class EncryptionCodecSpec
   }
 }
 
-object EncryptionCodecSpec {
+object ADEncrypterWithPathsSpec {
   case class Nested(
     n1: String,
     n2: Int

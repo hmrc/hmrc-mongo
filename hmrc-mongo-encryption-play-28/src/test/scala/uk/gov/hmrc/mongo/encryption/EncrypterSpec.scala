@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.mongo.encryption4
+package uk.gov.hmrc.mongo.encryption
 
 import org.bson.types.ObjectId
 import org.mongodb.scala.bson.BsonDocument
@@ -38,15 +38,15 @@ import java.security.SecureRandom
 import java.util.Base64
 import Sensitive._
 
-// same as EncrypterSpec, but storing the encrypted value as a tagged object
-class Encrypter2Spec
+// same as EncrypterAsStringSpec, but storing the encrypted value as a tagged object
+class EncrypterSpec
   extends AnyWordSpecLike
      with Matchers
      with ScalaFutures
      with IntegrationPatience
      with BeforeAndAfterEach
      with OptionValues {
-  import Encrypter2Spec._
+  import EncrypterSpec._
 
   val databaseName: String =
     "test-" + this.getClass.getSimpleName
@@ -218,7 +218,7 @@ class Encrypter2Spec
   }
 }
 
-object Encrypter2Spec {
+object EncrypterSpec {
   case class Nested(
     n1: String,
     n2: Int
