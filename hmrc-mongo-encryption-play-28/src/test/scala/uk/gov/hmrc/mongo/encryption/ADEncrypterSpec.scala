@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import uk.gov.hmrc.crypto.SecureGCMCipher
+import uk.gov.hmrc.crypto.SecureGCMCipher2
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
@@ -58,9 +58,8 @@ class ADEncrypterSpec
   }
 
   val encrypter =
-    new ADEncrypter(new SecureGCMCipher)(
-      associatedDataPath  = __ \ "_id",
-      aesKey              = aesKey
+    new ADEncrypter(new SecureGCMCipher2(aesKey))(
+      associatedDataPath  = __ \ "_id"
     )
 
 

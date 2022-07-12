@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import uk.gov.hmrc.crypto.SecureGCMCipher
+import uk.gov.hmrc.crypto.SecureGCMCipher2
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
@@ -57,7 +57,7 @@ class ADEncrypterWithPathsSpec
    }
 
   val encrypter =
-    new ADEncrypterWithPaths(new SecureGCMCipher)(
+    new ADEncrypterWithPaths(new SecureGCMCipher2(aesKey))(
       //associatedDataPath  = (js => (__ \ "_id")(js).as[ObjectId].map(_.toString), // or better to provide a function (which can convert to String)
       associatedDataPath  = __ \ "_id" \ "$oid", // or better to provide a function (which can convert to String)
       encryptedFieldPaths = Seq( __ \ "sensitiveString"
@@ -65,8 +65,7 @@ class ADEncrypterWithPathsSpec
                                , __ \ "sensitiveLong"
                                , __ \ "sensitiveNested"
                                , __ \ "sensitiveOptional"
-                               ),
-      aesKey              = aesKey
+                               )
     )
 
 

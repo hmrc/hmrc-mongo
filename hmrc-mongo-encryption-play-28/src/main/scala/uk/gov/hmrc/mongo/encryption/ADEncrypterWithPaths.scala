@@ -18,19 +18,17 @@ package uk.gov.hmrc.mongo.encryption
 
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import uk.gov.hmrc.crypto.{EncryptedValue, SecureGCMCipher}
+import uk.gov.hmrc.crypto.{EncryptedValue, SecureGCMCipher2}
 import uk.gov.hmrc.mongo.play.json.JsonTransformer
 
 import scala.util.{Success, Try}
 
 
 class ADEncrypterWithPaths(
-  secureGCMCipher    : SecureGCMCipher
+  secureGCMCipher    : SecureGCMCipher2
 )(
   associatedDataPath : JsPath,
-  encryptedFieldPaths: Seq[JsPath],
-  aesKey             : String,
-  previousAesKeys    : Seq[String] = Seq.empty
+  encryptedFieldPaths: Seq[JsPath]
 ) extends JsonTransformer {
   private def associatedData(jsValue: JsValue) =
     associatedDataPath(jsValue) match {
@@ -53,7 +51,7 @@ class ADEncrypterWithPaths(
   override def encoderTransform(jsValue: JsValue): JsValue = {
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
-      encryptedValueFormat.writes(secureGCMCipher.encrypt(js.toString, ad, aesKey))
+      encryptedValueFormat.writes(secureGCMCipher.encrypt(js.toString, ad))
     encryptedFieldPaths.foldLeft(jsValue)((js, encryptedFieldPath) =>
       if (encryptedFieldPath(jsValue).nonEmpty)
         transformWithoutMerge(js, encryptedFieldPath, transform) match {
@@ -69,10 +67,7 @@ class ADEncrypterWithPaths(
     val ad = associatedData(jsValue)
     def transform(js: JsValue): JsValue =
       encryptedValueFormat.reads(js) match {
-        case JsSuccess(ev, _) => (aesKey +: previousAesKeys).toStream
-                                   .map(aesKey => Try(secureGCMCipher.decrypt(ev, ad, aesKey)))
-                                   .collectFirst { case Success(res) => Json.parse(res) }
-                                   .getOrElse(sys.error("Unable to decrypt value with any key"))
+        case JsSuccess(ev, _) => Json.parse(secureGCMCipher.decrypt(ev, ad))
         case JsError(errors)  => sys.error(s"Failed to decrypt value: $errors")
       }
     encryptedFieldPaths.foldLeft(jsValue)((js, encryptedFieldPath) =>
