@@ -29,24 +29,23 @@ import play.api.libs.json._
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
-import uk.gov.hmrc.crypto.{Crypted, CryptoGCMWithKeysFromConfig, PlainText }
-
+import uk.gov.hmrc.crypto.{Crypted, CryptoGCMWithKeysFromConfig, Decrypter, Encrypter, PlainText, Sensitive}
+import uk.gov.hmrc.crypto.Sensitive._
 
 import scala.concurrent.{ExecutionContext, Future}
 import ExecutionContext.Implicits.global
 import java.security.SecureRandom
 import java.util.Base64
-import Sensitive._
 
-// same as EncrypterAsStringSpec, but storing the encrypted value as a tagged object
-class EncrypterSpec
+// same as SensitiveEncryptionSpec, but storing the encrypted value as a tagged object
+class SensitiveEncryptionAsObjectSpec
   extends AnyWordSpecLike
      with Matchers
      with ScalaFutures
      with IntegrationPatience
      with BeforeAndAfterEach
      with OptionValues {
-  import EncrypterSpec._
+  import SensitiveEncryptionAsObjectSpec._
 
   val databaseName: String =
     "test-" + this.getClass.getSimpleName
@@ -61,7 +60,7 @@ class EncrypterSpec
       { bsonType: "object"
       , required: [ "_id", "sensitiveString", "sensitiveBoolean", "sensitiveLong", "sensitiveNested" ]
       , properties:
-        { _id              : { bsonType: "string" }
+        { _id              : { bsonType: "objectId" }
         , sensitiveString  : { bsonType: "object", required: [ "encrypted", "value" ], properties: { "encrypted": { bsonType: "bool"}, value: { bsonType: "string" } } }
         , sensitiveBoolean : { bsonType: "object", required: [ "encrypted", "value" ], properties: { "encrypted": { bsonType: "bool"}, value: { bsonType: "string" } } }
         , sensitiveLong    : { bsonType: "object", required: [ "encrypted", "value" ], properties: { "encrypted": { bsonType: "bool"}, value: { bsonType: "string" } } }
@@ -101,7 +100,7 @@ class EncrypterSpec
 
       (for {
          _   <- playMongoRepository.collection.insertOne(MyObject(
-                  id                = ObjectId.get().toString,
+                  id                = ObjectId.get(),
                   sensitiveString   = unencryptedString,
                   sensitiveBoolean  = unencryptedBoolean,
                   sensitiveLong     = unencryptedLong,
@@ -116,7 +115,6 @@ class EncrypterSpec
          // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
          raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveString"  )
-                _ = println(s"6")
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveBoolean" )
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveLong"    )
          _   =  shouldBeEncrypted(raw, __ \ "sensitiveNested"  )
@@ -135,7 +133,7 @@ class EncrypterSpec
 
       (for {
          _   <- playMongoRepository.collection.insertOne(MyObject(
-                  id                = ObjectId.get().toString,
+                  id                = ObjectId.get(),
                   sensitiveString   = unencryptedString,
                   sensitiveBoolean  = unencryptedBoolean,
                   sensitiveLong     = unencryptedLong,
@@ -173,7 +171,7 @@ class EncrypterSpec
 
       (for {
          _   <- playMongoRepository.collection.insertOne(MyObject(
-                  id                = ObjectId.get().toString,
+                  id                = ObjectId.get(),
                   sensitiveString   = unencryptedString,
                   sensitiveBoolean  = unencryptedBoolean,
                   sensitiveLong     = unencryptedLong,
@@ -184,12 +182,12 @@ class EncrypterSpec
          _   <- playMongoRepository.collection.updateMany(BsonDocument(), Updates.set("sensitiveNested", unencryptedNested2)).headOption().map(_ => ())
 
          res <- playMongoRepository.collection.find().headOption().map(_.value)
-         _   =  res.sensitiveString   shouldBe unencryptedString
-         _   =  res.sensitiveBoolean  shouldBe unencryptedBoolean
-         _   =  res.sensitiveLong     shouldBe unencryptedLong
-         _   =  res.sensitiveNested.value   shouldBe unencryptedNested2.value // error messages when comparing Sensitive are unhelpful since we've suppressed toString
-         _   =  res.sensitiveNested   shouldBe unencryptedNested2
-         _   =  res.sensitiveOptional shouldBe None
+         _   =  res.sensitiveString                shouldBe unencryptedString
+         _   =  res.sensitiveBoolean               shouldBe unencryptedBoolean
+         _   =  res.sensitiveLong                  shouldBe unencryptedLong
+         _   =  res.sensitiveNested.decryptedValue shouldBe unencryptedNested2.decryptedValue // error messages when comparing Sensitive are unhelpful since we've suppressed toString
+         _   =  res.sensitiveNested                shouldBe unencryptedNested2
+         _   =  res.sensitiveOptional              shouldBe None
 
          // and confirm it is stored as an EncryptedValue
          // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
@@ -218,7 +216,7 @@ class EncrypterSpec
   }
 }
 
-object EncrypterSpec {
+object SensitiveEncryptionAsObjectSpec {
   case class Nested(
     n1: String,
     n2: Int
@@ -230,10 +228,10 @@ object EncrypterSpec {
       )(Nested.apply, unlift(Nested.unapply))
   }
 
-  case class SensitiveNested(value: Nested) extends Sensitive[Nested]
+  case class SensitiveNested(override val decryptedValue: Nested) extends Sensitive[Nested]
 
   case class MyObject(
-    id               : String,
+    id               : ObjectId,
     sensitiveString  : SensitiveString,
     sensitiveBoolean : SensitiveBoolean,
     sensitiveLong    : SensitiveLong,
@@ -243,7 +241,7 @@ object EncrypterSpec {
 
   object MyObject {
 
-    private val crypto = {
+    private implicit val crypto = {
       val aesKey = {
         val aesKey = new Array[Byte](32)
         new SecureRandom().nextBytes(aesKey)
@@ -253,7 +251,6 @@ object EncrypterSpec {
       new CryptoGCMWithKeysFromConfig("crypto", config.underlying)
     }
 
-
     implicit val oif = MongoFormats.Implicits.objectIdFormat
 
     val cryptoFormat: OFormat[Crypted] =
@@ -262,7 +259,7 @@ object EncrypterSpec {
       )((_, v) => Crypted.apply(v), unlift(Crypted.unapply).andThen(v => (true, v)))
 
     // The required Crypto could be an implicit to simplify constructing the Formats
-    def sensitiveFormat[A: Format, B <: Sensitive[A]](apply: A => B, unapply: B => A): OFormat[B] =
+    def sensitiveFormat[A: Format, B <: Sensitive[A]](apply: A => B, unapply: B => A)(implicit crypto: Encrypter with Decrypter): OFormat[B] =
       cryptoFormat
         .inmap[B](
           c  => apply(Json.parse(crypto.decrypt(c).value).as[A]),
@@ -272,10 +269,13 @@ object EncrypterSpec {
     implicit val ssFormat = sensitiveFormat[String, SensitiveString](SensitiveString.apply, unlift(SensitiveString.unapply))
     implicit val sbFormat = sensitiveFormat[Boolean, SensitiveBoolean](SensitiveBoolean.apply, unlift(SensitiveBoolean.unapply))
     implicit val slFormat = sensitiveFormat[Long, SensitiveLong](SensitiveLong.apply, unlift(SensitiveLong.unapply))
-    implicit val snFormat = sensitiveFormat(SensitiveNested.apply, unlift(SensitiveNested.unapply))(Nested.format)
+    implicit val snFormat = {
+      implicit val nf = Nested.format
+      sensitiveFormat(SensitiveNested.apply, unlift(SensitiveNested.unapply))
+    }
 
     val format =
-      ( (__ \ "_id"              ).format[String]
+      ( (__ \ "_id"              ).format[ObjectId]
       ~ (__ \ "sensitiveString"  ).format[SensitiveString]
       ~ (__ \ "sensitiveBoolean" ).format[SensitiveBoolean]
       ~ (__ \ "sensitiveLong"    ).format[SensitiveLong]

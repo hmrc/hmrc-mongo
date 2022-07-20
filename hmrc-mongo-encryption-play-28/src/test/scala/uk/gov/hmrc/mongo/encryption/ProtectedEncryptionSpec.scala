@@ -169,14 +169,14 @@ object ProtectedEncryptionSpec {
     private implicit val oif = MongoFormats.Implicits.objectIdFormat
     private implicit val nf  = Nested.format
 
-    private implicit val psf = CryptoFormats.protectedEncryptorDecryptor[String]
-    private implicit val pbf = CryptoFormats.protectedEncryptorDecryptor[Boolean]
-    private implicit val plf = CryptoFormats.protectedEncryptorDecryptor[Long]
-    private implicit val pnf = CryptoFormats.protectedEncryptorDecryptor[Nested]
+    private implicit val psf = CryptoFormats.protectedEncrypterDecrypter[String]
+    private implicit val pbf = CryptoFormats.protectedEncrypterDecrypter[Boolean]
+    private implicit val plf = CryptoFormats.protectedEncrypterDecrypter[Long]
+    private implicit val pnf = CryptoFormats.protectedEncrypterDecrypter[Nested]
 
     val format: Format[MyObject] =
       ( (__ \ "_id"              ).format[ObjectId]
-      ~ (__ \ "protectedString"  ).format[Protected[String]](psf)
+      ~ (__ \ "protectedString"  ).format[Protected[String]]
       ~ (__ \ "protectedBoolean" ).format[Protected[Boolean]]
       ~ (__ \ "protectedLong"    ).format[Protected[Long]]
       ~ (__ \ "protectedNested"  ).format[Protected[Nested]]
