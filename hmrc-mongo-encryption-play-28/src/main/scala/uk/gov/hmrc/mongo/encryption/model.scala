@@ -16,7 +16,6 @@
 
 package uk.gov.hmrc.mongo.encryption
 
-
 // we can't use a polymorphic implementation since Codecs are looked up by runtime type.
 // the client can implement own model to support any A
 // Could move Sensitive (and basic implementations) to crypto (to avoid client's model depending on mongo)
@@ -25,6 +24,8 @@ trait Sensitive[A] {
   override def toString() =
     "Sensitive(...)"
 }
+// We also have uk.gov.hmrc.crypto.Protected in crypto - but it is a case class, so we can't extend.
+
 
 object Sensitive {
   case class SensitiveString(value: String) extends Sensitive[String]

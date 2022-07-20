@@ -24,7 +24,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import uk.gov.hmrc.crypto.SecureGCMCipher2
+import uk.gov.hmrc.crypto.CryptoGcmAd
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
@@ -33,17 +33,16 @@ import scala.concurrent.{ExecutionContext, Future}
 import ExecutionContext.Implicits.global
 import java.security.SecureRandom
 import java.util.Base64
-import Sensitive._
 
 
-class ADEncrypterSpec
+class ADEncrypterWithPathsSpec
   extends AnyWordSpecLike
      with Matchers
      with ScalaFutures
      with IntegrationPatience
      with BeforeAndAfterEach
      with OptionValues {
-  import ADEncrypterSpec._
+  import ADEncrypterWithPathsSpec._
 
   val databaseName: String =
     "test-" + this.getClass.getSimpleName
@@ -55,11 +54,17 @@ class ADEncrypterSpec
     val aesKey = new Array[Byte](32)
     new SecureRandom().nextBytes(aesKey)
     Base64.getEncoder.encodeToString(aesKey)
-  }
+   }
 
   val encrypter =
-    new ADEncrypter(new SecureGCMCipher2(aesKey))(
-      associatedDataPath  = __ \ "_id"
+    new ADEncrypter(new CryptoGcmAd(aesKey))(
+      associatedDataPath  = __ \ "_id" \ "$oid",
+      encryptedFieldPaths = Seq( __ \ "sensitiveString"
+                               , __ \ "sensitiveBoolean"
+                               , __ \ "sensitiveLong"
+                               , __ \ "sensitiveNested"
+                               , __ \ "sensitiveOptional"
+                               )
     )
 
 
@@ -70,7 +75,7 @@ class ADEncrypterSpec
       { bsonType: "object"
       , required: [ "_id", "sensitiveString", "sensitiveBoolean", "sensitiveLong", "sensitiveNested" ]
       , properties:
-        { _id              : { bsonType: "string" }
+        { _id              : { bsonType: "objectId" }
         , sensitiveString  : { bsonType: "object", required: [ "value", "nonce" ], properties: { value: { bsonType: "string" }, "nonce": { bsonType: "string"} } }
         , sensitiveBoolean : { bsonType: "object", required: [ "value", "nonce" ], properties: { value: { bsonType: "string" }, "nonce": { bsonType: "string"} } }
         , sensitiveLong    : { bsonType: "object", required: [ "value", "nonce" ], properties: { value: { bsonType: "string" }, "nonce": { bsonType: "string"} } }
@@ -100,14 +105,14 @@ class ADEncrypterSpec
       }
 
     "encrypt and decrypt model" in {
-      val unencryptedString  = SensitiveString("123456789")
-      val unencryptedBoolean = SensitiveBoolean(true)
-      val unencryptedLong    = SensitiveLong(123456789L)
-      val unencryptedNested  = SensitiveNested(Nested("n1", 2))
+      val unencryptedString  = "123456789"
+      val unencryptedBoolean = true
+      val unencryptedLong    = 123456789L
+      val unencryptedNested  = Nested("n1", 2)
 
       (for {
          _   <- playMongoRepository.collection.insertOne(MyObject(
-                  id                = ObjectId.get().toString,
+                  id                = ObjectId.get(),
                   sensitiveString   = unencryptedString,
                   sensitiveBoolean  = unencryptedBoolean,
                   sensitiveLong     = unencryptedLong,
@@ -115,9 +120,11 @@ class ADEncrypterSpec
                   sensitiveOptional = None
                 )).headOption()
          res <- playMongoRepository.collection.find().headOption().map(_.value)
-         _   =  res.sensitiveString  shouldBe unencryptedString
-         _   =  res.sensitiveBoolean shouldBe unencryptedBoolean
-         _   =  res.sensitiveLong    shouldBe unencryptedLong
+         _   =  res.sensitiveString   shouldBe unencryptedString
+         _   =  res.sensitiveBoolean  shouldBe unencryptedBoolean
+         _   =  res.sensitiveLong     shouldBe unencryptedLong
+         _   =  res.sensitiveNested   shouldBe unencryptedNested
+         _   =  res.sensitiveOptional shouldBe None
          // and confirm it is stored as an EncryptedValue
          // (schema alone doesn't catch if there are extra fields - e.g. if unencrypted object is merged with encrypted fields)
          raw <- mongoComponent.database.getCollection[BsonDocument]("myobject").find().headOption().map(_.value)
@@ -130,7 +137,7 @@ class ADEncrypterSpec
       ).futureValue
     }
 
-    // Attention! Cannot update (or search by) a leaf with associated data
+    // Attention! We can't update encrypted leaves (or search by them) with associated data
   }
 
   def prepareDatabase(): Unit =
@@ -147,7 +154,7 @@ class ADEncrypterSpec
   }
 }
 
-object ADEncrypterSpec {
+object ADEncrypterWithPathsSpec {
   case class Nested(
     n1: String,
     n2: Int
@@ -159,31 +166,25 @@ object ADEncrypterSpec {
       )(Nested.apply, unlift(Nested.unapply))
   }
 
-  case class SensitiveNested(value: Nested) extends Sensitive[Nested]
-
   case class MyObject(
-    id               : String,
-    sensitiveString  : SensitiveString,
-    sensitiveBoolean : SensitiveBoolean,
-    sensitiveLong    : SensitiveLong,
-    sensitiveNested  : SensitiveNested,
-    sensitiveOptional: Option[SensitiveString]
+    id               : ObjectId,
+    sensitiveString  : String,
+    sensitiveBoolean : Boolean,
+    sensitiveLong    : Long,
+    sensitiveNested  : Nested,
+    sensitiveOptional: Option[String]
   )
 
   object MyObject {
     implicit val oif = MongoFormats.Implicits.objectIdFormat
-    import ADEncrypter.Implicits._
-    implicit val snf: OFormat[SensitiveNested] = {
-      implicit val nf  = Nested.format
-      ADEncrypter.format[Nested , SensitiveNested](SensitiveNested.apply, SensitiveNested.unapply)
-    }
+    implicit val nf  = Nested.format
     val format =
-      ( (__ \ "_id"              ).format[String]
-      ~ (__ \ "sensitiveString"  ).format[SensitiveString]
-      ~ (__ \ "sensitiveBoolean" ).format[SensitiveBoolean]
-      ~ (__ \ "sensitiveLong"    ).format[SensitiveLong]
-      ~ (__ \ "sensitiveNested"  ).format[SensitiveNested]
-      ~ (__ \ "sensitiveOptional").formatNullable[SensitiveString]
+      ( (__ \ "_id"              ).format[ObjectId]
+      ~ (__ \ "sensitiveString"  ).format[String]
+      ~ (__ \ "sensitiveBoolean" ).format[Boolean]
+      ~ (__ \ "sensitiveLong"    ).format[Long]
+      ~ (__ \ "sensitiveNested"  ).format[Nested]
+      ~ (__ \ "sensitiveOptional").formatNullable[String]
       )(MyObject.apply, unlift(MyObject.unapply))
   }
 }

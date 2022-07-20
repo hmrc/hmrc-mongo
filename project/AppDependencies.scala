@@ -19,7 +19,6 @@ object AppDependencies {
 
   def mongoCommon(scalaVersion: String): Seq[ModuleID] = Seq(
     "org.mongodb.scala" %% "mongo-scala-driver" % "4.6.1",
-    "org.mongodb"       %  "mongodb-crypt"      % "1.4.0", // compatible with mongo-driver 4.6.1
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
   ) ++ test(scalaVersion)
 
@@ -45,6 +44,7 @@ object AppDependencies {
 
   def hmrcMongoEncryptionPlay28(scalaVersion: String): Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"   % play28Version, // TODO really only need play-json
-    "uk.gov.hmrc"       %% "crypto" % "6.2.0-SNAPSHOT"
+    //"uk.gov.hmrc"       %% "crypto" % "7.0.0-SNAPSHOT"
+    "uk.gov.hmrc"       %% "json-encryption" % "5.0.0-play-28-SNAPSHOT"
   ) ++ test(scalaVersion)
 }
