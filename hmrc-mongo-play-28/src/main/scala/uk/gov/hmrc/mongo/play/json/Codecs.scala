@@ -80,7 +80,7 @@ trait Codecs {
       format.reads(json) match {
         case JsSuccess(v: B, _) => v
         case JsSuccess(v, _)    => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} - it was ${v.getClass.getName}")
-        case JsError(errors)    => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} '$json': $errors")
+        case JsError(errors)    => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} : $errors")
       }
     }
   }
