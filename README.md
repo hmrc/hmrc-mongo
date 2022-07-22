@@ -266,6 +266,11 @@ class ModelRepository @Inject() (val mongoComponent: MongoComponent)(implicit ec
 
 You may see `com.mongodb.MongoCommandException, with message: Command failed with error 263 (OperationNotSupportedInTransaction): 'Cannot create namespace ... in multi-document transaction.'` if collections are created implicitly on insert/upsert from a transaction, which is not supported until Mongo 4.4. You will need to ensure that the collection is created before the transaction runs. This especially applies to tests.
 
+## Encryption
+
+`hmrc-mongo` doesn't itself provide any encryption support. It is recommend to use `json-encryption` as provided by [crypto](https://github.com/hmrc/crypto).
+You may want to refer to [these examples](/hmrc-mongo-play-28/src/test/scala/uk/gov/hmrc/mongo/encryption)
+
 
 ## Changes
 
