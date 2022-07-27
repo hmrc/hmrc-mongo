@@ -268,7 +268,9 @@ You may see `com.mongodb.MongoCommandException, with message: Command failed wit
 
 ## Encryption
 
-`hmrc-mongo` doesn't itself provide any encryption support. It is recommend to use `json-encryption` as provided by [crypto](https://github.com/hmrc/crypto).
+`hmrc-mongo` doesn't itself provide any encryption support. It is recommend to use `crypto-json` as provided by [crypto](https://github.com/hmrc/crypto).
+
+Tests should ensure the data is stored in the expected encrypted format.
 You may want to refer to [these examples](/hmrc-mongo-play-28/src/test/scala/uk/gov/hmrc/mongo/encryption)
 
 
