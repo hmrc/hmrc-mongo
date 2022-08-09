@@ -28,7 +28,7 @@ object AppDependencies {
   def hmrcMongoPlay28(scalaVersion: String): Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"                % play28Version,
     "com.typesafe.play" %% "play-guice"          % play28Version,
-    "uk.gov.hmrc"       %% "crypto-json-play-28" % "7.0.0-SNAPSHOT" % Test
+    "uk.gov.hmrc"       %% "crypto-json-play-28" % "7.0.0" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoTestPlay28(scalaVersion: String): Seq[ModuleID] = Seq(
