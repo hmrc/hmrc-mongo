@@ -64,4 +64,4 @@ lazy val hmrcMongoWorkItemRepoPlay28 = Project("hmrc-mongo-work-item-repo-play-2
     commonSettings,
     crossScalaVersions := Seq(scala2_12, scala2_13),
     libraryDependencies ++= AppDependencies.hmrcMongoWorkItemRepoPlay28
-  ).dependsOn(hmrcMongoMetrixPlay28)
+  ).dependsOn(hmrcMongoMetrixPlay28, hmrcMongoTestPlay28 % "test")
