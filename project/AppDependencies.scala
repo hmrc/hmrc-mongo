@@ -38,7 +38,8 @@ object AppDependencies {
   ) ++ test(scalaVersion)
 
   lazy val hmrcMongoMetrixPlay28: Seq[ModuleID] = Seq(
-    "com.kenshoo"           %% "metrics-play"    % "2.7.3_0.8.1" // no Play 2.8 build, but is compatible.
+    "com.kenshoo"           %% "metrics-play"    % "2.7.3_0.8.1", // no Play 2.8 build, but is compatible.
+    "org.mockito"           %% "mockito-scala"   % "1.10.1" % Test
   )
 
   lazy val hmrcMongoWorkItemRepoPlay28: Seq[ModuleID] = Seq()
