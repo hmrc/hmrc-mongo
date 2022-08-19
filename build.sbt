@@ -2,8 +2,8 @@
 // https://www.scala-sbt.org/1.x/docs/Parallel-Execution.html
 Global / concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.Untagged)
 
-val scala2_12 = "2.12.15"
-val scala2_13 = "2.13.7"
+val scala2_12 = "2.12.16"
+val scala2_13 = "2.13.8"
 
 
 lazy val commonSettings = Seq(
