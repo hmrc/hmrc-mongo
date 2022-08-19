@@ -103,7 +103,7 @@ trait Codecs {
     * @throws IllegalArgumentException if the class is not a sealed trait
     */
   def playFormatSumCodecs[A](
-    format       : OFormat[A],
+    format       : Format[A],
     legacyNumbers: Boolean    = false
   )(implicit tt: TypeTag[A]): Seq[Codec[_]] = {
     val clazz: ClassSymbol =
