@@ -9,7 +9,7 @@ Mixing in the trait `DefaultPlayMongoRepositorySupport` to your tests should giv
 
 It combines the traits
 - `PlayMongoRepositorySupport[A]`
-As long as you provide a definition of `repository` which can be created with the proided `mongoComponent`, you will get a collection to test against.
+As long as you provide a definition of `repository` which can be created with the provided `mongoComponent`, you will get a collection to test against.
 See `MongoSupport.databaseName` and `MongoSupport.mongoUri` for the default settings, which expect a local mongo instance, and will create a database specific for the test.
 
 - `CleanMongoCollectionSupport`
@@ -20,7 +20,7 @@ This sets the mongo server setting `notablescan` to `1`, which ensures that any 
 Note, this is a global admin setting, which can cause issues running tests in parallel with different settings. If you require a mix of tests with different settings, consider turning off parallel test executions in your build.sbt.
 
 
-``` scala
+```scala
 class UserRepositorySpec
   extends AnyWordSpec
      with DefaultPlayMongoRepositorySupport[User]
@@ -30,10 +30,64 @@ class UserRepositorySpec
   override lazy val repository = new UserRepository(mongoComponent)
 
   "user.findAll" should "find none initially" in {
-      repository.findAll().futureValue shouldBe Seq.empty
+    repository.findAll().futureValue shouldBe Seq.empty
   }
 }
 ```
+
+As mentioned above, the tests by default will be provided a `mongoComponent` which has been initialised with a `mongoUri` pointing to it's own database.
+
+If you are running against an application set up with `Guice`, then you may have another instance of the repository, which uses the `mongoUri` as defined in the app's configuration.
+
+To ensure they are using the same, you can either override the test's `mongoUri` to ensure it uses the same database, or alternatively configure Guice to use the same mongoUri as defined by the test.
+
+e.g.
+
+```scala
+class UserRepositorySpec
+  extends AnyWordSpec
+     with DefaultPlayMongoRepositorySupport[User]
+     with GuiceOneAppPerSuite
+     with Matchers
+     with ScalaFutures {
+
+  // Using the test's mongoUri ensures the tests will not conflict, or affect the db as defined in application.conf.
+  override lazy val app: Application = new GuiceApplicationBuilder()
+    .configure("mongodb.uri" -> mongoUri)
+    .build()
+
+  // Now it doesn't matter if the repository is looked up from `app` or instantiated with `mongoComponent`
+  // they will point to the same db.
+  override lazy val repository = new UserRepository(mongoComponent)
+  override lazy val repository = app.injector.instanceOf[UserRepository]
+}
+```
+
+or
+
+```scala
+class UserRepositorySpec
+  extends AnyWordSpec
+     with DefaultPlayMongoRepositorySupport[User]
+     with GuiceOneAppPerSuite
+     with Matchers
+     with ScalaFutures {
+
+  override lazy val app: Application = ...
+
+  // either reuse the same instances:
+  override lazy val mongoComponent = app.injector.instanceOf[MongoComponent]
+  // or just point to the same uri:
+  override lazy val mongoUri = "mongodb://localhost:27017/..."
+
+  // Now it doesn't matter if the repository is looked up from `app` or instantiated with `mongoComponent`
+  // they will point to the same db.
+  override lazy val repository = new UserRepository(mongoComponent)
+  override lazy val repository = app.injector.instanceOf[UserRepository]
+}
+```
+
+If you are running against an external system, you will need to update `mongoUri` appropriately.
 
 ## Installing
 
