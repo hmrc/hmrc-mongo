@@ -92,7 +92,6 @@ class MongoLockRepositorySpec
   }
 
   "refreshExpiry" should {
-
     "not renew a lock if one does not already exist" in {
       repository.refreshExpiry(lockId, owner, ttl).futureValue shouldBe false
       count().futureValue                                      shouldBe 0
@@ -133,7 +132,6 @@ class MongoLockRepositorySpec
   }
 
   "releaseLock" should {
-
     "remove an owned and expired lock" in {
       val existingLock = Lock(lockId, owner, now.minus(2, ChronoUnit.DAYS), now.minus(1, ChronoUnit.DAYS))
 

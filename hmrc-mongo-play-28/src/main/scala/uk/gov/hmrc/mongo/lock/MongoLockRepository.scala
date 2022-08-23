@@ -118,10 +118,10 @@ class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSu
       .toFutureOption()
       .map {
         case Some(_) =>
-          logger.debug(s"Could not renew lock '$lockId' for '$owner' that does not exist or has expired")
+          logger.debug(s"Renewed lock '$lockId' for '$owner' at $timeCreated.  Expires at: $expiryTime")
           true
         case None =>
-          logger.debug(s"Renewed lock '$lockId' for '$owner' at $timeCreated.  Expires at: $expiryTime")
+          logger.debug(s"Could not renew lock '$lockId' for '$owner' that does not exist or has expired")
           false
       }
       .recover {
