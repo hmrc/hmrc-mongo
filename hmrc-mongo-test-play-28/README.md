@@ -35,6 +35,8 @@ class UserRepositorySpec
 }
 ```
 
+### MongoUri
+
 As mentioned above, the tests by default will be provided a `mongoComponent` which has been initialised with a `mongoUri` pointing to it's own database.
 
 If you are running against an application set up with `Guice`, then you may have another instance of the repository, which uses the `mongoUri` as defined in the app's configuration.
@@ -87,7 +89,34 @@ class UserRepositorySpec
 }
 ```
 
-If you are running against an external system, you will need to update `mongoUri` appropriately.
+If you are running against an external system, you will need to update `mongoUri` accordingly. Although it is probably more appropriate to interrogate the data by asking the external system rather than accessing the underlying db (e.g. by adding a testOnly endpoint).
+
+
+### Schemas
+
+Even if you haven't defined a schema in your Repository object, you may want to provide a schema to your tests to ensure that the data is stored in the format you expect - especially useful for catching Dates stored as String.
+
+```scala
+class UserRepositorySpec
+  extends AnyWordSpec
+     with DefaultPlayMongoRepositorySupport[User]
+     with Matchers
+     with ScalaFutures {
+
+  override protected lazy val optSchema: Option[BsonDocument] =
+    BsonDocument("""
+      { bsonType: "object"
+      , required: [ "_id", "created", "name" ]
+      , properties:
+        { _id     : { bsonType: "objectId" }
+        , created : { bsonType: "date" }
+        , name    : { bsonType: "string" }
+        }
+      }
+    """)
+}
+```
+
 
 ## Installing
 
@@ -95,7 +124,7 @@ Test is now part of and versioned with the `hmrc-mongo` library, which provides 
 
 Include the following dependency in your SBT build
 
-``` scala
+```scala
 resolvers += "HMRC-open-artefacts-maven2" at "https://open.artefacts.tax.service.gov.uk/maven2"
 
 libraryDependencies += "uk.gov.hmrc.mongo" %% "hmrc-mongo-test-play-xx" % "[INSERT-VERSION]"
