@@ -64,13 +64,9 @@ class MongoCacheRepository[CacheId] @Inject() (
 
   def get[A: Reads](
     cacheId: CacheId
-  )(dataKey: DataKey[A]): Future[Option[A]] = {
-    val id = cacheIdType.run(cacheId)
-    this.collection
-      .find(Filters.equal("_id", id))
-      .headOption()
-      .map(_.flatMap(cache => (cache.data \ dataKey.unwrap).asOpt[A]))
-  }
+  )(dataKey: DataKey[A]): Future[Option[A]] =
+    findById(cacheId)
+      .map(_.map(cache => (cache.data \ dataKey.unwrap).as[A]))
 
   def put[A: Writes](
     cacheId: CacheId

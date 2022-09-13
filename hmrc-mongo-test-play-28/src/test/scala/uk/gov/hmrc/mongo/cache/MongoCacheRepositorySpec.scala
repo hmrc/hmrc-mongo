@@ -93,6 +93,13 @@ class MongoCacheRepositorySpec
         repository.get[Person](cacheId2)(dataKey).futureValue shouldBe None
       }
     }
+
+    "fail the future if the item can be found but cannot be deserialised" in {
+      val invalidCacheItem = CacheItem(cacheId, JsObject(Seq(dataKey.unwrap -> Json.obj("foo" -> "bar"))), now, now)
+      insert(invalidCacheItem).futureValue
+      val result = repository.get[Person](cacheId)(dataKey)
+      result.failed.futureValue shouldBe an[JsResultException]
+    }
   }
 
   "delete" should {
