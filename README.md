@@ -276,6 +276,9 @@ You may want to refer to [these examples](/hmrc-mongo-play-28/src/test/scala/uk/
 
 ## Changes
 
+### Version 0.72.0
+MongoCacheRepository.get previously returned `None` for both an empty/expired cache as well as if it failed to deserialise the data. Failure to deserialise will now result in a failed Future.
+
 ### Version 0.60.0
 
 Drops support for Play 2.7. Only Play 2.8 is supported.
