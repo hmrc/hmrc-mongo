@@ -85,6 +85,11 @@ class MongoCacheRepositorySpec
       repository.get[Person](cacheId)(dataKey).futureValue shouldBe None
     }
 
+    "successfully return None if cacheItem exists but does not contain the data key" in {
+      repository.put(cacheId)(DataKey[Person]("something-else"), person).futureValue
+      repository.get[Person](cacheId)(dataKey).futureValue shouldBe None
+    }
+
     "successfully return None if outside ttl" in {
       val cacheId2 = "something-else"
       insert(cacheItem.copy(id = cacheId2)).futureValue

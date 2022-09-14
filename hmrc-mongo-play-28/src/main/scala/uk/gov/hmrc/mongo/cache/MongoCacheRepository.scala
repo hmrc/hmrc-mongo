@@ -23,7 +23,7 @@ import javax.inject.Inject
 import org.mongodb.scala.WriteConcern
 import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, IndexModel, IndexOptions, Indexes, ReturnDocument, Updates}
 import play.api.libs.functional.syntax._
-import play.api.libs.json.{Format, JsObject, Reads, Writes, __}
+import play.api.libs.json.{Format, JsObject, JsResultException, Reads, Writes, __}
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils, TimestampSupport}
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
@@ -66,7 +66,13 @@ class MongoCacheRepository[CacheId] @Inject() (
     cacheId: CacheId
   )(dataKey: DataKey[A]): Future[Option[A]] =
     findById(cacheId)
-      .map(_.map(cache => (cache.data \ dataKey.unwrap).as[A]))
+      .map(
+        _.flatMap(cache =>
+          (cache.data \ dataKey.unwrap)
+            .validateOpt[A]
+            .fold(e => throw JsResultException(e), identity)
+        )
+      )
 
   def put[A: Writes](
     cacheId: CacheId
