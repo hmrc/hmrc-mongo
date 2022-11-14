@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.lock
 
-import java.time.Instant
+import java.time.{Instant, Clock, ZoneId}
 
 import com.mongodb.client.model.Filters.{eq => mongoEq}
 import org.scalatest.matchers.should.Matchers
@@ -93,7 +93,8 @@ class LockServiceSpec
   private val lockId        = "lockId"
   private val owner         = "owner"
   private val ttl: Duration = 1000.millis
-  private val now           = Instant.now()
+  private val clock         = Clock.tickMillis(ZoneId.systemDefault())
+  private val now           = Instant.now(clock)
 
   override protected val repository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
   private val lockService           = LockService(repository, lockId, ttl)
