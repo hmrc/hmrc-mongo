@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.lock
 
-import java.time.Instant
+import java.time.{Instant, Clock, ZoneId}
 import java.time.temporal.ChronoUnit
 
 import com.mongodb.MongoServerException
@@ -237,5 +237,6 @@ class MongoLockRepositorySpec
   private val lockId = "lockId"
   private val owner  = "owner"
   private val ttl    = 1000.millis
-  private val now    = Instant.now()
+  private val clock  = Clock.tickMillis(ZoneId.systemDefault())
+  private val now    = Instant.now(clock)
 }

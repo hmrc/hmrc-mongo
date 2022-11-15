@@ -19,7 +19,6 @@ package uk.gov.hmrc.mongo.play.json
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.bson.BsonDocument
-import play.api.Logger
 import play.api.libs.json.Format
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
 
@@ -33,9 +32,11 @@ import org.bson.codecs.Codec
   * @param collectionName the name of the mongo collection.
   * @param domainFormat a play Json format to map the domain to mongo entities.
   * @param indexes indexes to ensure are created.
-  * @param optSchema optional schema to validate entities written to the collection
-  * @param replaceIndexes If true, existing indices should be removed/updated to match the provided indices.
+  * @param optSchema optional - to validate entities written to the collection
+  * @param replaceIndexes optional - default is false
+  *   If true, existing indices should be removed/updated to match the provided indices.
   *   If false, any old indices are left behind, and indices with changed definitions will throw IndexConflict exceptions.
+  * @param extraCodecs optional - to support more types
   */
 class PlayMongoRepository[A: ClassTag](
   mongoComponent: MongoComponent,
@@ -47,8 +48,6 @@ class PlayMongoRepository[A: ClassTag](
   extraCodecs: Seq[Codec[_]] = Seq.empty
 )(implicit ec: ExecutionContext)
     extends MongoDatabaseCollection {
-
-  private val logger = Logger(getClass)
 
   lazy val collection: MongoCollection[A] =
     CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs)

@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.workitem
 
-import java.time.Instant
+import java.time.{Instant, Clock, ZoneId}
 import java.time.temporal.ChronoUnit
 
 import org.bson.types.ObjectId
@@ -38,10 +38,12 @@ class WorkItemRepositorySpec
      with OptionValues
      with CustomMatchers {
 
+  private val clock = Clock.tickMillis(ZoneId.systemDefault())
+
   def createWorkItemsWith(statuses: Seq[ProcessingStatus]): Unit =
     Future.traverse(statuses) { status =>
       for {
-        item <- repository.pushNew(item1, Instant.now())
+        item <- repository.pushNew(item1, Instant.now(clock))
         _    <- repository.markAs(item.id, status)
       } yield ()
     }.futureValue

@@ -18,6 +18,7 @@ package uk.gov.hmrc.mongo.workitem
 
 import org.bson.types.ObjectId
 import org.bson.conversions.Bson
+import org.bson.codecs.Codec
 import java.time.{Duration, Instant}
 import org.mongodb.scala.bson.BsonDocument
 import play.api.libs.json._
@@ -31,13 +32,24 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** The repository to set and get the work item's for processing.
   * See [[pushNew]] for creating work items, and [[pullOutstanding]] for retrieving them.
+  * @param collectionName the name of the mongo collection.
+  * @param mongoComponent
+  * @param itemFormat a play Json format to map the item to mongo entities
+  * @param workItemFields the internal fields for [[WorkItem]], allowing customisation
+  * @param replaceIndexes optional - default is true
+  *   If true, existing indices should be removed/updated to match the provided indices.
+  *   If false, any old indices are left behind, and indices with changed definitions will throw IndexConflict exceptions.
+  * @param extraIndexes optional - to add additional indexes
+  * @param extraCodecs optional - to support more types
   */
 abstract class WorkItemRepository[T](
-  collectionName: String,
-  mongoComponent: MongoComponent,
-  itemFormat    : Format[T],
+  collectionName    : String,
+  mongoComponent    : MongoComponent,
+  itemFormat        : Format[T],
   val workItemFields: WorkItemFields,
-  replaceIndexes: Boolean = true
+  replaceIndexes    : Boolean         = true,
+  extraIndexes      : Seq[IndexModel] = Seq.empty,
+  extraCodecs       : Seq[Codec[_]]   = Seq.empty
 )(implicit
   ec: ExecutionContext,
 ) extends PlayMongoRepository[WorkItem[T]](
@@ -48,8 +60,9 @@ abstract class WorkItemRepository[T](
                      IndexModel(Indexes.ascending(workItemFields.status, workItemFields.updatedAt), IndexOptions().background(true)),
                      IndexModel(Indexes.ascending(workItemFields.status, workItemFields.availableAt), IndexOptions().background(true)),
                      IndexModel(Indexes.ascending(workItemFields.status), IndexOptions().background(true))
-                   ),
-  replaceIndexes = replaceIndexes
+                   ) ++ extraIndexes,
+  replaceIndexes = replaceIndexes,
+  extraCodecs    = extraCodecs
 ) with Operations.Cancel
   with Operations.FindById[T]
   with MetricSource {

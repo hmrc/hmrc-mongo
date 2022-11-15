@@ -52,6 +52,8 @@ The mongoComponent can be injected if you register the PlayMongoModule with play
 play.modules.enabled += "uk.gov.hmrc.mongo.play.PlayMongoModule"
 ```
 
+Ensure the repository is annotated with `javax.inject.Singleton` so indexes are only initialised on startup.
+
 ```scala
 @Singleton
 class UserRepository @Inject()(
@@ -249,6 +251,7 @@ It is also recommended to use the `Future` rather than the `Observable` abstract
 e.g.
 
 ```scala
+@Singleton
 class ModelRepository @Inject() (val mongoComponent: MongoComponent)(implicit ec: ExecutionContext)
   extends PlayMongoRepository[Model](...)
      with Transactions {

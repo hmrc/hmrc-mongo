@@ -16,7 +16,8 @@
 
 package uk.gov.hmrc.mongo.workitem
 
-import java.time.{Duration, Instant}
+import java.time.{Duration, Instant, Clock, ZoneId}
+
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.atomic.AtomicReference
 
@@ -31,8 +32,11 @@ import scala.language.reflectiveCalls
 
 trait TimeSource {
   val timeSource = new {
+    private val clock =
+      Clock.tickMillis(ZoneId.systemDefault())
+
     private val nowRef =
-      new AtomicReference[Instant](Instant.now())
+      new AtomicReference[Instant](Instant.now(clock))
 
     def now: Instant =
       nowRef.get()

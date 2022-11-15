@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.cache
 
-import java.time.Instant
+import java.time.{Instant, Clock, ZoneId}
 
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
@@ -47,7 +47,7 @@ class MongoCacheRepositorySpec
     }
 
     "successfully update a cacheItem if one does not already exist" in {
-      val creationTimestamp = Instant.now()
+      val creationTimestamp = Instant.now(clock)
 
       insert(cacheItem.copy(createdAt = creationTimestamp, modifiedAt = creationTimestamp)).futureValue
 
@@ -140,7 +140,8 @@ class MongoCacheRepositorySpec
   implicit val format: Format[Person]     = Person.format
   implicit val format2: Format[CacheItem] = MongoCacheRepository.format
 
-  private val now       = Instant.now()
+  private val clock     = Clock.tickMillis(ZoneId.systemDefault())
+  private val now       = Instant.now(clock)
   private val cacheId   = "cacheId"
   private val dataKey   = DataKey[Person]("dataKey")
   private val person    = Person("Sarah", 30, "Female")
