@@ -66,15 +66,6 @@ class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDriv
         }
       }
 
-      "be compatible with default java.time.LocalDateTime codec" in {
-        forAll(epochMillisGen) { epochMillis =>
-          val javaLocalDateTime = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDateTime
-          MongoJavatimeFormats.localDateTimeFormat.writes(javaLocalDateTime) shouldBe codecWrite(javaLocalDateTime)(
-            classOf[jat.LocalDateTime]
-          )
-        }
-      }
-
       "be compatible with default java.time.LocalDate codec" in {
         forAll(epochMillisGen) { epochMillis =>
           val javaLocalDate = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDate

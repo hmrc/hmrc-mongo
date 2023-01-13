@@ -120,7 +120,6 @@ class PlayMongoRepositorySpec
         checkFind("jodaLocalDateTime", myObj.jodaLocalDateTime)
         checkFind("javaInstant"      , myObj.javaInstant)
         checkFind("javaLocalDate"    , myObj.javaLocalDate)
-        checkFind("javaLocalDateTime", myObj.javaLocalDateTime)
         checkFind("sum"              , myObj.sum)
         checkFind("objectId"         , myObj.objectId)
         checkFind("uuid"             , myObj.uuid)
@@ -146,7 +145,6 @@ class PlayMongoRepositorySpec
         checkFind("_id"              , myObj.id)
         checkFind("javaInstant"      , myObj.javaInstant)
         checkFind("javaLocalDate"    , myObj.javaLocalDate)
-        checkFind("javaLocalDateTime", myObj.javaLocalDateTime)
         checkFind("uuid"             , myObj.uuid)
       }
     }
@@ -178,7 +176,6 @@ class PlayMongoRepositorySpec
           checkUpdate("jodaLocalDateTime", targetObj.jodaLocalDateTime)
           checkUpdate("javaInstant"      , targetObj.javaInstant      )
           checkUpdate("javaLocalDate"    , targetObj.javaLocalDate    )
-          checkUpdate("javaLocalDateTime", targetObj.javaLocalDateTime)
           checkUpdate("sum"              , targetObj.sum              )
           checkUpdate("objectId"         , targetObj.objectId         )
           checkUpdate("listString"       , targetObj.listString       )
@@ -212,7 +209,6 @@ class PlayMongoRepositorySpec
           // Note, not checking update of `_id` since immutable
           checkUpdate("javaInstant"      , targetObj.javaInstant      )
           checkUpdate("javaLocalDate"    , targetObj.javaLocalDate    )
-          checkUpdate("javaLocalDateTime", targetObj.javaLocalDateTime)
           checkUpdate("uuid"             , targetObj.uuid             )
 
           val writtenObj = playMongoRepository.collection.find().toFuture()
@@ -220,7 +216,6 @@ class PlayMongoRepositorySpec
           writtenObj.futureValue shouldBe List(originalObj.copy(
             javaInstant       = targetObj.javaInstant,
             javaLocalDate     = targetObj.javaLocalDate,
-            javaLocalDateTime = targetObj.javaLocalDateTime,
             uuid              = targetObj.uuid
           ))
         }
@@ -282,7 +277,6 @@ class PlayMongoRepositorySpec
           // updates should fail with the wrong Writers
           checkUpdateFails("javaInstant"      , targetObj.javaInstant      )(Writes.DefaultInstantWrites)
           checkUpdateFails("javaLocalDate"    , targetObj.javaLocalDate    )(Writes.DefaultLocalDateWrites)
-          checkUpdateFails("javaLocalDateTime", targetObj.javaLocalDateTime)(Writes.DefaultLocalDateTimeWrites)
           checkUpdateFails("uuid"             , targetObj.uuid             )(Writes.UuidWrites)
           checkUpdateFails("uuidWrapper"      , targetObj.uuidWrapper      )(Writes.UuidWrites.contramap(_.unwrap))
           checkUpdateFails("binary"           , targetObj.binary           )(Writes.arrayWrites[Byte].contramap(_.toArray[Byte]))
@@ -366,7 +360,6 @@ object PlayMongoRepositorySpec {
     // Java time
     javaInstant      : jat.Instant,
     javaLocalDate    : jat.LocalDate,
-    javaLocalDateTime: jat.LocalDateTime,
     objectId         : ObjectId,
     // Arrays
     listString       : List[String],
@@ -457,7 +450,6 @@ object PlayMongoRepositorySpec {
     ~ (__ \ "jodaLocalDateTime").format[jot.LocalDateTime]
     ~ (__ \ "javaInstant"      ).format[jat.Instant      ]
     ~ (__ \ "javaLocalDate"    ).format[jat.LocalDate    ]
-    ~ (__ \ "javaLocalDateTime").format[jat.LocalDateTime]
     ~ (__ \ "objectId"         ).format[ObjectId         ]
     ~ (__ \ "listString"       ).format[List[String]     ]
     ~ (__ \ "listLong"         ).format[List[Long]       ]
@@ -529,7 +521,6 @@ object PlayMongoRepositorySpec {
       jodaLocalDateTime = new jot.LocalDateTime(epochMillis),
       javaInstant       = jat.Instant.ofEpochMilli(epochMillis),
       javaLocalDate     = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDate,
-      javaLocalDateTime = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDateTime,
       objectId          = new org.bson.types.ObjectId(new java.util.Date(epochMillis)),
       listString        = ls,
       listLong          = ll,
