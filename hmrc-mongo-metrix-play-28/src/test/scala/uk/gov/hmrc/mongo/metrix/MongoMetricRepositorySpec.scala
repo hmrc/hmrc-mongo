@@ -28,7 +28,7 @@ class MongoMetricRepositorySpec
      with LoneElement
      with DefaultPlayMongoRepositorySupport[PersistedMetric] {
 
-  override val repository = new MongoMetricRepository(mongoComponent)
+  override lazy val repository = new MongoMetricRepository(mongoComponent)
 
   "update" should {
     "store the provided MetricsStorage instance with the 'name' key" in {

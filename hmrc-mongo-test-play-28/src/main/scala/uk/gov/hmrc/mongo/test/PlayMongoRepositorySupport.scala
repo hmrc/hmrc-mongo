@@ -41,7 +41,7 @@ import ExecutionContext.Implicits.global
   * CRUD methods are provided which can help preparing and asserting repository behaviour.
   */
 trait PlayMongoRepositorySupport[A] extends MongoSupport {
-  protected def repository: PlayMongoRepository[A]
+  protected val repository: PlayMongoRepository[A]
 
   protected lazy val collectionName: String          = repository.collectionName
   protected lazy val indexes: Seq[IndexModel]        = repository.indexes
