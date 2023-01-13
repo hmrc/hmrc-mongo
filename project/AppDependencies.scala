@@ -2,7 +2,7 @@ import sbt._
 
 object AppDependencies {
 
-  private val play28Version = "2.8.8"
+  private val play28Version = "2.8.18"
 
   def test(scalaVersion: String): Seq[ModuleID] = Seq(
     "org.scalatest"          %% "scalatest"                  % "3.1.0"        % Test,
@@ -18,7 +18,7 @@ object AppDependencies {
     })
 
   def mongoCommon(scalaVersion: String): Seq[ModuleID] = Seq(
-    "org.mongodb.scala" %% "mongo-scala-driver" % "4.6.1",
+    "org.mongodb.scala" %% "mongo-scala-driver" % "4.8.2",
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
   ) ++ test(scalaVersion)
 
