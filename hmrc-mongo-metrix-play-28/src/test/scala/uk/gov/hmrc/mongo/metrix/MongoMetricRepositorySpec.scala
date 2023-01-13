@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 HM Revenue & Customs
+ * Copyright 2023 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ class MongoMetricRepositorySpec
      with LoneElement
      with DefaultPlayMongoRepositorySupport[PersistedMetric] {
 
-  override lazy val repository = new MongoMetricRepository(mongoComponent)
+  override val repository = new MongoMetricRepository(mongoComponent)
 
   "update" should {
     "store the provided MetricsStorage instance with the 'name' key" in {
