@@ -17,8 +17,7 @@
 package uk.gov.hmrc.mongo.test
 
 import com.mongodb.MongoQueryException
-import com.mongodb.client.model.Filters.{eq => mongoEq}
-import com.mongodb.client.model.Indexes
+import com.mongodb.client.model.{Filters, Indexes}
 import org.mongodb.scala.model.IndexModel
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -28,10 +27,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import org.scalatest.{Assertion, Succeeded}
 import org.scalatest.exceptions.TestFailedException
 
-class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with DefaultPlayMongoRepositorySupport[JsObject] with Matchers {
+class DefaultPlayMongoRepositorySupportSpec
+   extends AnyWordSpecLike
+      with DefaultPlayMongoRepositorySupport[JsObject]
+      with Matchers {
 
   "updateIndexPreference" should {
-
     "throw and exception in a unindexed query" in {
       repository.collection
         .insertOne(Json.obj("unindexed" -> "value"))
@@ -40,7 +41,7 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
 
       whenReady {
         repository.collection
-          .find(mongoEq("unindexed", "value"))
+          .find(Filters.eq("unindexed", "value"))
           .toFuture()
           .failed
       } { exception =>
@@ -56,7 +57,7 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
         .futureValue
 
       repository.collection
-        .find(mongoEq("indexed", "value"))
+        .find(Filters.eq("indexed", "value"))
         .first()
         .toFuture()
         .futureValue

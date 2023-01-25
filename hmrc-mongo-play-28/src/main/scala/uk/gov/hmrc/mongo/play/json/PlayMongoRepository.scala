@@ -16,15 +16,13 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import org.bson.BsonType
 import org.bson.codecs.Codec
 import org.mongodb.scala.MongoCollection
-import org.mongodb.scala.bson.{BsonDocument, BsonString}
-import org.mongodb.scala.model.{Filters, IndexModel}
+import org.mongodb.scala.bson.BsonDocument
+import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.Format
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
 
-import java.util.concurrent.TimeUnit
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.reflect.ClassTag
@@ -54,68 +52,20 @@ class PlayMongoRepository[A: ClassTag](
   lazy val collection: MongoCollection[A] =
     CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs)
 
+  /** Does the Repository manage it's own data cleanup - e.g. doesn't use a TTL index since expiry is data dependent */
+  lazy val manageDataCleanup = false
+
   Await.result(ensureIndexes, 5.seconds)
 
   Await.result(ensureSchema, 5.seconds)
 
   def ensureIndexes: Future[Seq[String]] =
-    MongoUtils.ensureIndexes(collection, indexes, replaceIndexes)
-
-  def checkTtl: Future[Map[String, String]] = {
-    // TODO what if ttl is handled manually (e.g. MongoLockRepository) - do we need to control when this
-    // check runs? Just in tests (on demand)?
-    println(s">>>>In checkTtl")
-    indexes.foldLeft(Future.successful(Map.empty[String, String])){ (acc, idx) =>
-      println(s"keys: ${idx.getKeys}")
-      for {
-        a <- acc
-        r <- Future.traverse[java.lang.Long, (String, String), List](
-               Option(idx.getOptions.getExpireAfter(TimeUnit.MILLISECONDS)).toList
-             ){ expireAfter =>
-               println(s"will expire $expireAfter ms")
-               val key = idx.getKeys.toBsonDocument.getFirstKey // ttl indices are single-field indices
-
-               for {
-                hasData     <- mongoComponent.database.getCollection(collectionName).find().headOption().map(_.isDefined)
-                optDataType <- if (hasData)
-                                 mongoComponent.database.getCollection(collectionName)
-                                  .find(Filters.and(
-                                    Filters.exists(key),
-                                    Filters.not(Filters.`type`(key, BsonType.DATE_TIME))
-                                  ))
-                                  .projection(BsonDocument("type" ->  BsonDocument("$type" -> s"$$$key")))
-                                  .headOption
-                                  .map(_.flatMap(_.get[BsonString]("type").map(_.getValue)))
-                               else
-                                 Future.successful(Option.empty[String])
-               } yield key -> (if (!hasData) "no-data" else optDataType.getOrElse("date"))
-             }
-      } yield a ++ r
-    }.map { res =>
-      if (res.isEmpty)
-        play.api.Logger(getClass).warn(s"No ttl indices were found for collection $collectionName")
-      else
-        res.map {
-          case (k, "date"   ) => // ok (TODO array that contains "date values" is also valid)
-          case (k, "no-data") => // could not verify yet
-          case (k, v        ) => play.api.Logger(getClass).warn(s"ttl index for collection $collectionName points at $k which has type '$v', it should be 'date'")
-        }
-      res
-    }
-  }
-  // result:
-    // No ttl (Bad) - e.g. None
-    // Misconfigured ttl (Bad) - e.g. Some(Map(key -> bad type))
-    // Good ttl - e.g. Some(Map.empty)
-
-    // or list of errors?
-    // NoTtl
-    // Ttl
-
-    // currently:
-      // Map.empty -> no ttl
-      // Map(key -> state): state = field type (only date (or array with date) is acceptable)
-      //                    state = No-data (we don't know what the field type is) - this could be bad if we know there is data?
+    for {
+    res <- MongoUtils.ensureIndexes(collection, indexes, replaceIndexes)
+    _   <- if (!manageDataCleanup)
+             MongoUtils.checkTtl(mongoComponent, collectionName)
+           else Future.unit
+  } yield res
 
   def ensureSchema: Future[Unit] =
     // if schema is not defined, leave any existing ones

@@ -18,7 +18,7 @@ package uk.gov.hmrc.mongo
 
 import com.mongodb.MongoCommandException
 import org.mongodb.scala.Document
-import org.mongodb.scala.bson.BsonDocument
+import org.mongodb.scala.bson.{BsonDateTime, BsonDocument, BsonInt32}
 import org.mongodb.scala.model.{Indexes, IndexModel, IndexOptions}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
@@ -234,6 +234,96 @@ class MongoUtilsSpec
                             )
        } yield ()
       ).futureValue
+    }
+  }
+
+  "MongoUtils.checkTtl" should {
+    "return empty when no ttl indexes" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions())
+        )
+      val res = (for {
+         _   <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         res <- MongoUtils.checkTtl(mongoComponent, collectionName)
+       } yield res
+      ).futureValue
+      res shouldBe Map.empty[String, String]
+    }
+
+    "return no-data when ttl index but no data" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions()
+                                                    .name("ttlIndex")
+                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
+                    )
+        )
+      val res = (for {
+         _   <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         res <- MongoUtils.checkTtl(mongoComponent, collectionName)
+       } yield res
+      ).futureValue
+      res shouldBe Map("field2" -> "no-data")
+    }
+
+    "return field name when ttl index points at non-date" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions()
+                                                    .name("ttlIndex")
+                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
+                    )
+        )
+      val res = (for {
+         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         items =  (1 to 99).map(i => BsonDocument("field2" -> (if (i == 30) new BsonInt32(i) else new BsonDateTime(i))))
+        _      <- collection.insertMany(items) .toFuture()
+         res   <- MongoUtils.checkTtl(mongoComponent, collectionName)
+       } yield res
+      ).futureValue
+      res shouldBe Map("field2" -> "int")
+    }
+
+    "return field name when ttl index points at missing field" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions()
+                                                    .name("ttlIndex")
+                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
+                    )
+        )
+      val res = (for {
+         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         items =  (1 to 99).map(i => BsonDocument())
+        _      <- collection.insertMany(items) .toFuture()
+         res   <- MongoUtils.checkTtl(mongoComponent, collectionName)
+       } yield res
+      ).futureValue
+      res shouldBe Map("field2" -> "missing")
+    }
+
+    "return date when ttl index points at date" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions()
+                                                    .name("ttlIndex")
+                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
+                    )
+        )
+      val res = (for {
+         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonDateTime(i)))
+        _      <- collection.insertMany(items) .toFuture()
+         res   <- MongoUtils.checkTtl(mongoComponent, collectionName)
+       } yield res
+      ).futureValue
+      res shouldBe Map("field2" -> "date")
     }
   }
 

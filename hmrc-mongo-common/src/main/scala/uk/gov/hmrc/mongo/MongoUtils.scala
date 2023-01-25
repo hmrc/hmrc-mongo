@@ -16,9 +16,10 @@
 
 package uk.gov.hmrc.mongo
 
+import org.bson.{BsonType, BsonValue}
 import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, MongoServerException}
-import org.mongodb.scala.bson.BsonDocument
-import org.mongodb.scala.model.{IndexModel, ValidationAction, ValidationLevel}
+import org.mongodb.scala.bson.{BsonDocument, BsonString}
+import org.mongodb.scala.model.{Filters, IndexModel, ValidationAction, ValidationLevel}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -84,6 +85,50 @@ trait MongoUtils {
                             }
     } yield res
 
+   def checkTtl(
+    mongoComponent: MongoComponent,
+    collectionName: String
+  )(implicit ec: ExecutionContext): Future[Map[String, String]] = {
+    // TODO what if ttl is handled manually (e.g. MongoLockRepository) - do we need to control when this
+    // check runs? Just in tests (on demand)?
+    for {
+      collection <- Future.successful(mongoComponent.database.getCollection(collectionName))
+      indexes <- collection.listIndexes().toFuture()
+      //val indexKeys = indexes.map(_.getKeys.toBsonDocument) :+ BsonDocument("_id" -> 1)
+      res     <- indexes.foldLeft(Future.successful(Map.empty[String, String]))((acc, idx) =>
+                   for {
+                     a <- acc
+                     r <- Future.traverse[BsonValue, (String, String), List](idx.get("expireAfterSeconds").toList){ expireAfter =>
+                           for {
+                             key      <- Future.successful(idx("key").asDocument.getFirstKey) // ttl indices are single-field indices
+                             hasData  <- collection.find().headOption().map(_.isDefined)
+                             dataType <- if (hasData)
+                                             collection
+                                               .find(Filters.not(Filters.`type`(key, BsonType.DATE_TIME)))
+                                               .projection(BsonDocument("type" ->  BsonDocument("$type" -> s"$$$key")))
+                                               .headOption
+                                               .map { case None    => "date"
+                                                      case Some(o) => o[BsonString]("type").getValue
+                                                    }
+                                           else
+                                             Future.successful("no-data")
+                           } yield key -> dataType
+                         }
+                   } yield a ++ r
+                 )
+    } yield {
+      if (res.isEmpty)
+        logger.warn(s"No ttl indices were found for collection ${collection.namespace}")
+      else
+        res.map {
+          case (k, "date"   ) => // ok (TODO array that contains "date values" is also valid)
+          case (k, "no-data") => // could not verify yet
+          case (k, v        ) => logger.warn(s"ttl index for collection ${collection.namespace} points at $k which has type '$v', it should be 'date'")
+        }
+      res
+    }
+  }
+
   def existsCollection[A](
       mongoComponent: MongoComponent,
       collection    : MongoCollection[A]
@@ -99,8 +144,8 @@ trait MongoUtils {
     */
   def ensureSchema[A](
       mongoComponent: MongoComponent,
-      collection: MongoCollection[A],
-      optSchema: Option[BsonDocument]
+      collection    : MongoCollection[A],
+      optSchema     : Option[BsonDocument]
     )(implicit ec: ExecutionContext
     ): Future[Unit] =
       for {
