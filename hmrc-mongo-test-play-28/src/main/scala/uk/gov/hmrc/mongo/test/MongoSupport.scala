@@ -17,10 +17,10 @@
 package uk.gov.hmrc.mongo.test
 
 import org.mongodb.scala.{Document, MongoClient, MongoDatabase, ReadPreference}
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, TestSuite}
+import org.scalatest.{Args, BeforeAndAfterAll, BeforeAndAfterEach, Failed, Outcome, Status, Succeeded, TestSuite}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Logger
-import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -69,10 +69,6 @@ trait CleanMongoCollectionSupport extends MongoSupport with BeforeAndAfterEach {
     super.beforeEach()
     prepareDatabase()
   }
-
-  override protected def afterEach(): Unit = {
-    super.afterEach()
-  }
 }
 
 /** Causes queries which don't use an index to generate [[com.mongodb.MongoQueryException]]
@@ -103,4 +99,38 @@ trait IndexedMongoQueriesSupport extends MongoSupport with BeforeAndAfterAll {
     updateIndexPreference(requireIndexedQueryServerDefault).futureValue
     super.afterAll()
   }
+}
+
+trait TtlIndexedMongoSupport extends MongoSupport with TestSuite {
+  protected def collectionName: String
+
+  protected def checkTtl: Boolean
+
+  override def withFixture(test: NoArgTest): Outcome =
+    super.withFixture(test) match {
+      case Succeeded if checkTtl =>
+        (for {
+           was <- updateIndexPreference(false)
+           res <- MongoUtils.checkTtl(mongoComponent, collectionName)
+                    .map(res =>
+                      if (res.isEmpty)
+                        Failed(s"No ttl indices were found for collection $collectionName")
+                      else
+                        res.foldLeft(Succeeded: Outcome) {
+                          case (acc, (k, "date"   )) => acc // ok (TODO array that contains "date values" is also valid)
+                          case (acc, (k, "no-data")) => acc // could not verify yet
+                          case (acc, (k, v        )) => Failed(s"ttl index for collection $collectionName points at $k which has type '$v', it should be 'date'")
+                        }
+                    )
+           _   <- updateIndexPreference(was)
+         } yield res
+        ).futureValue
+      case outcome => outcome
+    }
+
+  abstract override def runTest(testName: String, args: Args): Status =
+    super.runTest(testName, args)
+
+  abstract override def run(testName: Option[String], args: Args): Status =
+    super.run(testName, args)
 }

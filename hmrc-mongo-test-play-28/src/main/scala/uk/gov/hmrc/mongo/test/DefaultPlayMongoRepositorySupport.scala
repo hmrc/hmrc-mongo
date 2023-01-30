@@ -24,14 +24,21 @@ import scala.concurrent.duration.DurationInt
   *
   * See [[PlayMongoRepositorySupport]] for setting up.
   *
-  * In addition it will ensure the database is cleaned, and setup (with indexes and schemas)
-  * before each test.
+  * It will also:
+  *   - ensure the database is cleaned, and setup (with indexes and schemas) before each test
+  *   - ensure all queries have indices
+  *   - check that repositories have a ttl index, pointing at a Date field
   */
 trait DefaultPlayMongoRepositorySupport[A]
-    extends PlayMongoRepositorySupport[A]
-    with CleanMongoCollectionSupport
-    with IndexedMongoQueriesSupport {
+  extends PlayMongoRepositorySupport[A]
+     with CleanMongoCollectionSupport
+     with IndexedMongoQueriesSupport
+     with TtlIndexedMongoSupport {
   this: TestSuite =>
 
-  override implicit val patienceConfig = PatienceConfig(timeout = 30.seconds, interval = 100.millis)
+  override implicit val patienceConfig =
+    PatienceConfig(timeout = 30.seconds, interval = 100.millis)
+
+  override protected def checkTtl: Boolean =
+    !repository.manageDataCleanup
 }
