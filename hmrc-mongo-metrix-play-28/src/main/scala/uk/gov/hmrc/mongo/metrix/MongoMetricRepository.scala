@@ -41,11 +41,13 @@ class MongoMetricRepository @Inject() (
       collectionName = "metrics",
       mongoComponent = mongoComponent,
       domainFormat   = PersistedMetric.format,
-      indexes = Seq(
+      indexes        = Seq(
         IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
       )
     )
     with MetricRepository {
+
+  override lazy val manageDataCleanup = true // we periodically find and replace/delete all metrics
 
   override def findAll(): Future[List[PersistedMetric]] =
     collection.withReadPreference(ReadPreference.secondaryPreferred())

@@ -26,8 +26,13 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 
-final case class CachedMetricGauge(name: String, lookupValue: String => Int) extends Gauge[Int] {
+final case class CachedMetricGauge(
+  name       : String,
+  lookupValue: String => Int
+) extends Gauge[Int] {
+
   private val logger = Logger(getClass)
+
   override def getValue: Int = {
     val value = lookupValue(name)
     logger.debug(s"Gauge for metric $name is reporting on value: $value")
@@ -64,10 +69,10 @@ object MetricOrchestrationResult {
 }
 
 class MetricOrchestrator(
-  metricSources: List[MetricSource],
-  lockService: LockService,
+  metricSources   : List[MetricSource],
+  lockService     : LockService,
   metricRepository: MetricRepository,
-  metricRegistry: MetricRegistry
+  metricRegistry  : MetricRegistry
 ) {
 
   private val cache = new ConcurrentHashMap[String, Int]().asScala
@@ -122,7 +127,7 @@ class MetricOrchestrator(
     */
   def attemptMetricRefresh(
     skipReportingFor: Option[PersistedMetric => Boolean] = None,
-    resetToZeroFor: Option[PersistedMetric => Boolean]   = None
+    resetToZeroFor  : Option[PersistedMetric => Boolean] = None
   )(implicit ec: ExecutionContext): Future[MetricOrchestrationResult] =
     for {
       // Only the node that acquires the lock will execute the update of the repository
