@@ -210,10 +210,7 @@ class MetricOrchestratorSpec
           Future(List(PersistedMetric("a", 1), PersistedMetric("b", 2)))
         )
 
-      when(metricRepository.persist(any[PersistedMetric]))
-        .thenReturn(Future.unit)
-
-      when(metricRepository.delete(any[String]))
+      when(metricRepository.putAll(any[Seq[PersistedMetric]]))
         .thenReturn(Future.unit)
 
       // when
@@ -224,8 +221,7 @@ class MetricOrchestratorSpec
         )
 
       verify(metricRepository, times(2)).findAll()
-      verify(metricRepository, times(2)).persist(any[PersistedMetric])
-      verify(metricRepository, times(1)).delete(any[String])
+      verify(metricRepository, times(1)).putAll(any[Seq[PersistedMetric]])
 
       metricRegistry.getGauges.get(s"a").getValue shouldBe 1
       metricRegistry.getGauges.get(s"b").getValue shouldBe 2
@@ -302,8 +298,8 @@ class MetricOrchestratorSpec
   private class SlowlyWritingMetricRepository extends MongoMetricRepository(
     mongoComponent = mongoComponent
   ) {
-    override def persist(calculatedMetric: PersistedMetric): Future[Unit] =
-      Future(Thread.sleep(200)).flatMap(_ => super.persist(calculatedMetric))
+    override def putAll(metrics: Seq[PersistedMetric]): Future[Unit] =
+      Future(Thread.sleep(200)).flatMap(_ => super.putAll(metrics))
   }
 
   private val mongoLockService: LockService =

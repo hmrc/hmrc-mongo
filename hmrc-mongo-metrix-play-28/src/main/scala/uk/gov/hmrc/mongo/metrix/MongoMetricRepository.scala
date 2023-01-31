@@ -18,8 +18,8 @@ package uk.gov.hmrc.mongo.metrix
 
 import com.google.inject.{ImplementedBy, Inject, Singleton}
 import org.mongodb.scala.ReadPreference
+import org.mongodb.scala.model.{DeleteOneModel, IndexModel, IndexOptions, ReplaceOneModel, ReplaceOptions}
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.{FindOneAndReplaceOptions, IndexModel, IndexOptions}
 import org.mongodb.scala.model.Indexes.ascending
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
@@ -28,9 +28,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 @ImplementedBy(classOf[MongoMetricRepository])
 trait MetricRepository {
-  def persist(metric: PersistedMetric): Future[Unit]
   def findAll(): Future[List[PersistedMetric]]
-  def delete(metricName: String): Future[Unit]
+  def putAll(metrics: Seq[PersistedMetric]): Future[Unit]
 }
 
 @Singleton
@@ -55,20 +54,27 @@ class MongoMetricRepository @Inject() (
       .toFuture()
       .map(_.toList)
 
-  override def persist(metric: PersistedMetric): Future[Unit] =
-    collection
-      .findOneAndReplace(
-        filter      = equal("name", metric.name),
-        replacement = metric,
-        options     = FindOneAndReplaceOptions().upsert(true)
-      )
-      .toFutureOption()
-      .map(_ => ())
-
-  override def delete(metricName: String): Future[Unit] =
-    collection
-      .deleteOne(
-        filter = equal("name", metricName)
-      ).toFuture()
-      .map(_ => ())
+  override def putAll(metrics: Seq[PersistedMetric]): Future[Unit] =
+    for {
+      persistedMetrics  <- findAll()
+      _                 <- if (metrics.isEmpty)
+                             Future.unit
+                           else
+                             collection.bulkWrite(metrics.map(metric =>
+                              ReplaceOneModel(
+                                filter         = equal("name", metric.name),
+                                replacement    = metric,
+                                replaceOptions = ReplaceOptions().upsert(true)
+                              )
+                            )).toFuture()
+      metricsToToDelete =  persistedMetrics.map(_.name).toSet.diff(metrics.map(_.name).toSet).toSeq
+      _                 <- if (metricsToToDelete.isEmpty)
+                             Future.unit
+                           else
+                             collection.bulkWrite(metricsToToDelete.map(metricName =>
+                               DeleteOneModel(
+                                 filter      = equal("name", metricName),
+                               )
+                             )).toFuture()
+    } yield ()
 }

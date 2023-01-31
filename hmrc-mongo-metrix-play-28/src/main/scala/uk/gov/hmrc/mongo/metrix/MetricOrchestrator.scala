@@ -99,9 +99,8 @@ class MetricOrchestrator(
                                                    else metric.count
                                           )
                              )
-      _                 <- Future.traverse(metricsToPersist)(metricRepository.persist)
-      metricsToToDelete =  persistedMetrics.diff(metricsToPersist.map(_.name).toSet)
-      _                 <- Future.traverse(metricsToToDelete)(metricRepository.delete)
+                             .toSeq
+      _                 <- metricRepository.putAll(metricsToPersist)
     } yield metricsToPersist.map(m => (m.name, m.count)).toMap
 
   private def ensureMetricRegistered(persistedMetrics: List[PersistedMetric]): Unit = {
