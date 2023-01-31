@@ -377,7 +377,9 @@ class WorkItemRepositorySpec
     "verify number of indexes created" in {
       repository.collection.dropIndexes().toFuture().futureValue
       repository.ensureIndexes.futureValue
-      repository.collection.listIndexes().toFuture().futureValue.size should be(3 + 1) //_id index is created by default
+       //_id index is created by default
+       //ttl index is explicitly requested
+      repository.collection.listIndexes().toFuture().futureValue.size should be(3 + 2)
     }
 
     "count the number of items in a specific state" in {

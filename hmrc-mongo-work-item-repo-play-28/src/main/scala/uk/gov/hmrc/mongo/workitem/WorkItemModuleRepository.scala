@@ -16,12 +16,13 @@
 
 package uk.gov.hmrc.mongo.workitem
 
+import org.bson.codecs.Codec
 import org.bson.conversions.Bson
 import org.mongodb.scala.model._
-import java.time.Instant
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.MongoComponent
 
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 
 /** If you have multiple lifecycles on a WorkItem, you can use the WorkItemModuleRepository
@@ -34,7 +35,9 @@ abstract class WorkItemModuleRepository[T](
   collectionName: String,
   moduleName    : String,
   mongoComponent: MongoComponent,
-  replaceIndexes: Boolean = true
+  replaceIndexes: Boolean = true,
+  extraIndexes  : Seq[IndexModel] = Seq.empty,
+  extraCodecs   : Seq[Codec[_]]   = Seq.empty
 )(implicit
   trd: Reads[T],
   ec : ExecutionContext
@@ -43,7 +46,9 @@ abstract class WorkItemModuleRepository[T](
   mongoComponent = mongoComponent,
   itemFormat     = WorkItemModuleRepository.readonlyFormat[T](trd),
   workItemFields = WorkItemModuleRepository.workItemFields(moduleName),
-  replaceIndexes = replaceIndexes
+  replaceIndexes = replaceIndexes,
+  extraIndexes   = extraIndexes,
+  extraCodecs    = extraCodecs
 ) {
   private def protectFromWrites =
     throw new IllegalStateException("The model object cannot be created via the work item module repository")

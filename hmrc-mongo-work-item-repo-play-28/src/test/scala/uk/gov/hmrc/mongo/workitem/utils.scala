@@ -29,6 +29,10 @@ import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.reflectiveCalls
+import org.mongodb.scala.model.IndexModel
+import org.mongodb.scala.model.Indexes
+import org.mongodb.scala.model.IndexOptions
+import java.util.concurrent.TimeUnit
 
 trait TimeSource {
   val timeSource = new {
@@ -72,6 +76,7 @@ trait WithWorkItemRepositoryModule
     collectionName = "items",
     moduleName     = "testModule",
     mongoComponent = mongoComponent,
+    extraIndexes   = Seq(IndexModel(Indexes.ascending("testModule.updatedAt"), IndexOptions().expireAfter(24 * 60 * 60, TimeUnit.SECONDS)))
   ) {
     override val inProgressRetryAfter: Duration =
       Duration.ofHours(1)
@@ -104,7 +109,8 @@ trait WithWorkItemRepository
       collectionName = collectionName,
       mongoComponent = mongoComponent,
       itemFormat     = ExampleItem.formats,
-      workItemFields = workItemFields
+      workItemFields = workItemFields,
+      extraIndexes   = Seq(IndexModel(Indexes.ascending("updatedAt"), IndexOptions().expireAfter(24 * 60 * 60, TimeUnit.SECONDS)))
     ) {
       override lazy val inProgressRetryAfter: Duration =
         Duration.ofHours(1)
