@@ -178,7 +178,7 @@ class DefaultPlayMongoRepositorySupportMissingTtlSpec
       mongoComponent,
       collectionName = "test-collection",
       domainFormat   = Format.of[JsObject],
-      indexes        = Seq.empty
+      indexes        = Seq.empty // no ttl index
     )
 }
 

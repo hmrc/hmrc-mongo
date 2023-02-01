@@ -85,49 +85,67 @@ trait MongoUtils {
                             }
     } yield res
 
-   def checkTtl(
+   /**
+     * @return the state of the ttl index.
+     * @param checkType true will additionally check the ttl field type. This is an expensive check
+     * (no index) so may not always be appropriate.
+     */
+   private[mongo] def getTtlState(
     mongoComponent: MongoComponent,
-    collectionName: String
-  )(implicit ec: ExecutionContext): Future[Map[String, String]] = {
-    // TODO what if ttl is handled manually (e.g. MongoLockRepository) - do we need to control when this
-    // check runs? Just in tests (on demand)?
+    collectionName: String,
+    checkType     : Boolean
+  )(implicit ec: ExecutionContext): Future[Map[String, TtlState]] =
     for {
       collection <- Future.successful(mongoComponent.database.getCollection(collectionName))
       indexes <- collection.listIndexes().toFuture()
-      //val indexKeys = indexes.map(_.getKeys.toBsonDocument) :+ BsonDocument("_id" -> 1)
-      res     <- indexes.foldLeft(Future.successful(Map.empty[String, String]))((acc, idx) =>
+      res     <- indexes.foldLeft(Future.successful(Map.empty[String, TtlState]))((acc, idx) =>
                    for {
                      a <- acc
-                     r <- Future.traverse[BsonValue, (String, String), List](idx.get("expireAfterSeconds").toList){ expireAfter =>
+                     r <- Future.traverse[BsonValue, (String, TtlState), List](idx.get("expireAfterSeconds").toList){ expireAfter =>
                            for {
                              key      <- Future.successful(idx("key").asDocument.getFirstKey) // ttl indices are single-field indices
-                             hasData  <- collection.find().headOption().map(_.isDefined)
-                             dataType <- if (hasData)
-                                             collection
-                                               .find(Filters.not(Filters.`type`(key, BsonType.DATE_TIME)))
-                                               .projection(BsonDocument("type" ->  BsonDocument("$type" -> s"$$$key")))
-                                               .headOption
-                                               .map { case None    => "date"
-                                                      case Some(o) => o[BsonString]("type").getValue
-                                                    }
-                                           else
-                                             Future.successful("no-data")
+                             dataType <- if (!checkType)
+                                           Future.successful(TtlState.TypeCheckSkipped)
+                                         else for {
+                                           hasData  <- collection.find().headOption().map(_.isDefined)
+                                           dataType <- if (!hasData)
+                                                         Future.successful(TtlState.NoData)
+                                                       else
+                                                           collection
+                                                             // this includes array containing Date_Time - which is also valid for a ttl index
+                                                             .find(Filters.not(Filters.`type`(key, BsonType.DATE_TIME)))
+                                                             .projection(BsonDocument("type" ->  BsonDocument("$type" -> s"$$$key")))
+                                                             .headOption()
+                                                             .map { case None    => TtlState.ValidType
+                                                                    case Some(o) => TtlState.InvalidType(o[BsonString]("type").getValue)
+                                                                  }
+                                          } yield dataType
                            } yield key -> dataType
                          }
                    } yield a ++ r
                  )
-    } yield {
-      if (res.isEmpty)
-        logger.warn(s"No ttl indices were found for collection ${collection.namespace}")
-      else
-        res.map {
-          case (k, "date"   ) => // ok (TODO array that contains "date values" is also valid)
-          case (k, "no-data") => // could not verify yet
-          case (k, v        ) => logger.warn(s"ttl index for collection ${collection.namespace} points at $k which has type '$v', it should be 'date'")
-        }
-      res
-    }
-  }
+    } yield res
+
+   /**
+     * @return the state of the ttl index.
+     * @param checkType true will additionally check the ttl field type. This is an expensive check
+     * (no index) so may not always be appropriate.
+     */
+   def checkTtl(
+    mongoComponent: MongoComponent,
+    collectionName: String,
+    checkType     : Boolean
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    getTtlState(mongoComponent, collectionName, checkType)
+      .map(res =>
+        if (res.isEmpty)
+          logger.warn(s"No ttl indexes were found for collection $collectionName")
+        else
+          res.map {
+            case (fieldName, TtlState.InvalidType(t)  ) => logger.warn(s"ttl index for collection $collectionName points at $fieldName which has type '$t', it should be 'date'")
+            case _                                      => // either ok, or we can't comment
+          }
+      )
 
   def existsCollection[A](
       mongoComponent: MongoComponent,
@@ -219,3 +237,11 @@ trait MongoUtils {
 }
 
 object MongoUtils extends MongoUtils
+
+protected[mongo] sealed trait TtlState
+object TtlState {
+  object TypeCheckSkipped                extends TtlState
+  object ValidType                       extends TtlState
+  object NoData                          extends TtlState
+  case class InvalidType(`type`: String) extends TtlState
+}

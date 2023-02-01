@@ -20,7 +20,7 @@ import org.mongodb.scala.{Document, MongoClient, MongoDatabase, ReadPreference}
 import org.scalatest.{Args, BeforeAndAfterAll, BeforeAndAfterEach, Failed, Outcome, Status, Succeeded, TestSuite}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Logger
-import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
+import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils, TtlState}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -111,15 +111,14 @@ trait TtlIndexedMongoSupport extends MongoSupport with TestSuite {
       case Succeeded if checkTtl =>
         (for {
            was <- updateIndexPreference(false)
-           res <- MongoUtils.checkTtl(mongoComponent, collectionName)
+           res <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
                     .map(res =>
                       if (res.isEmpty)
                         Failed(s"No ttl indices were found for collection $collectionName")
                       else
                         res.foldLeft(Succeeded: Outcome) {
-                          case (acc, (k, "date"   )) => acc // ok (TODO array that contains "date values" is also valid)
-                          case (acc, (k, "no-data")) => acc // could not verify yet
-                          case (acc, (k, v        )) => Failed(s"ttl index for collection $collectionName points at $k which has type '$v', it should be 'date'")
+                          case (acc, (k, TtlState.InvalidType(v))) => Failed(s"ttl index for collection $collectionName points at $k which has type '$v', it should be 'date'")
+                          case (acc, _                           ) => acc // ok or we can't comment
                         }
                     )
            _   <- updateIndexPreference(was)

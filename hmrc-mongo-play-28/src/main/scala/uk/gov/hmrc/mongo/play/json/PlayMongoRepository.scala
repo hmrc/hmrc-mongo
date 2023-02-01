@@ -55,19 +55,25 @@ class PlayMongoRepository[A: ClassTag](
   /** Does the Repository manage it's own data cleanup - e.g. doesn't use a TTL index since expiry is data dependent */
   lazy val manageDataCleanup = false
 
-  Await.result(ensureIndexes, 5.seconds)
+  /** When enabled, there will be warning logs if there is invalid ttl data.
+    * This is disabled by default since checking the TTL type is expensive (doesn't use an index).
+    * This can be overridden to enable - potentially pointing at configuration.
+    */
+  lazy val checkTtlType = false
 
-  Await.result(ensureSchema, 5.seconds)
+  Await.result(ensureIndexes(), 5.seconds)
 
-  def ensureIndexes: Future[Seq[String]] =
+  Await.result(ensureSchema(), 5.seconds) // TODO remove Await (we can throw up the exception asynchronously)
+
+  def ensureIndexes(): Future[Seq[String]] =
     for {
     res <- MongoUtils.ensureIndexes(collection, indexes, replaceIndexes)
     _   <- if (!manageDataCleanup)
-             MongoUtils.checkTtl(mongoComponent, collectionName)
+             MongoUtils.checkTtl(mongoComponent, collectionName, checkTtlType)
            else Future.unit
   } yield res
 
-  def ensureSchema: Future[Unit] =
+  def ensureSchema(): Future[Unit] =
     // if schema is not defined, leave any existing ones
     if (optSchema.isDefined)
       MongoUtils.ensureSchema(mongoComponent, collection, optSchema)
