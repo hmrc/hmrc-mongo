@@ -8,7 +8,7 @@ val scala2_13 = "2.13.8"
 
 lazy val commonSettings = Seq(
   organization := "uk.gov.hmrc.mongo",
-  majorVersion := 0,
+  majorVersion := 1,
   scalaVersion := scala2_12,
   isPublicArtefact := true,
   scalacOptions ++= Seq("-feature")

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 HM Revenue & Customs
+ * Copyright 2023 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.play.json.formats
 
-import java.time.{Instant, LocalDate, LocalDateTime, ZoneOffset}
+import java.time.{Instant, LocalDate, ZoneOffset}
 
 import play.api.libs.json._
 
@@ -49,23 +49,9 @@ trait MongoJavatimeFormats {
   final val localDateFormat: Format[LocalDate] =
     Format(localDateReads, localDateWrites)
 
-  // LocalDateTime
-
-  final val localDateTimeReads: Reads[LocalDateTime] =
-    Reads.at[String](__ \ "$date" \ "$numberLong")
-      .map(dateTime => Instant.ofEpochMilli(dateTime.toLong).atZone(ZoneOffset.UTC).toLocalDateTime)
-
-  final val localDateTimeWrites: Writes[LocalDateTime] =
-    Writes.at[String](__ \ "$date" \ "$numberLong")
-      .contramap(_.toInstant(ZoneOffset.UTC).toEpochMilli.toString)
-
-  final val localDateTimeFormat: Format[LocalDateTime] =
-    Format(localDateTimeReads, localDateTimeWrites)
-
   trait Implicits {
-    implicit val jatInstantFormat      : Format[Instant]       = outer.instantFormat
-    implicit val jatLocalDateFormat    : Format[LocalDate]     = outer.localDateFormat
-    implicit val jatLocalDateTimeFormat: Format[LocalDateTime] = outer.localDateTimeFormat
+    implicit val jatInstantFormat  : Format[Instant]   = outer.instantFormat
+    implicit val jatLocalDateFormat: Format[LocalDate] = outer.localDateFormat
   }
 
   object Implicits extends Implicits

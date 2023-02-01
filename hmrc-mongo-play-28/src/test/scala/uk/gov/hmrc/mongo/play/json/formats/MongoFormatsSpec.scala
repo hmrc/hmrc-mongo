@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 HM Revenue & Customs
+ * Copyright 2023 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,15 +63,6 @@ class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDriv
         forAll(epochMillisGen) { epochMillis =>
           val javaInstant = jat.Instant.ofEpochMilli(epochMillis)
           MongoJavatimeFormats.instantFormat.writes(javaInstant) shouldBe codecWrite(javaInstant)(classOf[jat.Instant])
-        }
-      }
-
-      "be compatible with default java.time.LocalDateTime codec" in {
-        forAll(epochMillisGen) { epochMillis =>
-          val javaLocalDateTime = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDateTime
-          MongoJavatimeFormats.localDateTimeFormat.writes(javaLocalDateTime) shouldBe codecWrite(javaLocalDateTime)(
-            classOf[jat.LocalDateTime]
-          )
         }
       }
 

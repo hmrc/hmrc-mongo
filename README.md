@@ -279,6 +279,9 @@ You may want to refer to [these examples](/hmrc-mongo-play-28/src/test/scala/uk/
 
 ## Changes
 
+### Version 1.0.0
+`java.time.LocalDateTime` support has been removed. It is preferrable to use `java.time.Instant` for storing DateTime in mongo. Use your own formats if `LocalDateTime` is required.
+
 ### Version 0.72.0
 MongoCacheRepository.get previously returned `None` for both an empty/expired cache as well as if it failed to deserialise the data. Failure to deserialise will now result in a failed Future.
 
