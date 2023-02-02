@@ -97,33 +97,34 @@ trait MongoUtils {
   )(implicit ec: ExecutionContext): Future[Map[String, TtlState]] =
     for {
       collection <- Future.successful(mongoComponent.database.getCollection(collectionName))
-      indexes <- collection.listIndexes().toFuture()
-      res     <- indexes.foldLeft(Future.successful(Map.empty[String, TtlState]))((acc, idx) =>
-                   for {
-                     a <- acc
-                     r <- Future.traverse[BsonValue, (String, TtlState), List](idx.get("expireAfterSeconds").toList){ expireAfter =>
-                           for {
-                             key      <- Future.successful(idx("key").asDocument.getFirstKey) // ttl indices are single-field indices
-                             dataType <- if (!checkType)
-                                           Future.successful(TtlState.TypeCheckSkipped)
-                                         else for {
-                                           hasData  <- collection.find().headOption().map(_.isDefined)
-                                           dataType <- if (!hasData)
-                                                         Future.successful(TtlState.NoData)
-                                                       else
-                                                           collection
-                                                             // this includes array containing Date_Time - which is also valid for a ttl index
-                                                             .find(Filters.not(Filters.`type`(key, BsonType.DATE_TIME)))
-                                                             .projection(BsonDocument("type" ->  BsonDocument("$type" -> s"$$$key")))
-                                                             .headOption()
-                                                             .map { case None    => TtlState.ValidType
-                                                                    case Some(o) => TtlState.InvalidType(o[BsonString]("type").getValue)
-                                                                  }
-                                          } yield dataType
-                           } yield key -> dataType
-                         }
-                   } yield a ++ r
-                 )
+      indexes    <- collection.listIndexes().toFuture()
+      res        <- indexes.foldLeft(Future.successful(Map.empty[String, TtlState]))((acc, idx) =>
+                      for {
+                        a <- acc
+                        r <- Future.traverse[BsonValue, (String, TtlState), List](idx.get("expireAfterSeconds").toList){ expireAfter =>
+                              for {
+                                key      <- Future.successful(idx("key").asDocument.getFirstKey) // ttl indices are single-field indices
+                                dataType <- if (!checkType)
+                                              Future.successful(TtlState.TypeCheckSkipped)
+                                            else for {
+                                              hasData  <- collection.find().limit(1).headOption().map(_.isDefined)
+                                              dataType <- if (!hasData)
+                                                            Future.successful(TtlState.NoData)
+                                                          else
+                                                              collection
+                                                                // this includes array containing Date_Time - which is also valid for a ttl index
+                                                                .find(Filters.not(Filters.`type`(key, BsonType.DATE_TIME)))
+                                                                .projection(BsonDocument("type" ->  BsonDocument("$type" -> s"$$$key")))
+                                                                .limit(1)
+                                                                .headOption()
+                                                                .map { case None    => TtlState.ValidType
+                                                                       case Some(o) => TtlState.InvalidType(o[BsonString]("type").getValue)
+                                                                     }
+                                             } yield dataType
+                              } yield key -> dataType
+                            }
+                      } yield a ++ r
+                    )
     } yield res
 
    /**
@@ -131,7 +132,7 @@ trait MongoUtils {
      * @param checkType true will additionally check the ttl field type. This is an expensive check
      * (no index) so may not always be appropriate.
      */
-   def checkTtl(
+   private[mongo] def ensureTtl(
     mongoComponent: MongoComponent,
     collectionName: String,
     checkType     : Boolean

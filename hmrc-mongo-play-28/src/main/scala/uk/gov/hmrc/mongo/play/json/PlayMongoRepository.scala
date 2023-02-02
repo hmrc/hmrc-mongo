@@ -49,29 +49,30 @@ class PlayMongoRepository[A: ClassTag](
 )(implicit ec: ExecutionContext)
     extends MongoDatabaseCollection {
 
+  private val logger = play.api.Logger(getClass)
+
   lazy val collection: MongoCollection[A] =
     CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs)
 
   /** Does the Repository manage it's own data cleanup - e.g. doesn't use a TTL index since expiry is data dependent */
-  lazy val manageDataCleanup = false
+  protected[mongo] lazy val manageDataCleanup = false
 
-  /** When enabled, there will be warning logs if there is invalid ttl data.
-    * This is disabled by default since checking the TTL type is expensive (doesn't use an index).
-    * This can be overridden to enable - potentially pointing at configuration.
-    */
-  lazy val checkTtlType = false
+  Await.result(ensureSchema(), 5.seconds)
 
-  Await.result(ensureIndexes(), 5.seconds)
+  lazy val initialised: Future[Unit] =
+    ensureIndexes().map(_ => ())
 
-  Await.result(ensureSchema(), 5.seconds) // TODO remove Await (we can throw up the exception asynchronously)
+   initialised
+    .failed
+    .foreach(e => logger.error(s"Failed to initialise mongo: ${e.getMessage}", e))
 
   def ensureIndexes(): Future[Seq[String]] =
     for {
-    res <- MongoUtils.ensureIndexes(collection, indexes, replaceIndexes)
-    _   <- if (!manageDataCleanup)
-             MongoUtils.checkTtl(mongoComponent, collectionName, checkTtlType)
-           else Future.unit
-  } yield res
+      res <- MongoUtils.ensureIndexes(collection, indexes, replaceIndexes)
+      _   <- if (!manageDataCleanup)
+              MongoUtils.ensureTtl(mongoComponent, collectionName, checkType = false)
+            else Future.unit
+    } yield res
 
   def ensureSchema(): Future[Unit] =
     // if schema is not defined, leave any existing ones

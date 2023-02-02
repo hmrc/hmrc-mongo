@@ -41,9 +41,7 @@ class MongoCacheRepositorySpec
     "successfully create a cacheItem if one does not already exist" in {
       repository.put(cacheId)(dataKey, person).futureValue shouldBe cacheItem
       count().futureValue                                  shouldBe 1
-      findAll()
-        .futureValue
-        .head shouldBe cacheItem
+      findAll().futureValue.head                           shouldBe cacheItem
     }
 
     "successfully update a cacheItem if one does not already exist" in {
@@ -112,7 +110,7 @@ class MongoCacheRepositorySpec
       insert(cacheItem).futureValue
       count().futureValue shouldBe 1
 
-      repository.deleteEntity(cacheId)
+      repository.deleteEntity(cacheId).futureValue
       count().futureValue shouldBe 0
     }
 
@@ -120,7 +118,7 @@ class MongoCacheRepositorySpec
       insert(cacheItem.copy(id = "another-id")).futureValue
       count().futureValue shouldBe 1
 
-      repository.deleteEntity(cacheId)
+      repository.deleteEntity(cacheId).futureValue
       count().futureValue shouldBe 1
     }
   }
@@ -160,18 +158,22 @@ class MongoCacheRepositorySpec
     cacheIdType      = CacheIdType.SimpleCacheId
   )
 
-  private def createCacheAndReturnIndexExpiry(ttl: Duration): Option[Long] =
-    new MongoCacheRepository[String](
+  private def createCacheAndReturnIndexExpiry(ttl: Duration): Option[Long] = {
+    val repository = new MongoCacheRepository[String](
       mongoComponent   = mongoComponent,
       collectionName   = "mongo-cache-repo-test",
       ttl              = ttl,
       timestampSupport = timestampSupport,
       cacheIdType      = CacheIdType.SimpleCacheId
-    ).collection
+    )
+    repository.initialised.futureValue
+    repository
+      .collection
       .listIndexes()
       .toFuture()
       .map(_.fromBson[JsValue])
       .futureValue
       .find(index => (index \ "name").as[String] == "lastUpdatedIndex")
       .map(index => (index \ "expireAfterSeconds").as[Long])
+  }
 }
