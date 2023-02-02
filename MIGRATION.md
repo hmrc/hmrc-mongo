@@ -429,11 +429,13 @@ class MyEntityRepositorySpec extends DefaultPlayMongoRepositorySupport[MyEntity]
 
 `DefaultPlayMongoRepositorySupport[T]` requires you to override `repository` in your tests, and provides a `mongoComponent` to create the repository. This will create a database named after the test.
 
-**NB** In addition to initialising a mongoComponent (as per `MongoSpecSupport` from reactivemongo-test), `DefaultPlayMonoRepositorySupport` also includes additional traits (akin to `RepositoryPreparation` and `FailOnUnindexedQueries` from reactivemongo-test) which ensure that the database is **cleaned of all data** and setup (with indexes and schemas) before each test, and turn on `no table scan` to ensure all queries have an index defined.
+**NB** In addition to initialising a mongoComponent (as per `MongoSpecSupport` from reactivemongo-test), `DefaultPlayMongoRepositorySupport` also includes additional traits (akin to `RepositoryPreparation` and `FailOnUnindexedQueries` from reactivemongo-test) which ensure that the database is **cleaned of all data** and setup (with indexes and schemas) before each test, and turn on `no table scan` to ensure all queries have an index defined.
 
-You may prefer to use `MongoSupport` or any of the other traits that compose `DefaultPlayMonoRepositorySupport` directly to refine or more closely replicate the old behaviour.
+It also will check for the presence of a TTL index and fail if there isn't one. See [README](README.md#ttl-indexes)
 
-In addition to these behaviours, `DefaultPlayMonoRepositorySupport` provides a number of additional helper functions over and above what the old `MongoSpecSupport` supported:
+You may prefer to use `MongoSupport` or any of the other traits that compose `DefaultPlayMongoRepositorySupport` directly to refine or more closely replicate the old behaviour.
+
+In addition to these behaviours, `DefaultPlayMongoRepositorySupport` provides a number of additional helper functions over and above what the old `MongoSpecSupport` supported:
 - find
 - findAll
 - insert

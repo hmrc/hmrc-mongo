@@ -54,8 +54,8 @@ class PlayMongoRepository[A: ClassTag](
   lazy val collection: MongoCollection[A] =
     CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs)
 
-  /** Does the Repository manage it's own data cleanup - e.g. doesn't use a TTL index since expiry is data dependent */
-  protected[mongo] lazy val manageDataCleanup = false
+  /** Can be overridden if the repository manages it's own data cleanup */
+  protected[mongo] lazy val requiresTtlIndex = true
 
   Await.result(ensureSchema(), 5.seconds)
 
@@ -69,8 +69,8 @@ class PlayMongoRepository[A: ClassTag](
   def ensureIndexes(): Future[Seq[String]] =
     for {
       res <- MongoUtils.ensureIndexes(collection, indexes, replaceIndexes)
-      _   <- if (!manageDataCleanup)
-              MongoUtils.ensureTtl(mongoComponent, collectionName, checkType = false)
+      _   <- if (requiresTtlIndex)
+              MongoUtils.checkTtlIndex(mongoComponent, collectionName, checkType = false)
             else Future.unit
     } yield res
 

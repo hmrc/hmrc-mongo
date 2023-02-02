@@ -113,7 +113,7 @@ class DefaultPlayMongoRepositorySupportSpec
       domainFormat   = Format.of[JsObject],
       indexes        = Seq(IndexModel(Indexes.ascending("indexed")))
     ) {
-      override lazy val manageDataCleanup = true
+      override lazy val requiresTtlIndex = false
     }
 
   def isIndexException(actual: MongoQueryException): Assertion =

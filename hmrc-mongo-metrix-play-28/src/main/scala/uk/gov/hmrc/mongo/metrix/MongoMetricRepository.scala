@@ -46,7 +46,7 @@ class MongoMetricRepository @Inject() (
     )
     with MetricRepository {
 
-  override lazy val manageDataCleanup = true // we periodically find and replace/delete all metrics
+  override lazy val requiresTtlIndex = false // we periodically find and replace/delete all metrics
 
   override def findAll(): Future[List[PersistedMetric]] =
     collection.withReadPreference(ReadPreference.secondaryPreferred())

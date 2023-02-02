@@ -132,7 +132,7 @@ trait MongoUtils {
      * @param checkType true will additionally check the ttl field type. This is an expensive check
      * (no index) so may not always be appropriate.
      */
-   private[mongo] def ensureTtl(
+   private[mongo] def checkTtlIndex(
     mongoComponent: MongoComponent,
     collectionName: String,
     checkType     : Boolean

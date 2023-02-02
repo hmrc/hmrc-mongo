@@ -39,6 +39,6 @@ trait DefaultPlayMongoRepositorySupport[A]
   override implicit val patienceConfig =
     PatienceConfig(timeout = 30.seconds, interval = 100.millis)
 
-  override protected def checkTtl: Boolean =
-    !repository.manageDataCleanup
+  override protected def checkTtlIndex: Boolean =
+    repository.requiresTtlIndex
 }

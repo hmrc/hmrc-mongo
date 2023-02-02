@@ -104,11 +104,11 @@ trait IndexedMongoQueriesSupport extends MongoSupport with BeforeAndAfterAll {
 trait TtlIndexedMongoSupport extends MongoSupport with TestSuite {
   protected def collectionName: String
 
-  protected def checkTtl: Boolean
+  protected def checkTtlIndex: Boolean
 
   override def withFixture(test: NoArgTest): Outcome =
     super.withFixture(test) match {
-      case Succeeded if checkTtl =>
+      case Succeeded if checkTtlIndex =>
         (for {
            was <- updateIndexPreference(false)
            res <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)

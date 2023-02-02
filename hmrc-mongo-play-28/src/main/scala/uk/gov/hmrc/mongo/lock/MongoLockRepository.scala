@@ -56,7 +56,7 @@ class MongoLockRepository @Inject()(
 
   private val logger = Logger(getClass)
 
-  override lazy val manageDataCleanup = true // each lock defines it's own expiry, so doesn't rely on ttl indexes
+  override lazy val requiresTtlIndex = false // each lock defines it's own expiry, so doesn't rely on ttl indexes
 
   override def takeLock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = {
     val timeCreated = timestampSupport.timestamp()
