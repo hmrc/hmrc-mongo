@@ -293,7 +293,7 @@ In the exceptional case that a TTL Index is not required, this can be indicated 
 
   See [TTL Indexes](#ttl-indexes)
 
-- `ensureIndexes` is now run asynchronously on start up. Deployments will not fail if adding a new index takes longer than 5 seconds to apply. If updating indexes fails, errors will be logged.
+- Deployments will no longer fail if adding a new index takes a long time to apply. Failures to create an index (e.g. conflicting index) will still fail a deployment if they occur immediately (which they typically do).
 
   If you still need to know when `ensureIndexes` has finished, you can access `PlayMongoRepository#initialised`
 

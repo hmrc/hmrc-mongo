@@ -106,7 +106,7 @@ trait TtlIndexedMongoSupport extends MongoSupport with TestSuite {
 
   protected def checkTtlIndex: Boolean
 
-  override def withFixture(test: NoArgTest): Outcome =
+  override protected def withFixture(test: NoArgTest): Outcome =
     super.withFixture(test) match {
       case Succeeded if checkTtlIndex =>
         (for {

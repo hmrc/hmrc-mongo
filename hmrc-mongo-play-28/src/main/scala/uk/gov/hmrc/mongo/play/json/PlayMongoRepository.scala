@@ -23,6 +23,7 @@ import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.Format
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
 
+import java.util.concurrent.TimeoutException
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.reflect.ClassTag
@@ -54,17 +55,26 @@ class PlayMongoRepository[A: ClassTag](
   lazy val collection: MongoCollection[A] =
     CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs)
 
-  /** Can be overridden if the repository manages it's own data cleanup */
+  /** Can be overridden if the repository manages it's own data cleanup.
+    *
+    * A comment should be added to document why the repository does't require a ttl index if overriding.
+    */
   protected[mongo] lazy val requiresTtlIndex = true
 
-  Await.result(ensureSchema(), 5.seconds)
-
   lazy val initialised: Future[Unit] =
-    ensureIndexes().map(_ => ())
+    for {
+      _ <- ensureSchema()
+      _ <- ensureIndexes()
+    } yield logger.info(s"Collection $collectionName has initialised")
 
-   initialised
-    .failed
-    .foreach(e => logger.error(s"Failed to initialise mongo: ${e.getMessage}", e))
+  try {
+    // We await to ensure failures are propagated on the constructor thread, but we
+    // don't care about long running index creation.
+    Await.result(initialised, 2.seconds)
+  } catch {
+    case _: TimeoutException => logger.warn("Index creation is taking longer than 2.seconds")
+    case t: Throwable        => logger.error(s"Failed to initialise collection $collectionName: ${t.getMessage}", t); throw t
+  }
 
   def ensureIndexes(): Future[Seq[String]] =
     for {
