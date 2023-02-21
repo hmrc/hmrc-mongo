@@ -18,12 +18,15 @@ package uk.gov.hmrc.mongo.metrix
 
 import org.scalatest.LoneElement
 import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class MongoMetricRepositorySpec
-  extends UnitSpec
+  extends AnyWordSpec
+     with Matchers
      with ScalaFutures
      with LoneElement
      with DefaultPlayMongoRepositorySupport[PersistedMetric] {

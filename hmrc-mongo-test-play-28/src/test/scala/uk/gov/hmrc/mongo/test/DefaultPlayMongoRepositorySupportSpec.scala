@@ -168,7 +168,7 @@ class DefaultPlayMongoRepositorySupportMissingTtlSpec
 
   override def withFixture(test: NoArgTest): Outcome =
     super.withFixture(test) match {
-      case Failed(m) if (m.getMessage == "No ttl indices were found for collection test-collection") => Succeeded
+      case Failed(m) if (m.getMessage == "No ttl indexes were found for collection test-collection") => Succeeded
       case Succeeded => Failed("Expected test without ttl to fail")
       case outcome   => outcome
     }
@@ -198,7 +198,7 @@ class DefaultPlayMongoRepositorySupportWithInvalidTtlDataSpec
 
   override def withFixture(test: NoArgTest): Outcome =
     super.withFixture(test) match {
-      case Failed(m) if (m.getMessage == "ttl index for collection test-collection points at created which has type 'string', it should be 'date'") => Succeeded
+      case Failed(m) if (m.getMessage == "Ttl index fields should have type 'date', but found 'created' with type 'string' for collection test-collection") => Succeeded
       case Succeeded => Failed("Expected test with invalid ttl data to fail")
       case outcome   => outcome
     }

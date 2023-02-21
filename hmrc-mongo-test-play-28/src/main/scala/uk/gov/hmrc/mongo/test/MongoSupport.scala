@@ -110,19 +110,20 @@ trait TtlIndexedMongoSupport extends MongoSupport with TestSuite {
     super.withFixture(test) match {
       case Succeeded if checkTtlIndex =>
         (for {
-           was <- updateIndexPreference(false)
-           res <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
-                    .map(res =>
-                      if (res.isEmpty)
-                        Failed(s"No ttl indices were found for collection $collectionName")
-                      else
-                        res.foldLeft(Succeeded: Outcome) {
-                          case (acc, (k, TtlState.InvalidType(v))) => Failed(s"ttl index for collection $collectionName points at $k which has type '$v', it should be 'date'")
-                          case (acc, _                           ) => acc // ok or we can't comment
-                        }
-                    )
-           _   <- updateIndexPreference(was)
-         } yield res
+           was      <- updateIndexPreference(false)
+           ttlState <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+           _        <- updateIndexPreference(was)
+         } yield
+           if (ttlState.isEmpty)
+             Failed(s"No ttl indexes were found for collection $collectionName")
+           else {
+             val invalidTypes = ttlState.collect { case (k, TtlState.InvalidType(v)) => s"'$k' with type '$v'" }
+             if (invalidTypes.nonEmpty)
+               Failed(s"Ttl index fields should have type 'date', but found ${invalidTypes.mkString(", ")} for collection $collectionName")
+             else
+               // either ok or we can't comment
+               Succeeded
+           }
         ).futureValue
       case outcome => outcome
     }
