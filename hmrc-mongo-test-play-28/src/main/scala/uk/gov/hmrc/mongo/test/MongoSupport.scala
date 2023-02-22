@@ -85,18 +85,24 @@ trait IndexedMongoQueriesSupport extends MongoSupport with BeforeAndAfterAll {
 
   private val requireIndexedQueryServerDefault = false
 
+  /* allows disabling without having to remix traits */
+  protected def checkIndexedQueries = true
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
 
-    val was =
-      updateIndexPreference(requireIndexedQuery = true).futureValue
-    if (was != requireIndexedQueryServerDefault) {
-      logger.warn(s"The indexPreference was not $requireIndexedQueryServerDefault as expected. You may have tests running in parallel modifying this global config.")
+    if (checkIndexedQueries) {
+      val was =
+        updateIndexPreference(requireIndexedQuery = true).futureValue
+      if (was != requireIndexedQueryServerDefault) {
+        logger.warn(s"The indexPreference was not $requireIndexedQueryServerDefault as expected. You may have tests running in parallel modifying this global config.")
+      }
     }
   }
 
   override protected def afterAll(): Unit = {
-    updateIndexPreference(requireIndexedQueryServerDefault).futureValue
+    if (checkIndexedQueries)
+      updateIndexPreference(requireIndexedQueryServerDefault).futureValue
     super.afterAll()
   }
 }
