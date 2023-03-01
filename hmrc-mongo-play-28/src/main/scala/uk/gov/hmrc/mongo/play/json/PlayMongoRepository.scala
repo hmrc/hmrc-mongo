@@ -16,16 +16,17 @@
 
 package uk.gov.hmrc.mongo.play.json
 
+import org.bson.codecs.Codec
 import org.mongodb.scala.MongoCollection
-import org.mongodb.scala.model.IndexModel
 import org.mongodb.scala.bson.BsonDocument
+import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.Format
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
 
+import java.util.concurrent.TimeoutException
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.reflect.ClassTag
-import org.bson.codecs.Codec
 
 /** Initialise a mongo repository.
   * @param mongoComponent
@@ -45,21 +46,45 @@ class PlayMongoRepository[A: ClassTag](
   final val indexes: Seq[IndexModel],
   final val optSchema: Option[BsonDocument] = None,
   replaceIndexes: Boolean = false,
-  extraCodecs: Seq[Codec[_]] = Seq.empty
+  extraCodecs   : Seq[Codec[_]] = Seq.empty
 )(implicit ec: ExecutionContext)
     extends MongoDatabaseCollection {
+
+  private val logger = play.api.Logger(getClass)
 
   lazy val collection: MongoCollection[A] =
     CollectionFactory.collection(mongoComponent.database, collectionName, domainFormat, extraCodecs)
 
-  Await.result(ensureIndexes, 5.seconds)
+  /** Can be overridden if the repository manages it's own data cleanup.
+    *
+    * A comment should be added to document why the repository does't require a ttl index if overriding.
+    */
+  protected[mongo] lazy val requiresTtlIndex = true
 
-  Await.result(ensureSchema, 5.seconds)
+  lazy val initialised: Future[Unit] =
+    for {
+      _ <- ensureSchema()
+      _ <- ensureIndexes()
+    } yield logger.info(s"Collection $collectionName has initialised")
 
-  def ensureIndexes: Future[Seq[String]] =
-    MongoUtils.ensureIndexes(collection, indexes, replaceIndexes)
+  try {
+    // We await to ensure failures are propagated on the constructor thread, but we
+    // don't care about long running index creation.
+    Await.result(initialised, 2.seconds)
+  } catch {
+    case _: TimeoutException => logger.warn("Index creation is taking longer than 2.seconds")
+    case t: Throwable        => logger.error(s"Failed to initialise collection $collectionName: ${t.getMessage}", t); throw t
+  }
 
-  def ensureSchema: Future[Unit] =
+  def ensureIndexes(): Future[Seq[String]] =
+    for {
+      res <- MongoUtils.ensureIndexes(collection, indexes, replaceIndexes)
+      _   <- if (requiresTtlIndex)
+              MongoUtils.checkTtlIndex(mongoComponent, collectionName, checkType = false)
+            else Future.unit
+    } yield res
+
+  def ensureSchema(): Future[Unit] =
     // if schema is not defined, leave any existing ones
     if (optSchema.isDefined)
       MongoUtils.ensureSchema(mongoComponent, collection, optSchema)

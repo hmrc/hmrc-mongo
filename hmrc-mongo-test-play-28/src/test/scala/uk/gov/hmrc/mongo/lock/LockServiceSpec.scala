@@ -18,7 +18,7 @@ package uk.gov.hmrc.mongo.lock
 
 import java.time.{Instant, Clock, ZoneId}
 
-import com.mongodb.client.model.Filters.{eq => mongoEq}
+import com.mongodb.client.model.Filters
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
@@ -38,7 +38,7 @@ class LockServiceSpec
 
       val optionalLock = lockService
         .withLock {
-          find(mongoEq(Lock.id, lockId)).map(_.head)
+          find(Filters.eq(Lock.id, lockId)).map(_.head)
         }
         .futureValue
 

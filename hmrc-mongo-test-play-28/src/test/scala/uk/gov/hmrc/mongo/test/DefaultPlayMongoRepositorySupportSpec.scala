@@ -17,22 +17,27 @@
 package uk.gov.hmrc.mongo.test
 
 import com.mongodb.MongoQueryException
-import com.mongodb.client.model.Filters.{eq => mongoEq}
-import com.mongodb.client.model.Indexes
-import org.mongodb.scala.model.IndexModel
+import com.mongodb.client.model.{Filters, Indexes}
+import org.mongodb.scala.model.{IndexModel, IndexOptions}
+import org.scalatest.{Assertion, Failed, Outcome, Succeeded}
+import org.scalatest.exceptions.TestFailedException
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.{Format, JsObject, Json}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
-import scala.concurrent.ExecutionContext.Implicits.global
-import org.scalatest.{Assertion, Succeeded}
-import org.scalatest.exceptions.TestFailedException
 
-class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with DefaultPlayMongoRepositorySupport[JsObject] with Matchers {
+import java.util.concurrent.TimeUnit
+import scala.concurrent.ExecutionContext.Implicits.global
+import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
+import java.time.Instant
+
+class DefaultPlayMongoRepositorySupportSpec
+   extends AnyWordSpec
+      with DefaultPlayMongoRepositorySupport[JsObject]
+      with Matchers {
 
   "updateIndexPreference" should {
-
-    "throw and exception in a unindexed query" in {
+    "throw an exception in a unindexed query" in {
       repository.collection
         .insertOne(Json.obj("unindexed" -> "value"))
         .toFuture()
@@ -40,7 +45,7 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
 
       whenReady {
         repository.collection
-          .find(mongoEq("unindexed", "value"))
+          .find(Filters.eq("unindexed", "value"))
           .toFuture()
           .failed
       } { exception =>
@@ -56,7 +61,7 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
         .futureValue
 
       repository.collection
-        .find(mongoEq("indexed", "value"))
+        .find(Filters.eq("indexed", "value"))
         .first()
         .toFuture()
         .futureValue
@@ -107,7 +112,9 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
       collectionName = "test-collection",
       domainFormat   = Format.of[JsObject],
       indexes        = Seq(IndexModel(Indexes.ascending("indexed")))
-    )
+    ) {
+      override lazy val requiresTtlIndex = false
+    }
 
   def isIndexException(actual: MongoQueryException): Assertion =
     if (actual.getErrorCode != 291 &&
@@ -119,4 +126,88 @@ class DefaultPlayMongoRepositorySupportSpec extends AnyWordSpecLike with Default
         failedCodeStackDepth = 10
       )
     else Succeeded
+}
+
+class DefaultPlayMongoRepositorySupportWithTtlSpec
+   extends AnyWordSpec
+      with DefaultPlayMongoRepositorySupport[JsObject]
+      with Matchers {
+
+  "PlayMongoRepository" should {
+    "not fail tests with ttl index - no data" in {
+      // do nothing - test should pass
+    }
+
+    "not fail tests with ttl index - valid date" in {
+      repository.collection
+        .insertOne(Json.obj("created" -> MongoJavatimeFormats.instantWrites.writes(Instant.now())))
+        .toFuture()
+        .futureValue
+    }
+  }
+
+  override protected lazy val repository =
+    new PlayMongoRepository[JsObject](
+      mongoComponent,
+      collectionName = "test-collection",
+      domainFormat   = Format.of[JsObject],
+      indexes        = Seq(IndexModel(Indexes.ascending("created"), IndexOptions().expireAfter(1, TimeUnit.SECONDS)))
+    )
+}
+
+class DefaultPlayMongoRepositorySupportMissingTtlSpec
+   extends AnyWordSpec
+      with DefaultPlayMongoRepositorySupport[JsObject]
+      with Matchers {
+
+  "PlayMongoRepository" should {
+    "fail tests without ttl index" in {
+      // do nothing - test should fail
+    }
+  }
+
+  override def withFixture(test: NoArgTest): Outcome =
+    super.withFixture(test) match {
+      case Failed(m) if (m.getMessage == "No ttl indexes were found for collection test-collection") => Succeeded
+      case Succeeded => Failed("Expected test without ttl to fail")
+      case outcome   => outcome
+    }
+
+  override protected lazy val repository =
+    new PlayMongoRepository[JsObject](
+      mongoComponent,
+      collectionName = "test-collection",
+      domainFormat   = Format.of[JsObject],
+      indexes        = Seq.empty // no ttl index
+    )
+}
+
+class DefaultPlayMongoRepositorySupportWithInvalidTtlDataSpec
+   extends AnyWordSpec
+      with DefaultPlayMongoRepositorySupport[JsObject]
+      with Matchers {
+
+  "PlayMongoRepository" should {
+    "fail tests with ttl index and non-date data" in {
+      repository.collection
+        .insertOne(Json.obj("created" -> Instant.now().toString))
+        .toFuture()
+        .futureValue
+    }
+  }
+
+  override def withFixture(test: NoArgTest): Outcome =
+    super.withFixture(test) match {
+      case Failed(m) if (m.getMessage == "Ttl index fields should have type 'date', but found 'created' with type 'string' for collection test-collection") => Succeeded
+      case Succeeded => Failed("Expected test with invalid ttl data to fail")
+      case outcome   => outcome
+    }
+
+  override protected lazy val repository =
+    new PlayMongoRepository[JsObject](
+      mongoComponent,
+      collectionName = "test-collection",
+      domainFormat   = Format.of[JsObject],
+      indexes        = Seq(IndexModel(Indexes.ascending("created"), IndexOptions().expireAfter(1, TimeUnit.SECONDS)))
+    )
 }

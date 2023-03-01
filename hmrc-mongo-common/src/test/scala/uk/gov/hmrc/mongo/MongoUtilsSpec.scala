@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 HM Revenue & Customs
+ * Copyright 2023 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package uk.gov.hmrc.mongo
 
 import com.mongodb.MongoCommandException
 import org.mongodb.scala.Document
-import org.mongodb.scala.bson.BsonDocument
+import org.mongodb.scala.bson.{BsonArray, BsonDateTime, BsonDocument, BsonInt32, BsonString}
 import org.mongodb.scala.model.{Indexes, IndexModel, IndexOptions}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
@@ -26,6 +26,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.util.concurrent.TimeUnit
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 import ExecutionContext.Implicits.global
 
@@ -234,6 +235,153 @@ class MongoUtilsSpec
                             )
        } yield ()
       ).futureValue
+    }
+  }
+
+  "MongoUtils.getTtlState" should {
+   "return empty when no ttl indexes" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions())
+        )
+      val res = (for {
+         _   <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         res <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+       } yield res
+      ).futureValue
+      res shouldBe Map.empty[String, TtlState]
+    }
+
+    s"return NoData when ttl index but no data" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions()
+                                                    .name("ttlIndex")
+                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
+                    )
+        )
+      val res = (for {
+         _   <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         res <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+       } yield res
+      ).futureValue
+      res shouldBe Map("field2" -> TtlState.NoData)
+    }
+
+    "return field name when ttl index points at non-date" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions()
+                                                    .name("ttlIndex")
+                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
+                    )
+        )
+      val res = (for {
+         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         items =  (1 to 99).map(i => BsonDocument("field2" -> (if (i == 30) new BsonInt32(i) else new BsonDateTime(i))))
+        _      <- collection.insertMany(items) .toFuture()
+         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+       } yield res
+      ).futureValue
+      res shouldBe Map("field2" -> TtlState.InvalidType("int"))
+    }
+
+    "return field name when ttl index points at missing field" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions()
+                                                    .name("ttlIndex")
+                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
+                    )
+        )
+      val res = (for {
+         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         items =  (1 to 99).map(i => BsonDocument())
+        _      <- collection.insertMany(items) .toFuture()
+         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+       } yield res
+      ).futureValue
+      res shouldBe Map("field2" -> TtlState.InvalidType("missing"))
+    }
+
+    s"return ValidType when ttl index points at date" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions()
+                                                    .name("ttlIndex")
+                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
+                    )
+        )
+      val res = (for {
+         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonDateTime(i)))
+        _      <- collection.insertMany(items) .toFuture()
+         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+       } yield res
+      ).futureValue
+      res shouldBe Map("field2" -> TtlState.ValidType)
+    }
+
+    s"return ValidType when ttl index points at array with date" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions()
+                                                    .name("ttlIndex")
+                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
+                    )
+        )
+      val res = (for {
+         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonArray(Seq(new BsonDateTime(i), new BsonString(i.toString)).asJava)))
+        _      <- collection.insertMany(items) .toFuture()
+         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+       } yield res
+      ).futureValue
+      res shouldBe Map("field2" -> TtlState.ValidType)
+    }
+
+    s"return InvalidType when ttl index points at array with date" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions()
+                                                    .name("ttlIndex")
+                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
+                    )
+        )
+      val res = (for {
+         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonArray(Seq(new BsonString(i.toString), new BsonString(i.toString)).asJava)))
+        _      <- collection.insertMany(items) .toFuture()
+         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+       } yield res
+      ).futureValue
+      res shouldBe Map("field2" -> TtlState.InvalidType("array"))
+    }
+
+    s"return TypeCheckSkipped when requested and ttl exists" in {
+      val indexes1 =
+        Seq(
+          IndexModel(Indexes.ascending("field1"), IndexOptions()),
+          IndexModel(Indexes.ascending("field2"), IndexOptions()
+                                                    .name("ttlIndex")
+                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
+                    )
+        )
+      val res = (for {
+         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+         items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonDateTime(i)))
+        _      <- collection.insertMany(items) .toFuture()
+         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = false)
+       } yield res
+      ).futureValue
+      res shouldBe Map("field2" -> TtlState.TypeCheckSkipped)
     }
   }
 

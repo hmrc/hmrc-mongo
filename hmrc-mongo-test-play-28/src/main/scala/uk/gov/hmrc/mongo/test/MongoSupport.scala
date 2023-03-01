@@ -17,10 +17,10 @@
 package uk.gov.hmrc.mongo.test
 
 import org.mongodb.scala.{Document, MongoClient, MongoDatabase, ReadPreference}
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, TestSuite}
+import org.scalatest.{Args, BeforeAndAfterAll, BeforeAndAfterEach, Failed, Outcome, Status, Succeeded, TestSuite}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Logger
-import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils, TtlState}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -69,10 +69,6 @@ trait CleanMongoCollectionSupport extends MongoSupport with BeforeAndAfterEach {
     super.beforeEach()
     prepareDatabase()
   }
-
-  override protected def afterEach(): Unit = {
-    super.afterEach()
-  }
 }
 
 /** Causes queries which don't use an index to generate [[com.mongodb.MongoQueryException]]
@@ -89,18 +85,58 @@ trait IndexedMongoQueriesSupport extends MongoSupport with BeforeAndAfterAll {
 
   private val requireIndexedQueryServerDefault = false
 
+  /* allows disabling without having to remix traits */
+  protected def checkIndexedQueries = true
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
 
-    val was =
-      updateIndexPreference(requireIndexedQuery = true).futureValue
-    if (was != requireIndexedQueryServerDefault) {
-      logger.warn(s"The indexPreference was not $requireIndexedQueryServerDefault as expected. You may have tests running in parallel modifying this global config.")
+    if (checkIndexedQueries) {
+      val was =
+        updateIndexPreference(requireIndexedQuery = true).futureValue
+      if (was != requireIndexedQueryServerDefault) {
+        logger.warn(s"The indexPreference was not $requireIndexedQueryServerDefault as expected. You may have tests running in parallel modifying this global config.")
+      }
     }
   }
 
   override protected def afterAll(): Unit = {
-    updateIndexPreference(requireIndexedQueryServerDefault).futureValue
+    if (checkIndexedQueries)
+      updateIndexPreference(requireIndexedQueryServerDefault).futureValue
     super.afterAll()
   }
+}
+
+trait TtlIndexedMongoSupport extends MongoSupport with TestSuite {
+  protected def collectionName: String
+
+  protected def checkTtlIndex: Boolean
+
+  override protected def withFixture(test: NoArgTest): Outcome =
+    super.withFixture(test) match {
+      case Succeeded if checkTtlIndex =>
+        (for {
+           was      <- updateIndexPreference(false)
+           ttlState <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+           _        <- updateIndexPreference(was)
+         } yield
+           if (ttlState.isEmpty)
+             Failed(s"No ttl indexes were found for collection $collectionName")
+           else {
+             val invalidTypes = ttlState.collect { case (k, TtlState.InvalidType(v)) => s"'$k' with type '$v'" }
+             if (invalidTypes.nonEmpty)
+               Failed(s"Ttl index fields should have type 'date', but found ${invalidTypes.mkString(", ")} for collection $collectionName")
+             else
+               // either ok or we can't comment
+               Succeeded
+           }
+        ).futureValue
+      case outcome => outcome
+    }
+
+  abstract override def runTest(testName: String, args: Args): Status =
+    super.runTest(testName, args)
+
+  abstract override def run(testName: Option[String], args: Args): Status =
+    super.run(testName, args)
 }

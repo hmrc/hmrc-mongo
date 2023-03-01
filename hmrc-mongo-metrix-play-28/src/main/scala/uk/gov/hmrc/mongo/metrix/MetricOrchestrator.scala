@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 HM Revenue & Customs
+ * Copyright 2023 HM Revenue & Customs
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,13 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 
-final case class CachedMetricGauge(name: String, lookupValue: String => Int) extends Gauge[Int] {
+final case class CachedMetricGauge(
+  name       : String,
+  lookupValue: String => Int
+) extends Gauge[Int] {
+
   private val logger = Logger(getClass)
+
   override def getValue: Int = {
     val value = lookupValue(name)
     logger.debug(s"Gauge for metric $name is reporting on value: $value")
@@ -64,10 +69,10 @@ object MetricOrchestrationResult {
 }
 
 class MetricOrchestrator(
-  metricSources: List[MetricSource],
-  lockService: LockService,
+  metricSources   : List[MetricSource],
+  lockService     : LockService,
   metricRepository: MetricRepository,
-  metricRegistry: MetricRegistry
+  metricRegistry  : MetricRegistry
 ) {
 
   private val cache = new ConcurrentHashMap[String, Int]().asScala
@@ -94,9 +99,8 @@ class MetricOrchestrator(
                                                    else metric.count
                                           )
                              )
-      _                 <- Future.traverse(metricsToPersist)(metricRepository.persist)
-      metricsToToDelete =  persistedMetrics.diff(metricsToPersist.map(_.name).toSet)
-      _                 <- Future.traverse(metricsToToDelete)(metricRepository.delete)
+                             .toSeq
+      _                 <- metricRepository.putAll(metricsToPersist)
     } yield metricsToPersist.map(m => (m.name, m.count)).toMap
 
   private def ensureMetricRegistered(persistedMetrics: List[PersistedMetric]): Unit = {
@@ -122,7 +126,7 @@ class MetricOrchestrator(
     */
   def attemptMetricRefresh(
     skipReportingFor: Option[PersistedMetric => Boolean] = None,
-    resetToZeroFor: Option[PersistedMetric => Boolean]   = None
+    resetToZeroFor  : Option[PersistedMetric => Boolean] = None
   )(implicit ec: ExecutionContext): Future[MetricOrchestrationResult] =
     for {
       // Only the node that acquires the lock will execute the update of the repository

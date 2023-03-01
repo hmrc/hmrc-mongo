@@ -18,25 +18,38 @@ package uk.gov.hmrc.mongo.metrix
 
 import org.scalatest.LoneElement
 import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class MongoMetricRepositorySpec
-  extends UnitSpec
+  extends AnyWordSpec
+     with Matchers
      with ScalaFutures
      with LoneElement
      with DefaultPlayMongoRepositorySupport[PersistedMetric] {
 
   override lazy val repository = new MongoMetricRepository(mongoComponent)
 
-  "update" should {
-    "store the provided MetricsStorage instance with the 'name' key" in {
+  "MongoMetricRepository.putAll" should {
+    "store the provided PersistedMetrics with the 'name' keys" in {
       val storedMetric = PersistedMetric("test-metric", 5)
 
-      repository.persist(storedMetric).futureValue
+      repository.putAll(Seq(storedMetric)).futureValue
 
       repository.findAll().futureValue.loneElement shouldBe storedMetric
+    }
+
+    "remove any previous PersistedMetrics" in {
+      val existing = PersistedMetric("test-metric", 5)
+      repository.collection.insertOne(existing)
+
+      val newMetric = PersistedMetric("test-metric", 5)
+      repository.putAll(Seq(newMetric)).futureValue
+
+      repository.findAll().futureValue.loneElement shouldBe newMetric
     }
   }
 }

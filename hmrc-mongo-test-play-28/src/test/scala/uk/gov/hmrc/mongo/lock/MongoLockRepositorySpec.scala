@@ -20,7 +20,7 @@ import java.time.{Instant, Clock, ZoneId}
 import java.time.temporal.ChronoUnit
 
 import com.mongodb.MongoServerException
-import com.mongodb.client.model.Filters.{eq => mongoEq}
+import com.mongodb.client.model.Filters
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
@@ -51,7 +51,7 @@ class MongoLockRepositorySpec
 
       count().futureValue shouldBe 2
 
-      find(mongoEq(Lock.id, lockId)).futureValue.head shouldBe Lock(lockId, owner, now, now.plus(1, ChronoUnit.SECONDS))
+      find(Filters.eq(Lock.id, lockId)).futureValue.head shouldBe Lock(lockId, owner, now, now.plus(1, ChronoUnit.SECONDS))
     }
 
     "do not change a non-expired lock with a different owner" in {
@@ -63,7 +63,7 @@ class MongoLockRepositorySpec
 
       count().futureValue shouldBe 1
 
-      find(mongoEq(Lock.id, lockId)).futureValue.head shouldBe existingLock
+      find(Filters.eq(Lock.id, lockId)).futureValue.head shouldBe existingLock
     }
 
     "do not change a non-expired lock with the same owner" in {

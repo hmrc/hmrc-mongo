@@ -42,17 +42,21 @@ trait LockRepository {
 }
 
 @Singleton
-class MongoLockRepository @Inject() (mongoComponent: MongoComponent, timestampSupport: TimestampSupport)(
-  implicit ec: ExecutionContext
+class MongoLockRepository @Inject()(
+  mongoComponent  : MongoComponent,
+  timestampSupport: TimestampSupport
+)(implicit
+  ec: ExecutionContext
 ) extends PlayMongoRepository[Lock](
-      mongoComponent,
-      collectionName = "locks",
-      domainFormat   = Lock.format,
-      indexes        = Seq.empty
-    )
-    with LockRepository {
+  mongoComponent,
+  collectionName = "locks",
+  domainFormat   = Lock.format,
+  indexes        = Seq.empty
+) with LockRepository {
 
   private val logger = Logger(getClass)
+
+  override lazy val requiresTtlIndex = false // each lock defines it's own expiry, so doesn't rely on ttl indexes
 
   override def takeLock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = {
     val timeCreated = timestampSupport.timestamp()

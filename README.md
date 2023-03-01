@@ -45,7 +45,7 @@ Create a case class to represent the data model to be serialised/deserialised to
 
 Create [JSON Format](https://www.playframework.com/documentation/2.8.x/ScalaJsonCombinators) to map the data model to JSON.
 
-Extend [PlayMongoRepository](https://github.com/hmrc/hmrc-mongo/blob/main/hmrc-mongo-play-28/src/main/scala/uk/gov/hmrc/mongo/play/PlayMongoComponent.scala), providing the collectionName, the mongoComponent, and domainFormat.
+Extend [PlayMongoRepository](https://github.com/hmrc/hmrc-mongo/blob/main/hmrc-mongo-play-28/src/main/scala/uk/gov/hmrc/mongo/play/PlayMongoRepository.scala), providing the collectionName, the mongoComponent, and domainFormat.
 
 The mongoComponent can be injected if you register the PlayMongoModule with play. In `application.conf`:
 ```scala
@@ -276,11 +276,26 @@ You may see `com.mongodb.MongoCommandException, with message: Command failed wit
 Tests should ensure the data is stored in the expected encrypted format.
 You may want to refer to [these examples](/hmrc-mongo-play-28/src/test/scala/uk/gov/hmrc/mongo/encryption)
 
+## TTL Indexes
+
+TTL Indexes are generally expected. `PlayMongoRepository` will log warnings on startup if there is no TTL Index. `DefaultPlayMongoRepositorySupport` will by default fail the test if there isn't a TTL Index or it points to a non-Date field.
+
+In the exceptional case that a TTL Index is not required, this can be indicated by overriding `requiresTtlIndex` with `false` in `PlayMongoRepository`.
 
 ## Changes
 
 ### Version 1.0.0
-`java.time.LocalDateTime` support has been removed. It is preferrable to use `java.time.Instant` for storing DateTime in mongo. Use your own formats if `LocalDateTime` is required.
+- `java.time.LocalDateTime` support has been removed.
+
+  It is preferrable to use `java.time.Instant` for storing DateTime in mongo. Use your own formats if `LocalDateTime` is required.
+
+- Added checks for TTL Indexes.
+
+  See [TTL Indexes](#ttl-indexes)
+
+- Deployments will no longer fail if adding a new index takes a long time to apply. Failures to create an index (e.g. conflicting index) will still fail a deployment if they occur immediately (which they typically do).
+
+  If you still need to know when `ensureIndexes` has finished, you can access `PlayMongoRepository#initialised`
 
 ### Version 0.72.0
 MongoCacheRepository.get previously returned `None` for both an empty/expired cache as well as if it failed to deserialise the data. Failure to deserialise will now result in a failed Future.
