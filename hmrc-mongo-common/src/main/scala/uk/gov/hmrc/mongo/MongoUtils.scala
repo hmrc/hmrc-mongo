@@ -19,7 +19,7 @@ package uk.gov.hmrc.mongo
 import org.bson.{BsonType, BsonValue}
 import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, MongoServerException}
 import org.mongodb.scala.bson.{BsonDocument, BsonString}
-import org.mongodb.scala.model.{Filters, IndexModel, ValidationAction, ValidationLevel}
+import org.mongodb.scala.model.{Aggregates, Filters, IndexModel, ValidationAction, ValidationLevel}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -111,15 +111,17 @@ trait MongoUtils {
                                               dataType <- if (!hasData)
                                                             Future.successful(TtlState.NoData)
                                                           else
-                                                              collection
+                                                            collection
+                                                              .aggregate(Seq(
                                                                 // this includes array containing Date_Time - which is also valid for a ttl index
-                                                                .find(Filters.not(Filters.`type`(key, BsonType.DATE_TIME)))
-                                                                .projection(BsonDocument("type" ->  BsonDocument("$type" -> s"$$$key")))
-                                                                .limit(1)
-                                                                .headOption()
-                                                                .map { case None    => TtlState.ValidType
-                                                                       case Some(o) => TtlState.InvalidType(o[BsonString]("type").getValue)
-                                                                     }
+                                                                Aggregates.`match`(Filters.not(Filters.`type`(key, BsonType.DATE_TIME))),
+                                                                Aggregates.project(BsonDocument("type" ->  BsonDocument("$type" -> s"$$$key"))),
+                                                                Aggregates.limit(1)
+                                                              ))
+                                                              .headOption()
+                                                              .map { case None    => TtlState.ValidType
+                                                                     case Some(o) => TtlState.InvalidType(o[BsonString]("type").getValue)
+                                                                   }
                                              } yield dataType
                               } yield key -> dataType
                             }

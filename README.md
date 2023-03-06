@@ -285,14 +285,6 @@ In the exceptional case that a TTL Index is not required, this can be indicated 
 ## Changes
 
 ### Version 1.0.0
-- Mongo 4.4 is the lowest version supported.
-
-  With lower versions you may see the following when running tests
-
-  ```
-  com.mongodb.MongoQueryException, with message: Command failed with error 2 (BadValue): 'Unsupported projection option: type: { $type: "$..." }'
-  ```
-
 - `java.time.LocalDateTime` support has been removed.
 
   It is preferrable to use `java.time.Instant` for storing DateTime in mongo. Use your own formats if `LocalDateTime` is required.
