@@ -25,7 +25,6 @@ import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
 
 import java.util.concurrent.TimeoutException
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration.DurationInt
 import scala.reflect.ClassTag
 
 /** Initialise a mongo repository.
@@ -67,12 +66,13 @@ class PlayMongoRepository[A: ClassTag](
       _ <- ensureIndexes()
     } yield logger.info(s"Collection $collectionName has initialised")
 
+  private val initTimeout = mongoComponent.initTimeout
   try {
     // We await to ensure failures are propagated on the constructor thread, but we
     // don't care about long running index creation.
-    Await.result(initialised, 2.seconds)
+    Await.result(initialised, initTimeout)
   } catch {
-    case _: TimeoutException => logger.warn("Index creation is taking longer than 2.seconds")
+    case _: TimeoutException => logger.warn(s"Index creation is taking longer than ${initTimeout.toSeconds} s")
     case t: Throwable        => logger.error(s"Failed to initialise collection $collectionName: ${t.getMessage}", t); throw t
   }
 
@@ -80,8 +80,8 @@ class PlayMongoRepository[A: ClassTag](
     for {
       res <- MongoUtils.ensureIndexes(collection, indexes, replaceIndexes)
       _   <- if (requiresTtlIndex)
-              MongoUtils.checkTtlIndex(mongoComponent, collectionName, checkType = false)
-            else Future.unit
+               MongoUtils.checkTtlIndex(mongoComponent, collectionName, checkType = false)
+             else Future.unit
     } yield res
 
   def ensureSchema(): Future[Unit] =

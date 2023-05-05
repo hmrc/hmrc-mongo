@@ -24,7 +24,7 @@ import play.api.{Configuration, Logger}
 import uk.gov.hmrc.mongo.MongoComponent
 
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration.DurationLong
+import scala.concurrent.duration.FiniteDuration
 
 @Singleton
 class PlayMongoComponent @Inject() (
@@ -46,12 +46,15 @@ class PlayMongoComponent @Inject() (
   override lazy val client: MongoClient =
     MongoClient(uri = mongoUri)
 
+  override lazy val initTimeout =
+    configuration.get[FiniteDuration]("hmrc.mongo.init.timeout")
+
   override val database: MongoDatabase = {
     val database = client.getDatabase(new ConnectionString(mongoUri).getDatabase)
     try {
       Await.result(database.listCollectionNames().toFuture().map { collectionNames =>
         logger.info(s"Existing collections:${collectionNames.mkString("\n  ", "\n  ", "")}")
-      }, 2.seconds)
+      }, initTimeout)
     } catch {
       case t: Throwable => logger.error(s"Failed to connect to Mongo: ${t.getMessage}", t); throw t
     }
