@@ -18,16 +18,21 @@ package uk.gov.hmrc.mongo
 
 import com.mongodb.ConnectionString
 import org.mongodb.scala.{MongoClient, MongoDatabase}
+import scala.concurrent.duration.{FiniteDuration, DurationLong}
 
 trait MongoComponent {
-  def client: MongoClient
-  def database: MongoDatabase
+  def client     : MongoClient
+  def database   : MongoDatabase
+  def initTimeout: FiniteDuration
 }
 
 object MongoComponent {
-  def apply(mongoUri: String): MongoComponent =
+  def apply(mongoUri: String, initTimeout: FiniteDuration = 5.seconds): MongoComponent = {
+    val it = initTimeout
     new MongoComponent {
-      override val client: MongoClient     = MongoClient(mongoUri)
-      override val database: MongoDatabase = client.getDatabase(new ConnectionString(mongoUri).getDatabase)
+      override val client     : MongoClient    = MongoClient(mongoUri)
+      override val database   : MongoDatabase  = client.getDatabase(new ConnectionString(mongoUri).getDatabase)
+      override val initTimeout: FiniteDuration = it
     }
+  }
 }

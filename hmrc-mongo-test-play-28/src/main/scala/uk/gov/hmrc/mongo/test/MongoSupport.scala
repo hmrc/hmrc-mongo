@@ -22,15 +22,16 @@ import org.scalatest.concurrent.ScalaFutures
 import play.api.Logger
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils, TtlState}
 
+import scala.concurrent.duration.{FiniteDuration, DurationLong}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-
 trait MongoSupport extends ScalaFutures {
-  protected def databaseName: String = "test-" + this.getClass.getSimpleName
-  protected def mongoUri: String     = s"mongodb://localhost:27017/$databaseName"
+  protected def databaseName: String        = "test-" + this.getClass.getSimpleName
+  protected def mongoUri: String            = s"mongodb://localhost:27017/$databaseName"
+  protected def initTimeout: FiniteDuration = 5.seconds
 
-  protected lazy val mongoComponent: MongoComponent = MongoComponent(mongoUri)
+  protected lazy val mongoComponent: MongoComponent = MongoComponent(mongoUri, initTimeout)
   protected lazy val mongoClient: MongoClient       = mongoComponent.client
   protected lazy val mongoDatabase: MongoDatabase   = mongoComponent.database
 
