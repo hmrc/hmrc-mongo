@@ -284,6 +284,8 @@ In the exceptional case that a TTL Index is not required, this can be indicated 
 
 ## Changes
 
+### Version 1.3.0
+- Restore target JVM 8.
 ### Version 1.2.0
 - Made awaits on initialisation configurable. Use `hmrc.mongo.init.timeout` - default is `5 seconds`.
 ### Version 1.0.0

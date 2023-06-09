@@ -16,14 +16,14 @@
 
 package uk.gov.hmrc.mongo.lock
 
-import java.time.{Instant, Clock, ZoneId}
-
 import com.mongodb.client.model.Filters
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, DurationInt}
@@ -93,8 +93,7 @@ class LockServiceSpec
   private val lockId        = "lockId"
   private val owner         = "owner"
   private val ttl: Duration = 1000.millis
-  private val clock         = Clock.tickMillis(ZoneId.systemDefault())
-  private val now           = Instant.now(clock)
+  private val now           = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 
   override protected val repository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
   private val lockService           = LockService(repository, lockId, ttl)

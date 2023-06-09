@@ -16,9 +16,6 @@
 
 package uk.gov.hmrc.mongo.lock
 
-import java.time.{Instant, Clock, ZoneId}
-import java.time.temporal.ChronoUnit
-
 import com.mongodb.MongoServerException
 import com.mongodb.client.model.Filters
 import org.scalatest.matchers.should.Matchers
@@ -27,6 +24,8 @@ import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
 import uk.gov.hmrc.mongo.TimestampSupport
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 
@@ -237,6 +236,5 @@ class MongoLockRepositorySpec
   private val lockId = "lockId"
   private val owner  = "owner"
   private val ttl    = 1000.millis
-  private val clock  = Clock.tickMillis(ZoneId.systemDefault())
-  private val now    = Instant.now(clock)
+  private val now    = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 }

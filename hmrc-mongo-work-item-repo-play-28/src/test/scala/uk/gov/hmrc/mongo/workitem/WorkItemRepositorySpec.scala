@@ -16,19 +16,18 @@
 
 package uk.gov.hmrc.mongo.workitem
 
-import java.time.{Instant, Clock, ZoneId}
-import java.time.temporal.ChronoUnit
 
 import org.bson.types.ObjectId
 import org.scalatest.{LoneElement, OptionValues}
+import org.scalatest.matchers.{HavePropertyMatcher, HavePropertyMatchResult}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.language.reflectiveCalls
-import org.scalatest.matchers.HavePropertyMatcher
-import org.scalatest.matchers.HavePropertyMatchResult
 
 class WorkItemRepositorySpec
   extends AnyWordSpec
@@ -38,12 +37,10 @@ class WorkItemRepositorySpec
      with OptionValues
      with CustomMatchers {
 
-  private val clock = Clock.tickMillis(ZoneId.systemDefault())
-
   def createWorkItemsWith(statuses: Seq[ProcessingStatus]): Unit =
     Future.traverse(statuses) { status =>
       for {
-        item <- repository.pushNew(item1, Instant.now(clock))
+        item <- repository.pushNew(item1, Instant.now().truncatedTo(ChronoUnit.MILLIS))
         _    <- repository.markAs(item.id, status)
       } yield ()
     }.futureValue
