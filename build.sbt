@@ -13,10 +13,7 @@ lazy val commonSettings = Seq(
   scalaVersion       := scala2_13,
   crossScalaVersions := Seq(scala2_12, scala2_13),
   isPublicArtefact   := true,
-  scalacOptions      ++= Seq("-feature"),
-  // We're only using Java 11 code in tests, but unfortunately we can't currently scope this setting to Test.
-  // We should be able to remove this when all clients are on Java 11.
-  DefaultBuildSettings.targetJvm := "11"
+  scalacOptions      ++= Seq("-feature")
 )
 
 lazy val library = Project("hmrc-mongo", file("."))

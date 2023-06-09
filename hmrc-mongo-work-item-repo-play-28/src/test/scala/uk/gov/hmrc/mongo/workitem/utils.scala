@@ -16,31 +16,24 @@
 
 package uk.gov.hmrc.mongo.workitem
 
-import java.time.{Duration, Instant, Clock, ZoneId}
-
-import java.time.temporal.ChronoUnit
-import java.util.concurrent.atomic.AtomicReference
-
 import org.bson.types.ObjectId
+import org.mongodb.scala.model.{IndexOptions, IndexModel, Indexes}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.TestSuite
 import play.api.libs.json.Json
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
+import java.time.{Duration, Instant}
+import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.reflectiveCalls
-import org.mongodb.scala.model.IndexModel
-import org.mongodb.scala.model.Indexes
-import org.mongodb.scala.model.IndexOptions
-import java.util.concurrent.TimeUnit
 
 trait TimeSource {
   val timeSource = new {
-    private val clock =
-      Clock.tickMillis(ZoneId.systemDefault())
-
     private val nowRef =
-      new AtomicReference[Instant](Instant.now(clock))
+      new AtomicReference[Instant](Instant.now().truncatedTo(ChronoUnit.MILLIS))
 
     def now: Instant =
       nowRef.get()
