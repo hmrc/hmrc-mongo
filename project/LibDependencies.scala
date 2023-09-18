@@ -34,7 +34,6 @@ object LibDependencies {
 
   def hmrcMongoPlay29(scalaVersion: String): Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"                % play29Version,
-    "joda-time"         %  "joda-time"           % "2.10.5", // not provided transitively by play-28 (can we drop joda?)
     "com.typesafe.play" %% "play-guice"          % play29Version,
     "uk.gov.hmrc"       %% "crypto-json-play-29" % "7.1.0-SNAPSHOT" % Test
   ) ++ test(scalaVersion)

@@ -21,7 +21,6 @@ import com.mongodb.MongoWriteException
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
 import org.bson.types.ObjectId
-import org.joda.{time => jot}
 import org.mongodb.scala.{Document, ReadPreference}
 import org.mongodb.scala.bson.{BsonDocument, BsonString}
 import org.mongodb.scala.model.{Filters, Updates}
@@ -35,10 +34,10 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
-import uk.gov.hmrc.mongo.play.json.formats.{MongoBinaryFormats, MongoFormats, MongoJavatimeFormats, MongoJodaFormats, MongoUuidFormats}
+import uk.gov.hmrc.mongo.play.json.formats.{MongoBinaryFormats, MongoFormats, MongoJavatimeFormats, MongoUuidFormats}
 
 import java.util.UUID
-import java.{time => jat}
+import java.time.{Instant, LocalDate, ZoneOffset}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
@@ -75,7 +74,6 @@ class PlayMongoRepositorySpec
   import Implicits._
   import MongoFormats.Implicits._
   import MongoBinaryFormats.Implicits._
-  import MongoJodaFormats.Implicits._
   // Note without the following import, it will compile, but use plays Javatime formats.
   // Applying `myObjectSchema` will check that dates are being stored as dates
   import MongoJavatimeFormats.Implicits._
@@ -115,9 +113,6 @@ class PlayMongoRepositorySpec
         checkFind("long"             , myObj.long)
         checkFind("double"           , myObj.double)
         checkFind("bigDecimal"       , myObj.bigDecimal)
-        checkFind("jodaDateTime"     , myObj.jodaDateTime)
-        checkFind("jodaLocalDate"    , myObj.jodaLocalDate)
-        checkFind("jodaLocalDateTime", myObj.jodaLocalDateTime)
         checkFind("javaInstant"      , myObj.javaInstant)
         checkFind("javaLocalDate"    , myObj.javaLocalDate)
         checkFind("sum"              , myObj.sum)
@@ -171,9 +166,6 @@ class PlayMongoRepositorySpec
           checkUpdate("long"             , targetObj.long             )
           checkUpdate("double"           , targetObj.double           )
           checkUpdate("bigDecimal"       , targetObj.bigDecimal       )
-          checkUpdate("jodaDateTime"     , targetObj.jodaDateTime     )
-          checkUpdate("jodaLocalDate"    , targetObj.jodaLocalDate    )
-          checkUpdate("jodaLocalDateTime", targetObj.jodaLocalDateTime)
           checkUpdate("javaInstant"      , targetObj.javaInstant      )
           checkUpdate("javaLocalDate"    , targetObj.javaLocalDate    )
           checkUpdate("sum"              , targetObj.sum              )
@@ -353,13 +345,9 @@ object PlayMongoRepositorySpec {
     bigDecimal       : BigDecimalWrapper,
     // Sum type (WIP)
     sum              : Sum,
-    // Joda time
-    jodaDateTime     : jot.DateTime,
-    jodaLocalDate    : jot.LocalDate,
-    jodaLocalDateTime: jot.LocalDateTime,
     // Java time
-    javaInstant      : jat.Instant,
-    javaLocalDate    : jat.LocalDate,
+    javaInstant      : Instant,
+    javaLocalDate    : LocalDate,
     objectId         : ObjectId,
     // Arrays
     listString       : List[String],
@@ -433,7 +421,6 @@ object PlayMongoRepositorySpec {
   val myObjectFormat = {
     import Implicits._
     import MongoFormats.Implicits._
-    import MongoJodaFormats.Implicits._
     // Note without the following import, it will compile, but use plays Javatime formats.
     // Applying `myObjectSchema` will check that dates are being stored as dates
     import MongoJavatimeFormats.Implicits._
@@ -445,11 +432,8 @@ object PlayMongoRepositorySpec {
     ~ (__ \ "double"           ).format[DoubleWrapper    ]
     ~ (__ \ "bigDecimal"       ).format[BigDecimalWrapper]
     ~ (__ \ "sum"              ).format[Sum              ]
-    ~ (__ \ "jodaDateTime"     ).format[jot.DateTime     ]
-    ~ (__ \ "jodaLocalDate"    ).format[jot.LocalDate    ]
-    ~ (__ \ "jodaLocalDateTime").format[jot.LocalDateTime]
-    ~ (__ \ "javaInstant"      ).format[jat.Instant      ]
-    ~ (__ \ "javaLocalDate"    ).format[jat.LocalDate    ]
+    ~ (__ \ "javaInstant"      ).format[Instant          ]
+    ~ (__ \ "javaLocalDate"    ).format[LocalDate        ]
     ~ (__ \ "objectId"         ).format[ObjectId         ]
     ~ (__ \ "listString"       ).format[List[String]     ]
     ~ (__ \ "listLong"         ).format[List[Long]       ]
@@ -474,9 +458,6 @@ object PlayMongoRepositorySpec {
         , double           : { bsonType: "number"   }
         , bigDecimal       : { bsonType: "number"   }
         , sum              : { enum: [ "Sum1", "Sum2" ] }
-        , jodaDateTime     : { bsonType: "date"     }
-        , jodaLocalDate    : { bsonType: "date"     }
-        , jodaLocalDateTime: { bsonType: "date"     }
         , javaInstant      : { bsonType: "date"     }
         , javaLocalDate    : { bsonType: "date"     }
         , javaLocalDateTime: { bsonType: "date"     }
@@ -516,11 +497,8 @@ object PlayMongoRepositorySpec {
       double            = DoubleWrapper(d),
       bigDecimal        = BigDecimalWrapper(bd),
       sum               = Sum.Sum1,
-      jodaDateTime      = new jot.DateTime(epochMillis, jot.DateTimeZone.UTC), // Mongo db assumes UTC (timezone is not stored in db - when read back, it will represent the same instant, but with timezone UTC)
-      jodaLocalDate     = new jot.LocalDate(epochMillis),
-      jodaLocalDateTime = new jot.LocalDateTime(epochMillis),
-      javaInstant       = jat.Instant.ofEpochMilli(epochMillis),
-      javaLocalDate     = jat.Instant.ofEpochMilli(epochMillis).atZone(jat.ZoneOffset.UTC).toLocalDate,
+      javaInstant       = Instant.ofEpochMilli(epochMillis),
+      javaLocalDate     = Instant.ofEpochMilli(epochMillis).atZone(ZoneOffset.UTC).toLocalDate,
       objectId          = new org.bson.types.ObjectId(new java.util.Date(epochMillis)),
       listString        = ls,
       listLong          = ll,
