@@ -135,7 +135,7 @@ trait TtlIndexedMongoSupport extends MongoSupport with TestSuite {
       case outcome => outcome
     }
 
-  abstract override def runTest(testName: String, args: Args): Status =
+  abstract override protected def runTest(testName: String, args: Args): Status =
     super.runTest(testName, args)
 
   abstract override def run(testName: Option[String], args: Args): Status =
