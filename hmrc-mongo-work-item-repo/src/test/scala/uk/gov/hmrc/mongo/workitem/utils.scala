@@ -20,7 +20,7 @@ import org.bson.types.ObjectId
 import org.mongodb.scala.model.{IndexOptions, IndexModel, Indexes}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.TestSuite
-import play.api.libs.json.Json
+import play.api.libs.json.{Format, Json}
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import java.time.{Duration, Instant}
@@ -63,7 +63,7 @@ trait WithWorkItemRepositoryModule
   with TimeSource {
     this: TestSuite =>
 
-  implicit val eif = ExampleItemWithModule.formats
+  implicit val eif: Format[ExampleItemWithModule] = ExampleItemWithModule.formats
 
   override lazy val repository = new WorkItemModuleRepository[ExampleItemWithModule](
     collectionName = "items",
@@ -130,7 +130,7 @@ trait WithWorkItemRepository
 case class ExampleItem(id: String)
 
 object ExampleItem {
-  implicit val formats = Json.format[ExampleItem]
+  implicit val formats: Format[ExampleItem] = Json.format[ExampleItem]
 }
 
 
@@ -141,9 +141,9 @@ case class ExampleItemWithModule(
 )
 
 object ExampleItemWithModule {
-  implicit val formats = {
-    implicit val instantReads = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormat
-    implicit val objectIdFormat = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormat
+  implicit val formats: Format[ExampleItemWithModule] = {
+    implicit val instantReads  : Format[Instant]  = uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats.instantFormat
+    implicit val objectIdFormat: Format[ObjectId] = uk.gov.hmrc.mongo.play.json.formats.MongoFormats.objectIdFormat
     Json.format[ExampleItemWithModule]
   }
 }

@@ -407,15 +407,15 @@ object PlayMongoRepositorySpec {
   }
 
   object Implicits {
-    implicit val swf   = stringWrapperFormat
-    implicit val bwf   = booleanWrapperFormat
-    implicit val iwf   = intWrapperFormat
-    implicit val lwf   = longWrapperFormat
-    implicit val dwf   = doubleWrapperFormat
-    implicit val bdwf  = bigDecimalWrapperFormat
-    implicit val uwf   = uuidWrapperFormat
-    implicit val binwf = binaryWrapperFormat
-    implicit val sf    = sumFormat
+    implicit val swf  : Format[StringWrapper    ] = stringWrapperFormat
+    implicit val bwf  : Format[BooleanWrapper   ] = booleanWrapperFormat
+    implicit val iwf  : Format[IntWrapper       ] = intWrapperFormat
+    implicit val lwf  : Format[LongWrapper      ] = longWrapperFormat
+    implicit val dwf  : Format[DoubleWrapper    ] = doubleWrapperFormat
+    implicit val bdwf : Format[BigDecimalWrapper] = bigDecimalWrapperFormat
+    implicit val uwf  : Format[UUIDWrapper      ] = uuidWrapperFormat
+    implicit val binwf: Format[BinaryWrapper    ] = binaryWrapperFormat
+    implicit val sf   : Format[Sum              ] = sumFormat
   }
 
   val myObjectFormat = {

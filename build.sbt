@@ -7,19 +7,13 @@ Global / concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.Untagged)
 val scala2_12 = "2.12.18"
 val scala2_13 = "2.13.11"
 
-lazy val commonSettings = Seq(
-  organization       := "uk.gov.hmrc.mongo",
-  majorVersion       := 1,
-  scalaVersion       := scala2_13,
-  isPublicArtefact   := true,
-  scalacOptions      ++= Seq("-feature")
-)
+ThisBuild / majorVersion     := 1
+ThisBuild / scalaVersion     := scala2_13
+ThisBuild / isPublicArtefact := true
+ThisBuild / scalacOptions    ++= Seq("-feature")
 
 lazy val library = Project("hmrc-mongo", file("."))
-  .settings(
-    commonSettings,
-    publish / skip := true
-  )
+  .settings(publish / skip := true)
   .aggregate(
     hmrcMongoCommon,
     hmrcMongoPlay28, hmrcMongoTestPlay28, hmrcMongoMetrixPlay28, hmrcMongoWorkItemRepoPlay28,
@@ -28,7 +22,6 @@ lazy val library = Project("hmrc-mongo", file("."))
 
 lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"))
   .settings(
-    commonSettings,
     crossScalaVersions := Seq(scala2_12, scala2_13),
     libraryDependencies ++= LibDependencies.mongoCommon(scalaVersion.value)
   )
@@ -42,7 +35,6 @@ def shareSources(location: String) = Seq(
 
 lazy val hmrcMongoPlay28 = Project("hmrc-mongo-play-28", file("hmrc-mongo-play-28"))
   .settings(
-    commonSettings,
     crossScalaVersions := Seq(scala2_12, scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoPlay28(scalaVersion.value),
     shareSources("hmrc-mongo")
@@ -50,7 +42,6 @@ lazy val hmrcMongoPlay28 = Project("hmrc-mongo-play-28", file("hmrc-mongo-play-2
 
 lazy val hmrcMongoPlay29 = Project("hmrc-mongo-play-29", file("hmrc-mongo-play-29"))
   .settings(
-    commonSettings,
     crossScalaVersions := Seq(scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoPlay29(scalaVersion.value),
     shareSources("hmrc-mongo")
@@ -58,7 +49,6 @@ lazy val hmrcMongoPlay29 = Project("hmrc-mongo-play-29", file("hmrc-mongo-play-2
 
 lazy val hmrcMongoTestPlay28 = Project("hmrc-mongo-test-play-28", file("hmrc-mongo-test-play-28"))
   .settings(
-    commonSettings,
     crossScalaVersions := Seq(scala2_12, scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoTestPlay28(scalaVersion.value),
     shareSources("hmrc-mongo-test")
@@ -66,7 +56,6 @@ lazy val hmrcMongoTestPlay28 = Project("hmrc-mongo-test-play-28", file("hmrc-mon
 
 lazy val hmrcMongoTestPlay29 = Project("hmrc-mongo-test-play-29", file("hmrc-mongo-test-play-29"))
   .settings(
-    commonSettings,
     crossScalaVersions := Seq(scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoTestPlay29(scalaVersion.value),
     shareSources("hmrc-mongo-test")
@@ -74,7 +63,6 @@ lazy val hmrcMongoTestPlay29 = Project("hmrc-mongo-test-play-29", file("hmrc-mon
 
 lazy val hmrcMongoMetrixPlay28 = Project("hmrc-mongo-metrix-play-28", file("hmrc-mongo-metrix-play-28"))
   .settings(
-    commonSettings,
     crossScalaVersions := Seq(scala2_12, scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoMetrixPlay28,
     shareSources("hmrc-mongo-metrix")
@@ -82,7 +70,6 @@ lazy val hmrcMongoMetrixPlay28 = Project("hmrc-mongo-metrix-play-28", file("hmrc
 
 lazy val hmrcMongoMetrixPlay29 = Project("hmrc-mongo-metrix-play-29", file("hmrc-mongo-metrix-play-29"))
   .settings(
-    commonSettings,
     crossScalaVersions := Seq(scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoMetrixPlay29,
     shareSources("hmrc-mongo-metrix")
@@ -90,7 +77,6 @@ lazy val hmrcMongoMetrixPlay29 = Project("hmrc-mongo-metrix-play-29", file("hmrc
 
 lazy val hmrcMongoWorkItemRepoPlay28 = Project("hmrc-mongo-work-item-repo-play-28", file("hmrc-mongo-work-item-repo-play-28"))
   .settings(
-    commonSettings,
     crossScalaVersions := Seq(scala2_12, scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoWorkItemRepoPlay28,
     shareSources("hmrc-mongo-work-item-repo")
@@ -98,7 +84,6 @@ lazy val hmrcMongoWorkItemRepoPlay28 = Project("hmrc-mongo-work-item-repo-play-2
 
 lazy val hmrcMongoWorkItemRepoPlay29 = Project("hmrc-mongo-work-item-repo-play-29", file("hmrc-mongo-work-item-repo-play-29"))
   .settings(
-    commonSettings,
     crossScalaVersions := Seq(scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoWorkItemRepoPlay29,
     shareSources("hmrc-mongo-work-item-repo")

@@ -20,11 +20,11 @@ import java.time.temporal.ChronoUnit
 
 import org.bson.types.ObjectId
 import org.mongodb.scala.model._
+import org.scalatest.{BeforeAndAfterEach, OptionValues}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
-import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import play.api.libs.json.Reads
+import play.api.libs.json.{Format, Reads}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.reflectiveCalls
@@ -33,11 +33,12 @@ class WorkItemModuleRepositorySpec
   extends AnyWordSpec
      with Matchers
      with ScalaFutures
+     with OptionValues
      with BeforeAndAfterEach
      with IntegrationPatience
      with WithWorkItemRepositoryModule {
 
-  implicit val formats = ExampleItemWithModule.formats
+  implicit val formats: Format[ExampleItemWithModule] = ExampleItemWithModule.formats
 
   "WorkItemModuleRepository" should {
     "read the work item fields" in {
@@ -124,12 +125,13 @@ class WorkItemModuleRepositorySpec
 
       repository.markAs(_id, ProcessingStatus.Succeeded).futureValue shouldBe true
 
-      val Some(workItem: WorkItem[ExampleItemWithModule]) =
+      val workItem: WorkItem[ExampleItemWithModule] =
         repository.collection.find(
           filter = Filters.equal("_id", _id)
         ).toFuture()
          .map(_.headOption)
          .futureValue
+         .value
       workItem.id shouldBe _id
       workItem.status shouldBe ProcessingStatus.Succeeded
     }

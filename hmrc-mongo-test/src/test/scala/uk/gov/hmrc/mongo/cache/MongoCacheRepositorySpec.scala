@@ -25,7 +25,7 @@ import uk.gov.hmrc.mongo.play.json.Codecs._
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 import uk.gov.hmrc.mongo.{CurrentTimestampSupport, TimestampSupport}
 
-import java.time.{Instant, ZoneId}
+import java.time.Instant
 import java.time.temporal.ChronoUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

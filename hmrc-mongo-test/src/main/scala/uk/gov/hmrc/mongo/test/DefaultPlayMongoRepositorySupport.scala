@@ -36,7 +36,7 @@ trait DefaultPlayMongoRepositorySupport[A]
      with TtlIndexedMongoSupport {
   this: TestSuite =>
 
-  override implicit val patienceConfig =
+  override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = 30.seconds, interval = 100.millis)
 
   override protected def checkTtlIndex: Boolean =

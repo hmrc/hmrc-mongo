@@ -26,7 +26,8 @@ trait EntityCache[CacheId, A] {
   val cacheRepo: MongoCacheRepository[CacheId]
   val format: Format[A]
 
-  private implicit val f = format
+  private implicit val f: Format[A] = format
+
   private val dataKey    = DataKey[A]("dataKey")
 
   def putCache(cacheId: CacheId)(data: A)(implicit ec: ExecutionContext): Future[Unit] =

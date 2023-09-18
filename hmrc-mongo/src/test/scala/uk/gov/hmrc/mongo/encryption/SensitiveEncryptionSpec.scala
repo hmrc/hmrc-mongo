@@ -29,7 +29,7 @@ import play.api.libs.json._
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
-import uk.gov.hmrc.crypto.{Crypted, Sensitive, SymmetricCryptoFactory}
+import uk.gov.hmrc.crypto.{Crypted, Decrypter, Encrypter, Sensitive, SymmetricCryptoFactory}
 import uk.gov.hmrc.crypto.Sensitive._
 import uk.gov.hmrc.crypto.json.JsonEncryption
 
@@ -233,7 +233,7 @@ object SensitiveEncryptionSpec {
   )
 
   object MyObject {
-    implicit val crypto = {
+    implicit val crypto: Encrypter with Decrypter = {
       val aesKey = {
         val aesKey = new Array[Byte](32)
         new SecureRandom().nextBytes(aesKey)

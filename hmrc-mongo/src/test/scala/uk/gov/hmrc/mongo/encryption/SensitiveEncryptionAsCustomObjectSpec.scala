@@ -241,7 +241,7 @@ object SensitiveEncryptionAsObjectSpec {
 
   object MyObject {
 
-    private implicit val crypto = {
+    private implicit val crypto: Encrypter with Decrypter = {
       val aesKey = {
         val aesKey = new Array[Byte](32)
         new SecureRandom().nextBytes(aesKey)
@@ -251,7 +251,7 @@ object SensitiveEncryptionAsObjectSpec {
       SymmetricCryptoFactory.aesGcmCryptoFromConfig("crypto", config.underlying)
     }
 
-    implicit val oif = MongoFormats.Implicits.objectIdFormat
+    implicit val oif: Format[ObjectId] = MongoFormats.Implicits.objectIdFormat
 
     val cryptoFormat: OFormat[Crypted] =
       ( (__ \ "encrypted").format[Boolean]
@@ -265,10 +265,10 @@ object SensitiveEncryptionAsObjectSpec {
           sn => crypto.encrypt(PlainText(implicitly[Format[A]].writes(unapply(sn)).toString))
         )
 
-    implicit val ssFormat = sensitiveFormat[String, SensitiveString](SensitiveString.apply, unlift(SensitiveString.unapply))
-    implicit val sbFormat = sensitiveFormat[Boolean, SensitiveBoolean](SensitiveBoolean.apply, unlift(SensitiveBoolean.unapply))
-    implicit val slFormat = sensitiveFormat[Long, SensitiveLong](SensitiveLong.apply, unlift(SensitiveLong.unapply))
-    implicit val snFormat = {
+    implicit val ssFormat: Format[SensitiveString]  = sensitiveFormat[String, SensitiveString](SensitiveString.apply, unlift(SensitiveString.unapply))
+    implicit val sbFormat: Format[SensitiveBoolean] = sensitiveFormat[Boolean, SensitiveBoolean](SensitiveBoolean.apply, unlift(SensitiveBoolean.unapply))
+    implicit val slFormat: Format[SensitiveLong]    = sensitiveFormat[Long, SensitiveLong](SensitiveLong.apply, unlift(SensitiveLong.unapply))
+    implicit val snFormat: Format[SensitiveNested]  = {
       implicit val nf = Nested.format
       sensitiveFormat(SensitiveNested.apply, unlift(SensitiveNested.unapply))
     }
