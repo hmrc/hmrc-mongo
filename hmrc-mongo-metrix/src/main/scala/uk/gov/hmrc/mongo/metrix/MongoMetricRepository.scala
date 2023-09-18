@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.metrix
 
-import com.google.inject.{ImplementedBy, Inject, Singleton}
+import com.google.inject.ImplementedBy
 import org.mongodb.scala.ReadPreference
 import org.mongodb.scala.model.{DeleteOneModel, IndexModel, IndexOptions, ReplaceOneModel, ReplaceOptions}
 import org.mongodb.scala.model.Filters.equal
@@ -24,6 +24,7 @@ import org.mongodb.scala.model.Indexes.ascending
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
+import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
 @ImplementedBy(classOf[MongoMetricRepository])

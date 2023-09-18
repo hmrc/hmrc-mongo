@@ -17,8 +17,9 @@
 package uk.gov.hmrc.mongo
 
 import java.time.Instant
+import javax.inject.Singleton
 
-import com.google.inject.{ImplementedBy, Singleton}
+import com.google.inject.ImplementedBy
 
 @ImplementedBy(classOf[CurrentTimestampSupport])
 trait TimestampSupport {

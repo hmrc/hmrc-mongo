@@ -16,13 +16,14 @@
 
 package uk.gov.hmrc.mongo.play
 
-import com.google.inject.{AbstractModule, Inject, Singleton}
+import com.google.inject.AbstractModule
 import com.mongodb.ConnectionString
 import org.mongodb.scala.{MongoClient, MongoDatabase}
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logger}
 import uk.gov.hmrc.mongo.MongoComponent
 
+import javax.inject.{Inject, Singleton}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 
