@@ -284,6 +284,10 @@ In the exceptional case that a TTL Index is not required, this can be indicated 
 
 ## Changes
 
+### Version 1.4.0
+- Supports Play 2.9.
+  Note, joda time is no longer supported with Play 2.9 build.
+
 ### Version 1.3.0
 - Restore target JVM 8.
 ### Version 1.2.0
