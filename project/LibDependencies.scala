@@ -3,14 +3,13 @@ import sbt._
 object LibDependencies {
 
   private val play28Version = "2.8.20"
-  private val play29Version = "2.9.0-M7"
+  private val play29Version = "2.9.0"
 
   def test(scalaVersion: String): Seq[ModuleID] = Seq(
-    "org.scalatest"          %% "scalatest"                  % "3.2.15"       % Test,
-    "org.scalacheck"         %% "scalacheck"                 % "1.14.3"       % Test,
-    "org.scalatestplus"      %% "scalacheck-1-17"            % "3.2.16.0"     % Test,
-    "com.vladsch.flexmark"   %  "flexmark-all"               % "0.62.2"       % Test,
-    "ch.qos.logback"         %  "logback-classic"            % "1.2.3"        % Test
+    "org.scalatest"          %% "scalatest"                  % "3.2.17"       % Test,
+    "org.scalatestplus"      %% "scalacheck-1-17"            % "3.2.17.0"     % Test,
+    "com.vladsch.flexmark"   %  "flexmark-all"               % "0.64.8"       % Test,
+    "ch.qos.logback"         %  "logback-classic"            % "1.2.12"       % Test
   ) ++
     (CrossVersion.partialVersion(scalaVersion) match {
       case Some((2, 12)) => Seq.empty
@@ -29,24 +28,24 @@ object LibDependencies {
   def hmrcMongoPlay28(scalaVersion: String): Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"                % play28Version,
     "com.typesafe.play" %% "play-guice"          % play28Version,
-    "uk.gov.hmrc"       %% "crypto-json-play-28" % "7.1.0-SNAPSHOT" % Test
+    "uk.gov.hmrc"       %% "crypto-json-play-28" % "7.4.0" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoPlay29(scalaVersion: String): Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"                % play29Version,
     "com.typesafe.play" %% "play-guice"          % play29Version,
-    "uk.gov.hmrc"       %% "crypto-json-play-29" % "7.1.0-SNAPSHOT" % Test
+    "uk.gov.hmrc"       %% "crypto-json-play-29" % "7.4.0" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoTestPlay28(scalaVersion: String): Seq[ModuleID] = Seq(
-    "org.scalatest"         %% "scalatest"       % "3.1.0", // version chosen for compatibility with scalatestplus-play
+    "org.scalatest"         %% "scalatest"       % "3.1.1", // version chosen for compatibility with scalatestplus-play
     "com.vladsch.flexmark"  %  "flexmark-all"    % "0.35.10",
     "org.mockito"           %% "mockito-scala"   % "1.17.14" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoTestPlay29(scalaVersion: String): Seq[ModuleID] = Seq(
-    "org.scalatest"         %% "scalatest"       % "3.2.15", // version chosen for compatibility with scalatestplus-play
-    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.62.2",
+    "org.scalatest"         %% "scalatest"       % "3.2.17", // version chosen for compatibility with scalatestplus-play
+    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.62.2", // to go beyond requires Java 11 https://github.com/scalatest/scalatest/issues/2276
     "org.mockito"           %% "mockito-scala"   % "1.17.14" % Test
   ) ++ test(scalaVersion)
 

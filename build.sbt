@@ -5,7 +5,7 @@ import uk.gov.hmrc.DefaultBuildSettings
 Global / concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.Untagged)
 
 val scala2_12 = "2.12.18"
-val scala2_13 = "2.13.11"
+val scala2_13 = "2.13.12"
 
 ThisBuild / majorVersion     := 1
 ThisBuild / scalaVersion     := scala2_13
