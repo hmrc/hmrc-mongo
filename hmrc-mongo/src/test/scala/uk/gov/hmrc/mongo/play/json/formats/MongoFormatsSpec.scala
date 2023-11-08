@@ -16,7 +16,6 @@
 
 package uk.gov.hmrc.mongo.play.json.formats
 
-import akka.util.ByteString
 import org.bson.BSONException
 import org.bson.UuidRepresentation
 import org.bson.codecs.EncoderContext
@@ -34,6 +33,7 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import play.api.libs.json.JsError
 import play.api.libs.json.JsValue
 import play.api.libs.json.Json
+import uk.gov.hmrc.mongo.play.stream.ByteString
 
 import java.nio.ByteBuffer
 import java.util.UUID
@@ -138,7 +138,7 @@ class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDriv
       }
     }
 
-    "encoding Akka ByteString in standard Mongo binary encoding" should {
+    "encoding Akka/Pekko ByteString in standard Mongo binary encoding" should {
       "round trip binary data" in {
         forAll { bytes: Array[Byte] =>
           val jsValue = MongoBinaryFormats.byteStringFormat.writes(ByteString(bytes))

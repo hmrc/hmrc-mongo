@@ -16,10 +16,10 @@
 
 package uk.gov.hmrc.mongo.play.json.formats
 
-import akka.util.ByteString
 import org.bson.BsonBinarySubType
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
+import uk.gov.hmrc.mongo.play.stream.ByteString
 
 import java.nio.ByteBuffer
 import java.util.Base64
