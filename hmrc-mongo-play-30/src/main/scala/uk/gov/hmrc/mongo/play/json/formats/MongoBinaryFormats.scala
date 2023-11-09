@@ -19,7 +19,7 @@ package uk.gov.hmrc.mongo.play.json.formats
 import org.bson.BsonBinarySubType
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
-import uk.gov.hmrc.mongo.play.stream.ByteString
+import org.apache.pekko.util.ByteString
 
 import java.nio.ByteBuffer
 import java.util.Base64

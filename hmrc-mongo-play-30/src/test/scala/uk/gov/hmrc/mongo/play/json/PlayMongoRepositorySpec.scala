@@ -17,6 +17,7 @@
 package uk.gov.hmrc.mongo.play.json
 
 import com.mongodb.MongoWriteException
+import org.apache.pekko.util.ByteString
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
 import org.bson.types.ObjectId
@@ -34,7 +35,6 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 import uk.gov.hmrc.mongo.play.json.formats.{MongoBinaryFormats, MongoFormats, MongoJavatimeFormats, MongoUuidFormats}
-import uk.gov.hmrc.mongo.play.stream.ByteString
 
 import java.util.UUID
 import java.time.{Instant, LocalDate, ZoneOffset}

@@ -16,6 +16,7 @@
 
 package uk.gov.hmrc.mongo.play.json.formats
 
+import org.apache.pekko.util.ByteString
 import org.bson.BSONException
 import org.bson.UuidRepresentation
 import org.bson.codecs.EncoderContext
@@ -33,7 +34,6 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import play.api.libs.json.JsError
 import play.api.libs.json.JsValue
 import play.api.libs.json.Json
-import uk.gov.hmrc.mongo.play.stream.ByteString
 
 import java.nio.ByteBuffer
 import java.util.UUID

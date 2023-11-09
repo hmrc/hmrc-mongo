@@ -29,19 +29,19 @@ object LibDependencies {
   def hmrcMongoPlay28(scalaVersion: String): Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"                % play28Version,
     "com.typesafe.play" %% "play-guice"          % play28Version,
-    "uk.gov.hmrc"       %% "crypto-json-play-28" % "7.5.0" % Test
+    "uk.gov.hmrc"       %% "crypto-json-play-28" % "7.6.0" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoPlay29(scalaVersion: String): Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"                % play29Version,
     "com.typesafe.play" %% "play-guice"          % play29Version,
-    "uk.gov.hmrc"       %% "crypto-json-play-29" % "7.5.0" % Test
+    "uk.gov.hmrc"       %% "crypto-json-play-29" % "7.6.0" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoPlay30(scalaVersion: String): Seq[ModuleID] = Seq(
     "org.playframework" %% "play"                % play30Version,
     "org.playframework" %% "play-guice"          % play30Version,
-    "uk.gov.hmrc"       %% "crypto-json-play-30" % "7.5.0" % Test
+    "uk.gov.hmrc"       %% "crypto-json-play-30" % "7.6.0" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoTestPlay28(scalaVersion: String): Seq[ModuleID] = Seq(
