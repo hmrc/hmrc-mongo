@@ -77,7 +77,7 @@ class MongoCacheRepository[CacheId] @Inject() (
   def put[A: Writes](
     cacheId: CacheId
   )(dataKey: DataKey[A], data: A): Future[CacheItem] =
-    MongoUtils.retryOnDuplicateKey(retries = 3) {
+    MongoUtils.retryOnDuplicateKey(retries = 3) { // This can be removed once we longer support < Mongo 5.0
       val id        = cacheIdType.run(cacheId)
       val timestamp = timestampSupport.timestamp()
       this.collection

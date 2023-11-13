@@ -173,7 +173,7 @@ class MongoUtilsSpec
          createdIndexes1 <- collection.listIndexes().toFuture()
          _               =  createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
                               BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 10L)
+                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 10)
                             )
          _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = false)
          createdIndexes2 <- collection.listIndexes().toFuture()
@@ -225,13 +225,13 @@ class MongoUtilsSpec
          createdIndexes1 <- collection.listIndexes().toFuture()
          _               =  createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
                               BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 10L)
+                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 10)
                             )
          _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
          createdIndexes2 <- collection.listIndexes().toFuture()
          _               =  createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
                               BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 20L)
+                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 20)
                             )
        } yield ()
       ).futureValue
