@@ -16,8 +16,8 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import akka.util.ByteString
 import com.mongodb.MongoWriteException
+import org.apache.pekko.util.ByteString
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
 import org.bson.types.ObjectId

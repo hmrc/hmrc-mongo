@@ -4,6 +4,7 @@ object LibDependencies {
 
   private val play28Version = "2.8.20"
   private val play29Version = "2.9.0"
+  private val play30Version = "3.0.0"
 
   def test(scalaVersion: String): Seq[ModuleID] = Seq(
     "org.scalatest"          %% "scalatest"                  % "3.2.17"       % Test,
@@ -28,13 +29,19 @@ object LibDependencies {
   def hmrcMongoPlay28(scalaVersion: String): Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"                % play28Version,
     "com.typesafe.play" %% "play-guice"          % play28Version,
-    "uk.gov.hmrc"       %% "crypto-json-play-28" % "7.4.0" % Test
+    "uk.gov.hmrc"       %% "crypto-json-play-28" % "7.6.0" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoPlay29(scalaVersion: String): Seq[ModuleID] = Seq(
     "com.typesafe.play" %% "play"                % play29Version,
     "com.typesafe.play" %% "play-guice"          % play29Version,
-    "uk.gov.hmrc"       %% "crypto-json-play-29" % "7.4.0" % Test
+    "uk.gov.hmrc"       %% "crypto-json-play-29" % "7.6.0" % Test
+  ) ++ test(scalaVersion)
+
+  def hmrcMongoPlay30(scalaVersion: String): Seq[ModuleID] = Seq(
+    "org.playframework" %% "play"                % play30Version,
+    "org.playframework" %% "play-guice"          % play30Version,
+    "uk.gov.hmrc"       %% "crypto-json-play-30" % "7.6.0" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoTestPlay28(scalaVersion: String): Seq[ModuleID] = Seq(
@@ -49,17 +56,30 @@ object LibDependencies {
     "org.mockito"           %% "mockito-scala"   % "1.17.14" % Test
   ) ++ test(scalaVersion)
 
+  def hmrcMongoTestPlay30(scalaVersion: String): Seq[ModuleID] = Seq(
+    "org.scalatest"         %% "scalatest"       % "3.2.17", // version chosen for compatibility with scalatestplus-play
+    "com.vladsch.flexmark"  %  "flexmark-all"    % "0.62.2", // to go beyond requires Java 11 https://github.com/scalatest/scalatest/issues/2276
+    "org.mockito"           %% "mockito-scala"   % "1.17.14" % Test
+  ) ++ test(scalaVersion)
+
   lazy val hmrcMongoMetrixPlay28: Seq[ModuleID] = Seq(
-    "com.kenshoo"           %% "metrics-play"    % "2.7.3_0.8.1", // no Play 2.8 build, but is compatible.
+    "io.dropwizard.metrics" %  "metrics-core"    % "4.0.5", // version chosen for compatibility with bootstrap-play
     "org.mockito"           %% "mockito-scala"   % "1.17.14" % Test
   )
 
   lazy val hmrcMongoMetrixPlay29: Seq[ModuleID] = Seq(
-    "com.kenshoo"           %% "metrics-play"    % "2.7.3_0.8.1", // no Play 2.9 build, but is compatible.
+    "io.dropwizard.metrics" %  "metrics-core"    % "4.0.5", // version chosen for compatibility with bootstrap-play
     "org.mockito"           %% "mockito-scala"   % "1.17.14" % Test
   )
 
-  lazy val hmrcMongoWorkItemRepoPlay28: Seq[ModuleID] = Seq()
+  lazy val hmrcMongoMetrixPlay30: Seq[ModuleID] = Seq(
+    "io.dropwizard.metrics" %  "metrics-core"    % "4.0.5", // version chosen for compatibility with bootstrap-play
+    "org.mockito"           %% "mockito-scala"   % "1.17.14" % Test
+  )
 
-  lazy val hmrcMongoWorkItemRepoPlay29: Seq[ModuleID] = Seq()
+  lazy val hmrcMongoWorkItemRepoPlay28: Seq[ModuleID] = Seq.empty
+
+  lazy val hmrcMongoWorkItemRepoPlay29: Seq[ModuleID] = Seq.empty
+
+  lazy val hmrcMongoWorkItemRepoPlay30: Seq[ModuleID] = Seq.empty
 }
