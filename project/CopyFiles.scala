@@ -9,7 +9,7 @@ object CopySources {
         val from  = fromSetting.value
         val to    = toSetting.value
         val files = (from ** "*").get.filterNot(_.isDirectory)
-        println(s"Copying and transforming the following files for ${moduleName.value} scalaVersion ${scalaVersion.value}: files:\n${files.map("  " + _).mkString("\n")}}")
+        println(s"Copying and transforming the following files for ${moduleName.value} scalaVersion ${scalaVersion.value}: files:\n${files.map("  " + _).mkString("\n")}")
         files.map { file =>
           val targetFile = new java.io.File(file.getParent.replace(from.getPath, to.getPath)) / file.getName
           IO.write(targetFile, transform(IO.read(file)))
