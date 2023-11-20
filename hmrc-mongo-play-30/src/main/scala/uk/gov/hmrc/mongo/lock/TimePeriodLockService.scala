@@ -39,7 +39,7 @@ trait TimePeriodLockService {
     (for {
        refreshed <- lockRepository.refreshExpiry(lockId, ownerId, ttl)
        acquired  <- if (!refreshed)
-                      lockRepository.takeLock(lockId, ownerId, ttl)
+                      lockRepository.takeLock(lockId, ownerId, ttl).map(_.isDefined)
                     else
                       Future.successful(false)
        result    <- if (refreshed || acquired)

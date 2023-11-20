@@ -90,7 +90,11 @@ Other parameters:
 
 This is a utility that prevents multiple instances of the same application from performing an operation at the same time. This can be useful for example when a REST api has to be called at a scheduled time. Without this utility every instance of the application would call the REST api.
 
-There are 2 variants that can be used to instigate a lock, `LockService` for locking for a particular task and `ExclusiveTimePeriodLock` to lock exclusively for a given time period (i.e. stop other instances executing the task until it stops renewing the lock).
+There are 3 variants that can be used to instigate a lock:
+
+- `LockService` for locking for a particular task.
+- `TimePeriodLockService` to lock exclusively for a given time period (i.e. stop other instances executing the task until it stops renewing the lock).
+- `ScheduledLockService` for working with scheduled tasks with variable run times, will wait for current task to finish before allowing another to start.
 
 ### LockService
 
@@ -139,6 +143,55 @@ class LockClient @Inject()(mongoLockRepository: MongoLockRepository) {
   }.map {
     case Some(res) => logger.debug(s"Finished with $res. Lock has been renewed.")
     case None      => logger.debug("Failed to take lock")
+  }
+}
+```
+
+### ScheduledLockService
+
+Seeks to alleviate the limitations faced when trying to lock for the execution of scheduled tasks using the other available locking implementations:
+
+- `LockService` can result in a scheduled task executing more frequently than desired.
+- `TimePeriodLockService` can result in parallel executions of the same task when the `ttl` lapses before the task is complete.
+
+When using `ScheduledLockService` the `ttl` will be extended if the task is still running. Once the task has completed it will either:
+
+1. Release the lock immediately in the event that the task execution has overrun the scheduler interval.
+2. Abandon the lock and amend the `ttl` to reflect the cadence of the scheduled task if it completed inside the regular scheduler interval.
+
+`withLock[T](body: => Future[T]): Future[Option[T]]` accepts anything that returns a Future[T] and will return the result in an Option. If it was not possible to acquire the lock, None is returned.
+
+It will only execute the body upon the acquisition of a fresh lock.
+
+```scala
+@Singleton
+class LockClient @Inject()(
+  mongoLockRepository: MongoLockRepository,
+  timestampSupport   : TimestampSupport,
+  configuration      : Configuration
+)(implicit
+  actorSystem: ActorSystem
+) {
+  
+  val initialDelay = configuration.get[Duration]("myScheduler.initialDelay")
+  val interval     = configuration.get[Duration]("myScheduler.interval")
+  
+  val lockService =
+    ScheduledLockService(
+      lockRepository    = mongoLockRepository,
+      lockId            = "my-lock",
+      timestampSupport  = timestampSupport,
+      schedulerInterval = interval
+    )
+
+  actorSystem.scheduler.scheduleWithFixedDelay(initialDelay, interval) { () =>
+    // now use the lock
+    lockService.withLock {
+      Future { /* do something */ }
+    }.map {
+      case Some(res) => logger.debug(s"Finished with $res. Lock has been released.")
+      case None      => logger.debug("Failed to take lock")
+    }
   }
 }
 ```
@@ -283,6 +336,9 @@ TTL Indexes are generally expected. `PlayMongoRepository` will log warnings on s
 In the exceptional case that a TTL Index is not required, this can be indicated by overriding `requiresTtlIndex` with `false` in `PlayMongoRepository`.
 
 ## Changes
+
+### Version 1.5.0
+- Adds `ScheduledLockService` - A locking implementation that makes working with scheduled tasks less painful and more predictable.
 
 ### Version 1.4.0
 - Supports Play 2.9.

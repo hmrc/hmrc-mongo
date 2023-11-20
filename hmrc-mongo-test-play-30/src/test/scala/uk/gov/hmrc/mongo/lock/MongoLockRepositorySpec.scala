@@ -36,7 +36,7 @@ class MongoLockRepositorySpec
 
   "takeLock" should {
     "successfully create a lock if one does not already exist" in {
-      repository.takeLock(lockId, owner, ttl).futureValue shouldBe true
+      repository.takeLock(lockId, owner, ttl).futureValue shouldBe Some(Lock(lockId, owner, now, now.plusMillis(ttl.toMillis)))
 
       count().futureValue shouldBe 1
 
@@ -46,7 +46,7 @@ class MongoLockRepositorySpec
     "successfully create a lock if a different one already exists" in {
       insert(Lock("different-lock", owner, now, now.plus(1, ChronoUnit.SECONDS))).futureValue
 
-      repository.takeLock(lockId, owner, ttl).futureValue shouldBe true
+      repository.takeLock(lockId, owner, ttl).futureValue shouldBe Some(Lock(lockId, owner, now, now.plusMillis(ttl.toMillis)))
 
       count().futureValue shouldBe 2
 
@@ -58,7 +58,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock).futureValue
 
-      repository.takeLock(lockId, owner, ttl).futureValue shouldBe false
+      repository.takeLock(lockId, owner, ttl).futureValue shouldBe None
 
       count().futureValue shouldBe 1
 
@@ -70,7 +70,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock).futureValue
 
-      repository.takeLock(lockId, owner, ttl).futureValue shouldBe false
+      repository.takeLock(lockId, owner, ttl).futureValue shouldBe None
 
       count().futureValue shouldBe 1
 
@@ -82,7 +82,7 @@ class MongoLockRepositorySpec
 
       insert(existingLock).futureValue
 
-      repository.takeLock(lockId, owner, ttl).futureValue shouldBe true
+      repository.takeLock(lockId, owner, ttl).futureValue shouldBe Some(Lock(lockId, owner, now, now.plusMillis(ttl.toMillis)))
 
       count().futureValue shouldBe 1
 
@@ -194,6 +194,44 @@ class MongoLockRepositorySpec
     }
   }
 
+  "abandonLock" should {
+    "set the owner to 'abandoned' without changing the expiryTime of the lock" in {
+      val existingLock = Lock(lockId, owner, now, now.plus(1, ChronoUnit.MINUTES))
+      insert(existingLock).futureValue
+
+      repository.abandonLock(lockId, owner).futureValue
+
+      count().futureValue        shouldBe 1
+      findAll().futureValue.head shouldBe existingLock.copy(owner = "abandoned")
+    }
+
+    "set the owner to 'abandoned' and update the expiryTime of the lock" in {
+      val existingLock = Lock(lockId, owner, now, now.plus(10, ChronoUnit.MINUTES))
+      insert(existingLock).futureValue
+
+      repository.abandonLock(lockId, owner, updatedExpiry = Some(now.plus(1, ChronoUnit.MINUTES))).futureValue
+
+      count().futureValue        shouldBe 1
+      findAll().futureValue.head shouldBe existingLock.copy(owner = "abandoned", expiryTime = now.plus(1, ChronoUnit.MINUTES))
+    }
+
+    "not make any changes to a lock with a different owner" in {
+      val existingLock = Lock(lockId, "different-owner", now, now.plus(1, ChronoUnit.MINUTES))
+      insert(existingLock).futureValue
+
+      repository.abandonLock(lockId, owner).futureValue
+
+      count().futureValue        shouldBe 1
+      findAll().futureValue.head shouldBe existingLock
+    }
+
+    "do nothing when the lock doesn't exist" in {
+      repository.abandonLock(lockId, owner).futureValue
+
+      count().futureValue shouldBe 0
+    }
+  }
+
   "isLocked" should {
     "return false if no lock obtained" in {
       repository.isLocked(lockId, owner).futureValue shouldBe false
@@ -233,8 +271,8 @@ class MongoLockRepositorySpec
 
   override protected lazy val repository = new MongoLockRepository(mongoComponent, timestampSupport)
 
-  private val lockId = "lockId"
-  private val owner  = "owner"
-  private val ttl    = 1000.millis
-  private val now    = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+  private lazy val lockId = "lockId"
+  private lazy val owner  = "owner"
+  private lazy val ttl    = 1000.millis
+  private lazy val now    = Instant.now().truncatedTo(ChronoUnit.MILLIS)
 }

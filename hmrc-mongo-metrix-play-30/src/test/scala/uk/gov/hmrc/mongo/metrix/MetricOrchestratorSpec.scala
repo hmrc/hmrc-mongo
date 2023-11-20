@@ -22,7 +22,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.Inside._
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
-import uk.gov.hmrc.mongo.lock.{MongoLockRepository, LockService}
+import uk.gov.hmrc.mongo.lock.{Lock, LockService, MongoLockRepository}
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -233,7 +233,7 @@ class MetricOrchestratorSpec
 
       val lockRepo = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport) {
         // Force the lock to never be acquired for the purpose of this test
-        override def takeLock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = Future(false)
+        override def takeLock(lockId: String, owner: String, ttl: Duration): Future[Option[Lock]] = Future(None)
       }
 
       val lockService =

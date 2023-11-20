@@ -16,9 +16,9 @@
 
 package uk.gov.hmrc.mongo.lock
 
-import java.time.{Duration => JavaDuration}
-
+import java.time.{Instant, Duration => JavaDuration}
 import com.google.inject.ImplementedBy
+
 import javax.inject.{Inject, Singleton}
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.Updates
@@ -32,9 +32,11 @@ import scala.concurrent.{ExecutionContext, Future}
 
 @ImplementedBy(classOf[MongoLockRepository])
 trait LockRepository {
-  def takeLock(lockId: String, owner: String, ttl: Duration): Future[Boolean]
+  def takeLock(lockId: String, owner: String, ttl: Duration): Future[Option[Lock]]
 
   def releaseLock(lockId: String, owner: String): Future[Unit]
+
+  def abandonLock(lockId: String, owner: String, expiry: Option[Instant]): Future[Unit]
 
   def refreshExpiry(lockId: String, owner: String, ttl: Duration): Future[Boolean]
 
@@ -58,37 +60,36 @@ class MongoLockRepository @Inject()(
 
   override lazy val requiresTtlIndex = false // each lock defines it's own expiry, so doesn't rely on ttl indexes
 
-  override def takeLock(lockId: String, owner: String, ttl: Duration): Future[Boolean] = {
-    val timeCreated = timestampSupport.timestamp()
-    val expiryTime  = timeCreated.plus(JavaDuration.ofMillis(ttl.toMillis))
+  override def takeLock(lockId: String, owner: String, ttl: Duration): Future[Option[Lock]] = {
+    val now = timestampSupport.timestamp()
+    val expiryTime = now.plus(JavaDuration.ofMillis(ttl.toMillis))
 
     (for {
       deleteResult <- collection
                         .deleteOne(
-                           and(
-                             equal(Lock.id, lockId),
-                             lte(Lock.expiryTime, timeCreated)
-                           )
-                         )
+                          and(
+                            equal(Lock.id, lockId),
+                            lte(Lock.expiryTime, now)
+                          )
+                        )
                         .toFuture()
       _            =  if (deleteResult.getDeletedCount != 0)
                         logger.info(s"Removed ${deleteResult.getDeletedCount} expired locks for $lockId")
+      lock         =  Lock(
+                        id = lockId,
+                        owner = owner,
+                        timeCreated = now,
+                        expiryTime = expiryTime
+                      )
       _            <- collection
-                        .insertOne(
-                           Lock(
-                             id          = lockId,
-                             owner       = owner,
-                             timeCreated = timeCreated,
-                             expiryTime  = expiryTime
-                           )
-                         )
+                        .insertOne(lock)
                         .toFuture()
-      _            =  logger.debug(s"Took lock '$lockId' for '$owner' at $timeCreated. Expires at: $expiryTime")
-     } yield true
+      _            =  logger.debug(s"Took lock '$lockId' for '$owner' at $now. Expires at: $expiryTime")
+     } yield Some(lock)
     ).recover {
       case DuplicateKey(e) =>
         logger.debug(s"Unable to take lock '$lockId' for '$owner'")
-        false
+        None
     }
   }
 
@@ -101,6 +102,23 @@ class MongoLockRepository @Inject()(
            equal(Lock.owner, owner)
          )
        )
+      .toFuture()
+      .map(_ => ())
+  }
+
+  def abandonLock(lockId: String, owner: String, updatedExpiry: Option[Instant] = None): Future[Unit] = {
+    logger.debug(s"Abandoning lock '$lockId'" + updatedExpiry.map(exp => s" and setting expiryTime to '$exp'").getOrElse(""))
+    val expiryUpdate = updatedExpiry.map(exp => Updates.set(Lock.expiryTime, exp)).toSeq
+    collection
+      .findOneAndUpdate(
+        filter = and(
+                   equal(Lock.id, lockId),
+                   equal(Lock.owner, owner)
+                 ),
+        update = Seq(
+                   Updates.set(Lock.owner, "abandoned")
+                 ) ++ expiryUpdate
+      )
       .toFuture()
       .map(_ => ())
   }
