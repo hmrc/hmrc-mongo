@@ -37,7 +37,7 @@ trait LockService {
     */
   def withLock[T](body: => Future[T])(implicit ec: ExecutionContext): Future[Option[T]] =
     (for {
-       acquired <- lockRepository.takeLock(lockId, ownerId, ttl)
+       acquired <- lockRepository.takeLock(lockId, ownerId, ttl).map(_.isDefined)
        result   <- if (acquired)
                      body.flatMap(value => lockRepository.releaseLock(lockId, ownerId).map(_ => Some(value)))
                    else
