@@ -36,7 +36,7 @@ trait LockRepository {
 
   def releaseLock(lockId: String, owner: String): Future[Unit]
 
-  def abandonLock(lockId: String, owner: String, expiry: Option[Instant]): Future[Unit]
+  def disownLock(lockId: String, owner: String, expiry: Option[Instant]): Future[Unit]
 
   def refreshExpiry(lockId: String, owner: String, ttl: Duration): Future[Boolean]
 
@@ -87,7 +87,7 @@ class MongoLockRepository @Inject()(
       _            =  logger.debug(s"Took lock '$lockId' for '$owner' at $now. Expires at: $expiryTime")
      } yield Some(lock)
     ).recover {
-      case DuplicateKey(e) =>
+      case DuplicateKey(_) =>
         logger.debug(s"Unable to take lock '$lockId' for '$owner'")
         None
     }
@@ -106,8 +106,8 @@ class MongoLockRepository @Inject()(
       .map(_ => ())
   }
 
-  def abandonLock(lockId: String, owner: String, updatedExpiry: Option[Instant] = None): Future[Unit] = {
-    logger.debug(s"Abandoning lock '$lockId'" + updatedExpiry.map(exp => s" and setting expiryTime to '$exp'").getOrElse(""))
+  override def disownLock(lockId: String, owner: String, updatedExpiry: Option[Instant] = None): Future[Unit] = {
+    logger.debug(s"Disowning lock '$lockId'" + updatedExpiry.map(exp => s" and setting expiryTime to '$exp'").getOrElse(""))
     val expiryUpdate = updatedExpiry.map(exp => Updates.set(Lock.expiryTime, exp)).toSeq
     collection
       .findOneAndUpdate(
@@ -116,7 +116,7 @@ class MongoLockRepository @Inject()(
                    equal(Lock.owner, owner)
                  ),
         update = Seq(
-                   Updates.set(Lock.owner, "abandoned")
+                   Updates.set(Lock.owner, s"$owner (disowned)")
                  ) ++ expiryUpdate
       )
       .toFuture()
@@ -147,7 +147,7 @@ class MongoLockRepository @Inject()(
           false
       }
       .recover {
-        case DuplicateKey(e) =>
+        case DuplicateKey(_) =>
           logger.debug(s"Unable to renew lock '$lockId' for '$owner'")
           false
       }

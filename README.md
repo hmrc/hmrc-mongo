@@ -131,6 +131,7 @@ The `ttl` timeout allows other apps to claim the lock if it is not renewed for t
 
 It will execute the body only if no lock is already taken, or the lock is already owned by this service instance. It is not released when the action has finished (unless it ends in failure), but is held onto until it expires.
 
+> Note: This implementation does not protect against parallel execution of the `body`. Every time the lock is refreshed the `body` will be executed again. If this behaviour is undesirable, then `ScheduledLockService` may be more appropriate.
 
 ```scala
 @Singleton
@@ -157,11 +158,11 @@ Seeks to alleviate the limitations faced when trying to lock for the execution o
 When using `ScheduledLockService` the `ttl` will be extended if the task is still running. Once the task has completed it will either:
 
 1. Release the lock immediately in the event that the task execution has overrun the scheduler interval.
-2. Abandon the lock and amend the `ttl` to reflect the cadence of the scheduled task if it completed inside the regular scheduler interval.
+2. Disown the lock and amend the `ttl` to reflect the cadence of the scheduled task if it completed inside the regular scheduler interval.
 
 `withLock[T](body: => Future[T]): Future[Option[T]]` accepts anything that returns a Future[T] and will return the result in an Option. If it was not possible to acquire the lock, None is returned.
 
-It will only execute the body upon the acquisition of a fresh lock.
+It will **only** execute the body upon the acquisition of a fresh lock.
 
 ```scala
 @Singleton

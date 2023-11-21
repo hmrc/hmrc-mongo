@@ -28,12 +28,14 @@ import scala.concurrent.{ExecutionContext, Future}
   * A locking implementation for scheduled tasks that will only execute the `body` when a new lock has been acquired.
   *
   * The lock's ttl is set to be `schedulerInterval` + 1 second, meaning that the instance that currently owns the lock
-  * will always have a chance to refresh the lock.
+  * will always have a chance to refresh the lock and extend the ttl.
   *
-  * The lock will only be released once the `body` has completed - in the event that the execution of `body` takes longer
-  * than the `schedulerInterval` the lock will be released immediately, allowing another instance to acquire the lock and
-  * start another execution as soon as possible. Otherwise, the lock is abandoned and the expiryTime of the lock is altered
-  * to allow the current owning instance the opportunity to acquire a "new" lock next time round.
+  * If the lock is successfully refreshed, then `body` will not be executed, as being able to refresh the lock signals
+  * that the `body` of the previous invocation hasn't yet completed.
+  *
+  * Once the `body` has completed it will either:
+  *  - Release the lock immediately, when the `body` has taken longer than the `schedulerInterval` to complete
+  *  - Disown the lock and amend the ttl to reflect the cadence of the scheduled task
   *
   * In the event that the scheduled task ends in failure, the lock will be released immediately.
   */
@@ -81,10 +83,10 @@ trait ScheduledLockService {
                               /* don't release the lock, let it timeout, so nothing else starts prematurely
                               *  we remove our ownership so that we won't refresh it again
                               *  we minus 2 seconds to make the lock expire 1 second before the next scheduler invocation
-                              *  which will allow the abandoning instance to acquire a "new" lock next time.
+                              *  which will allow the disowning instance to acquire a "new" lock next time.
                               */
-                              logger.info(s"Lock $lockId is being abandoned by $ownerId to expire naturally")
-                              lockRepository.abandonLock(lockId, ownerId, Some(lock.expiryTime.minusSeconds(2)))
+                              logger.info(s"Lock $lockId is being disowned by $ownerId to expire naturally")
+                              lockRepository.disownLock(lockId, ownerId, Some(lock.expiryTime.minusSeconds(2)))
                             }
                         } yield Some(res)
                       case None =>

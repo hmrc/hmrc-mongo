@@ -195,38 +195,38 @@ class MongoLockRepositorySpec
   }
 
   "abandonLock" should {
-    "set the owner to 'abandoned' without changing the expiryTime of the lock" in {
+    "set the owner to '$owner (disowned)' without changing the expiryTime of the lock" in {
       val existingLock = Lock(lockId, owner, now, now.plus(1, ChronoUnit.MINUTES))
       insert(existingLock).futureValue
 
-      repository.abandonLock(lockId, owner).futureValue
+      repository.disownLock(lockId, owner).futureValue
 
       count().futureValue        shouldBe 1
-      findAll().futureValue.head shouldBe existingLock.copy(owner = "abandoned")
+      findAll().futureValue.head shouldBe existingLock.copy(owner = s"$owner (disowned)")
     }
 
-    "set the owner to 'abandoned' and update the expiryTime of the lock" in {
+    "set the owner to '$owner (disowned)' and update the expiryTime of the lock" in {
       val existingLock = Lock(lockId, owner, now, now.plus(10, ChronoUnit.MINUTES))
       insert(existingLock).futureValue
 
-      repository.abandonLock(lockId, owner, updatedExpiry = Some(now.plus(1, ChronoUnit.MINUTES))).futureValue
+      repository.disownLock(lockId, owner, updatedExpiry = Some(now.plus(1, ChronoUnit.MINUTES))).futureValue
 
       count().futureValue        shouldBe 1
-      findAll().futureValue.head shouldBe existingLock.copy(owner = "abandoned", expiryTime = now.plus(1, ChronoUnit.MINUTES))
+      findAll().futureValue.head shouldBe existingLock.copy(owner = s"$owner (disowned)", expiryTime = now.plus(1, ChronoUnit.MINUTES))
     }
 
     "not make any changes to a lock with a different owner" in {
       val existingLock = Lock(lockId, "different-owner", now, now.plus(1, ChronoUnit.MINUTES))
       insert(existingLock).futureValue
 
-      repository.abandonLock(lockId, owner).futureValue
+      repository.disownLock(lockId, owner).futureValue
 
       count().futureValue        shouldBe 1
       findAll().futureValue.head shouldBe existingLock
     }
 
     "do nothing when the lock doesn't exist" in {
-      repository.abandonLock(lockId, owner).futureValue
+      repository.disownLock(lockId, owner).futureValue
 
       count().futureValue shouldBe 0
     }
