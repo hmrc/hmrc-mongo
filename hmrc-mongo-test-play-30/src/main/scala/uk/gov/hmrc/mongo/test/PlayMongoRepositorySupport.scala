@@ -95,6 +95,7 @@ trait PlayMongoRepositorySupport[A] extends MongoSupport {
       .futureValue
 
   override protected def prepareDatabase(): Unit = {
+    repository.initialised.futureValue // failure to wait for initialisation may lead to race-conditions if repository is provided lazily
     super.prepareDatabase()
     ensureIndexes()
     ensureSchemas()
