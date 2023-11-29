@@ -18,7 +18,6 @@ package uk.gov.hmrc.mongo.cache
 
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-import javax.inject.Inject
 
 import org.mongodb.scala.WriteConcern
 import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, IndexModel, IndexOptions, Indexes, ReturnDocument, Updates}
@@ -31,7 +30,7 @@ import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-class MongoCacheRepository[CacheId] @Inject() (
+class MongoCacheRepository[CacheId](
   mongoComponent: MongoComponent,
   collectionName: String,
   replaceIndexes: Boolean = true,
