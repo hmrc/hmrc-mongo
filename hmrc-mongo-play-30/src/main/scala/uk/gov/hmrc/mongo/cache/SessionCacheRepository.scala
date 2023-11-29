@@ -16,7 +16,6 @@
 
 package uk.gov.hmrc.mongo.cache
 
-import javax.inject.Inject
 import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.{Reads, Writes}
 import play.api.mvc.Request
@@ -25,7 +24,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, TimestampSupport}
 
 /** CacheId is stored in session with sessionIdKey */
-class SessionCacheRepository @Inject() (
+class SessionCacheRepository(
   mongoComponent: MongoComponent,
   override val collectionName: String,
   replaceIndexes: Boolean = true,
@@ -52,7 +51,7 @@ class SessionCacheRepository @Inject() (
   def putSession[T: Writes](
     dataKey: DataKey[T],
     data: T
-  )(implicit request: Request[Any], ec: ExecutionContext): Future[(String, String)] =
+  )(implicit request: Request[Any]): Future[(String, String)] =
     cacheRepo
       .put[T](request)(dataKey, data)
       .map(res => sessionIdKey -> res.id)
