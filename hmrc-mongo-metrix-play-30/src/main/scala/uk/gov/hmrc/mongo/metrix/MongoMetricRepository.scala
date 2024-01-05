@@ -35,17 +35,17 @@ trait MetricRepository {
 
 @Singleton
 class MongoMetricRepository @Inject() (
-    mongoComponent: MongoComponent
-  )(implicit ec: ExecutionContext)
-    extends PlayMongoRepository[PersistedMetric](
-      collectionName = "metrics",
-      mongoComponent = mongoComponent,
-      domainFormat   = PersistedMetric.format,
-      indexes        = Seq(
-        IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
-      )
-    )
-    with MetricRepository {
+  mongoComponent: MongoComponent
+)(implicit
+  ec: ExecutionContext
+) extends PlayMongoRepository[PersistedMetric](
+  collectionName = "metrics",
+  mongoComponent = mongoComponent,
+  domainFormat   = PersistedMetric.format,
+  indexes        = Seq(
+                     IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
+                   )
+) with MetricRepository {
 
   override lazy val requiresTtlIndex = false // we periodically find and replace/delete all metrics
 
