@@ -15,7 +15,7 @@ object LibDependencies {
     })
 
   def mongoCommon(scalaVersion: String): Seq[ModuleID] = Seq(
-    "org.mongodb.scala" %% "mongo-scala-driver" % "4.10.2",
+    "org.mongodb.scala" %% "mongo-scala-driver" % "4.11.1",
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
   ) ++ test(scalaVersion)
 
@@ -44,9 +44,9 @@ object LibDependencies {
 
   private def playVersion(playSuffix: String) =
     playSuffix match {
-      case "play-28" => "2.8.20"
-      case "play-29" => "2.9.0"
-      case "play-30" => "3.0.0"
+      case "play-28" => "2.8.21"
+      case "play-29" => "2.9.1"
+      case "play-30" => "3.0.1"
     }
 
   private def playOrg(playSuffix: String) =
