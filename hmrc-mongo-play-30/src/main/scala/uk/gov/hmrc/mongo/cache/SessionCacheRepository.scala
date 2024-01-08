@@ -16,28 +16,35 @@
 
 package uk.gov.hmrc.mongo.cache
 
+import org.bson.codecs.Codec
 import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.{Reads, Writes}
 import play.api.mvc.Request
-import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, Future}
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, TimestampSupport}
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
 
 /** CacheId is stored in session with sessionIdKey */
 class SessionCacheRepository(
-  mongoComponent: MongoComponent,
+  mongoComponent  : MongoComponent,
   override val collectionName: String,
-  replaceIndexes: Boolean = true,
-  ttl: Duration,
+  replaceIndexes  : Boolean = true,
+  ttl             : Duration,
   timestampSupport: TimestampSupport,
-  sessionIdKey: String
-)(implicit ec: ExecutionContext)
-    extends MongoDatabaseCollection {
+  sessionIdKey    : String,
+  extraIndexes    : Seq[IndexModel] = Seq.empty,
+  extraCodecs     : Seq[Codec[_]]   = Seq.empty
+)(implicit
+  ec: ExecutionContext
+) extends MongoDatabaseCollection {
   val cacheRepo = new MongoCacheRepository[Request[Any]](
     mongoComponent   = mongoComponent,
     collectionName   = collectionName,
     replaceIndexes   = replaceIndexes,
     ttl              = ttl,
+    extraIndexes     = extraIndexes,
+    extraCodecs      = extraCodecs,
     timestampSupport = timestampSupport,
     cacheIdType      = CacheIdType.SessionUuid(sessionIdKey)
   )

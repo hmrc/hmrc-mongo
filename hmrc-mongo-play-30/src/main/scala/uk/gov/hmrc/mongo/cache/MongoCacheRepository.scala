@@ -16,9 +16,7 @@
 
 package uk.gov.hmrc.mongo.cache
 
-import java.time.Instant
-import java.util.concurrent.TimeUnit
-
+import org.bson.codecs.Codec
 import org.mongodb.scala.WriteConcern
 import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, IndexModel, IndexOptions, Indexes, ReturnDocument, Updates}
 import play.api.libs.functional.syntax._
@@ -27,32 +25,38 @@ import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils, TimestampSupport}
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
+import java.time.Instant
+import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 class MongoCacheRepository[CacheId](
-  mongoComponent: MongoComponent,
-  collectionName: String,
-  replaceIndexes: Boolean = true,
-  ttl: Duration,
+  mongoComponent  : MongoComponent,
+  collectionName  : String,
+  replaceIndexes  : Boolean = true,
+  ttl             : Duration,
   timestampSupport: TimestampSupport,
-  cacheIdType: CacheIdType[CacheId]
-)(implicit ec: ExecutionContext)
-    extends PlayMongoRepository[CacheItem](
-      mongoComponent = mongoComponent,
-      collectionName = collectionName,
-      domainFormat   = MongoCacheRepository.format,
-      indexes        = Seq(
-        IndexModel(
-          Indexes.ascending("modifiedDetails.lastUpdated"),
-          IndexOptions()
-            .background(false)
-            .name("lastUpdatedIndex")
-            .expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
-        )
-      ),
-      replaceIndexes = replaceIndexes
-    ) {
+  cacheIdType     : CacheIdType[CacheId],
+  extraIndexes    : Seq[IndexModel] = Seq.empty,
+  extraCodecs     : Seq[Codec[_]]   = Seq.empty
+)(implicit
+  ec              : ExecutionContext
+) extends PlayMongoRepository[CacheItem](
+  mongoComponent = mongoComponent,
+  collectionName = collectionName,
+  domainFormat   = MongoCacheRepository.format,
+  indexes        = Seq(
+                     IndexModel(
+                       Indexes.ascending("modifiedDetails.lastUpdated"),
+                       IndexOptions()
+                         .background(false)
+                         .name("lastUpdatedIndex")
+                         .expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
+                     )
+                   ) ++ extraIndexes,
+  replaceIndexes = replaceIndexes,
+  extraCodecs    = extraCodecs
+) {
 
   def findById(cacheId: CacheId): Future[Option[CacheItem]] = {
     val id = cacheIdType.run(cacheId)
