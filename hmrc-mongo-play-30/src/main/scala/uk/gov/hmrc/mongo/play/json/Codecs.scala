@@ -109,8 +109,9 @@ trait Codecs {
     val clazz: ClassSymbol =
       tt.tpe.typeSymbol.asClass
 
+    // requirements such that `clazz.knownDirectSubclasses` includes all possible types
     require(clazz.isSealed)
-    require(clazz.isTrait)
+    require(clazz.isAbstract)
 
     clazz.knownDirectSubclasses
       .collect { case c: ClassSymbol => c }

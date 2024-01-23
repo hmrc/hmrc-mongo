@@ -195,7 +195,7 @@ class MongoLockRepositorySpec
   }
 
   "abandonLock" should {
-    "set the owner to '$owner (disowned)' without changing the expiryTime of the lock" in {
+    s"set the owner to '$$owner (disowned)' without changing the expiryTime of the lock" in {
       val existingLock = Lock(lockId, owner, now, now.plus(1, ChronoUnit.MINUTES))
       insert(existingLock).futureValue
 
@@ -205,7 +205,7 @@ class MongoLockRepositorySpec
       findAll().futureValue.head shouldBe existingLock.copy(owner = s"$owner (disowned)")
     }
 
-    "set the owner to '$owner (disowned)' and update the expiryTime of the lock" in {
+    s"set the owner to '$$owner (disowned)' and update the expiryTime of the lock" in {
       val existingLock = Lock(lockId, owner, now, now.plus(10, ChronoUnit.MINUTES))
       insert(existingLock).futureValue
 
