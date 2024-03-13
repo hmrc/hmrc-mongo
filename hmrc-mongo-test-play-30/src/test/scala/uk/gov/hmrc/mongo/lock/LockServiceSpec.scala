@@ -22,8 +22,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
-import java.time.Instant
-import java.time.temporal.ChronoUnit
+import java.time.{Clock, Instant, ZoneId}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, DurationInt}
@@ -35,7 +34,6 @@ class LockServiceSpec
 
   "withLock" should {
     "obtain lock, run the block supplied and release the lock" in {
-
       val optionalLock = lockService
         .withLock {
           find(Filters.eq(Lock.id, lockId)).map(_.head)
@@ -93,7 +91,8 @@ class LockServiceSpec
   private val lockId        = "lockId"
   private val owner         = "owner"
   private val ttl: Duration = 1000.millis
-  private val now           = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+  private val clock         = Clock.tickMillis(ZoneId.systemDefault())
+  private val now           = Instant.now(clock)
 
   override protected val repository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
   private val lockService           = LockService(repository, lockId, ttl)

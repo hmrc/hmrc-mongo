@@ -23,8 +23,8 @@ object LibDependencies {
     Seq("io.dropwizard.metrics" % "metrics-graphite" % "3.2.6")
 
   def hmrcMongoPlay(playSuffix: String, scalaVersion: String): Seq[ModuleID] = Seq(
-    playOrg(playSuffix) %% "play"                    % playVersion(playSuffix),
-    playOrg(playSuffix) %% "play-guice"              % playVersion(playSuffix),
+    playOrg(playSuffix) %% "play"                     % playVersion(playSuffix),
+    playOrg(playSuffix) %% "play-guice"               % playVersion(playSuffix),
     "uk.gov.hmrc"       %% s"crypto-json-$playSuffix" % "7.6.0" % Test
   ) ++ test(scalaVersion)
 

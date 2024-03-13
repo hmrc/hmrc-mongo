@@ -23,7 +23,7 @@ import org.scalatest.TestSuite
 import play.api.libs.json.{Format, Json}
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
-import java.time.{Duration, Instant}
+import java.time.{Clock, Duration, Instant, ZoneId}
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -32,8 +32,11 @@ import scala.language.reflectiveCalls
 
 trait TimeSource {
   val timeSource = new {
+    private val clock =
+      Clock.tickMillis(ZoneId.systemDefault())
+
     private val nowRef =
-      new AtomicReference[Instant](Instant.now().truncatedTo(ChronoUnit.MILLIS))
+      new AtomicReference[Instant](Instant.now(clock))
 
     def now: Instant =
       nowRef.get()

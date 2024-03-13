@@ -338,6 +338,9 @@ In the exceptional case that a TTL Index is not required, this can be indicated 
 
 ## Changes
 
+### Version 1.8.0
+- Updates mongo-scala-driver to 5.0
+
 ### Version 1.7.0
 - Targets JVM 11.
 

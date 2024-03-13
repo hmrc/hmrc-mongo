@@ -21,7 +21,7 @@ import org.mongodb.scala.WriteConcern
 import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, IndexModel, IndexOptions, Indexes, ReturnDocument, Updates}
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{Format, JsObject, JsResultException, Reads, Writes, __}
-import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils, TimestampSupport}
+import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
