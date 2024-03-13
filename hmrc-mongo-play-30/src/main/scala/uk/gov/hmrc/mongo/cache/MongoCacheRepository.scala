@@ -79,23 +79,24 @@ class MongoCacheRepository[CacheId](
 
   def put[A: Writes](
     cacheId: CacheId
-  )(dataKey: DataKey[A], data: A): Future[CacheItem] =
-    MongoUtils.retryOnDuplicateKey(retries = 3) { // This can be removed once we longer support < Mongo 5.0
-      val id        = cacheIdType.run(cacheId)
-      val timestamp = timestampSupport.timestamp()
-      this.collection
-        .findOneAndUpdate(
-          filter = Filters.equal("_id", id),
-          update = Updates.combine(
-            Updates.set("data." + dataKey.unwrap, Codecs.toBson(data)),
-            Updates.set("modifiedDetails.lastUpdated", timestamp),
-            Updates.setOnInsert("_id", id),
-            Updates.setOnInsert("modifiedDetails.createdAt", timestamp)
-          ),
-          options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
-        )
-        .toFuture()
-    }
+  )(dataKey: DataKey[A],
+    data   : A
+  ): Future[CacheItem] = {
+    val id        = cacheIdType.run(cacheId)
+    val timestamp = timestampSupport.timestamp()
+    this.collection
+      .findOneAndUpdate(
+        filter = Filters.equal("_id", id),
+        update = Updates.combine(
+          Updates.set("data." + dataKey.unwrap, Codecs.toBson(data)),
+          Updates.set("modifiedDetails.lastUpdated", timestamp),
+          Updates.setOnInsert("_id", id),
+          Updates.setOnInsert("modifiedDetails.createdAt", timestamp)
+        ),
+        options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
+      )
+      .toFuture()
+  }
 
   def delete[A](
     cacheId: CacheId

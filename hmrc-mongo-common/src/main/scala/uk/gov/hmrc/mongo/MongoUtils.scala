@@ -193,23 +193,6 @@ trait MongoUtils {
         _       <- mongoComponent.database.runCommand(collMod).toFuture()
        } yield ()
 
-  /** Prior to Mongo 5.0 it was possible to have a duplicate key violation when trying to upsert, if two or more threads try
-    * the operation concurrently: https://jira.mongodb.org/browse/SERVER-14322
-    * See https://jira.tools.tax.service.gov.uk/browse/BDOG-731 for more background.
-    *
-    * You can wrap the upsert with retryOnDuplicateKey.
-    */
-  @deprecated("1.4.0", "DuplicateKey is no longer generated with concurrent Upserts since Mongo 5.0")
-  def retryOnDuplicateKey[A](retries: Int = 3)(f: => Future[A])(implicit ec: ExecutionContext): Future[A] = {
-    def attempt(retries: Int): Future[A] =
-      f.recoverWith {
-        case DuplicateKey(e) if (retries > 0) =>
-          logger.debug(s"Detected an E11000 duplicate key violation. Retrying upsert. Attempts left: $retries")
-          attempt(retries - 1)
-      }
-    attempt(retries)
-  }
-
   object IndexConflict {
     val IndexOptionsConflict  = 85 // e.g. change of index name or ttl option
     val IndexKeySpecsConflict = 86 // e.g. change of field name
