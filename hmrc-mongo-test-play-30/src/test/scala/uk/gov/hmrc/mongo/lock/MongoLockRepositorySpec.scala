@@ -24,7 +24,7 @@ import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
 import uk.gov.hmrc.mongo.TimestampSupport
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
-import java.time.Instant
+import java.time.{Clock, Instant, ZoneId}
 import java.time.temporal.ChronoUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
@@ -274,5 +274,6 @@ class MongoLockRepositorySpec
   private lazy val lockId = "lockId"
   private lazy val owner  = "owner"
   private lazy val ttl    = 1000.millis
-  private lazy val now    = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+  private lazy val clock  = Clock.tickMillis(ZoneId.systemDefault())
+  private lazy val now    = Instant.now(clock)
 }

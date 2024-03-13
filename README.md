@@ -173,10 +173,10 @@ class LockClient @Inject()(
 )(implicit
   actorSystem: ActorSystem
 ) {
-  
+
   val initialDelay = configuration.get[Duration]("myScheduler.initialDelay")
   val interval     = configuration.get[Duration]("myScheduler.interval")
-  
+
   val lockService =
     ScheduledLockService(
       lockRepository    = mongoLockRepository,
@@ -338,6 +338,12 @@ In the exceptional case that a TTL Index is not required, this can be indicated 
 
 ## Changes
 
+### Version 1.8.0
+- Updates mongo-scala-driver to 5.0
+
+### Version 1.7.0
+- Targets JVM 11.
+
 ### Version 1.5.0
 - Adds `ScheduledLockService` - A locking implementation that makes working with scheduled tasks less painful and more predictable.
 
@@ -347,8 +353,10 @@ In the exceptional case that a TTL Index is not required, this can be indicated 
 
 ### Version 1.3.0
 - Restore target JVM 8.
+
 ### Version 1.2.0
 - Made awaits on initialisation configurable. Use `hmrc.mongo.init.timeout` - default is `5 seconds`.
+
 ### Version 1.0.0
 - `java.time.LocalDateTime` support has been removed.
 

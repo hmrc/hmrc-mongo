@@ -25,17 +25,16 @@ import uk.gov.hmrc.mongo.play.json.Codecs._
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 import uk.gov.hmrc.mongo.{CurrentTimestampSupport, TimestampSupport}
 
-import java.time.Instant
-import java.time.temporal.ChronoUnit
+import java.time.{Clock, Instant, ZoneId}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 class MongoCacheRepositorySpec
-    extends AnyWordSpecLike
-    with Matchers
-    with DefaultPlayMongoRepositorySupport[CacheItem]
-    with ScalaFutures
-    with Eventually {
+  extends AnyWordSpecLike
+     with Matchers
+     with DefaultPlayMongoRepositorySupport[CacheItem]
+     with ScalaFutures
+     with Eventually {
 
   "put" should {
     "successfully create a cacheItem if one does not already exist" in {
@@ -45,7 +44,7 @@ class MongoCacheRepositorySpec
     }
 
     "successfully update a cacheItem if one does not already exist" in {
-      val creationTimestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+      val creationTimestamp = Instant.now(clock)
 
       insert(cacheItem.copy(createdAt = creationTimestamp, modifiedAt = creationTimestamp)).futureValue
 
@@ -138,7 +137,8 @@ class MongoCacheRepositorySpec
   implicit val format: Format[Person]     = Person.format
   implicit val format2: Format[CacheItem] = MongoCacheRepository.format
 
-  private val now       = Instant.now().truncatedTo(ChronoUnit.MILLIS)
+  private val clock     = Clock.tickMillis(ZoneId.systemDefault())
+  private val now       = Instant.now(clock)
   private val cacheId   = "cacheId"
   private val dataKey   = DataKey[Person]("dataKey")
   private val person    = Person("Sarah", 30, "Female")

@@ -23,7 +23,7 @@ import org.scalatest.matchers.{HavePropertyMatcher, HavePropertyMatchResult}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import java.time.Instant
+import java.time.{Clock, Instant, ZoneId}
 import java.time.temporal.ChronoUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -37,10 +37,12 @@ class WorkItemRepositorySpec
      with OptionValues
      with CustomMatchers {
 
+  private val clock = Clock.tickMillis(ZoneId.systemDefault())
+
   def createWorkItemsWith(statuses: Seq[ProcessingStatus]): Unit =
     Future.traverse(statuses) { status =>
       for {
-        item <- repository.pushNew(item1, Instant.now().truncatedTo(ChronoUnit.MILLIS))
+        item <- repository.pushNew(item1, Instant.now(clock))
         _    <- repository.markAs(item.id, status)
       } yield ()
     }.futureValue

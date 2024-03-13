@@ -151,10 +151,10 @@ trait Transactions {
       }
 
     retryFor(_.hasErrorLabel(MongoException.TRANSIENT_TRANSACTION_ERROR_LABEL)){
-      tc.transactionOptions.fold(session.startTransaction)(session.startTransaction _)
+      tc.transactionOptions.fold(session.startTransaction())(session.startTransaction _)
       for {
         res <- f.recoverWith { case e1 =>
-                 completeWith(session.abortTransaction(), ())
+                 session.abortTransaction()
                    .recover {
                      case e2 => logger.error(s"Error aborting transaction: ${e2.getMessage}", e2)
                                 throw e1
@@ -164,38 +164,10 @@ trait Transactions {
         _   <- retryFor(e =>
                  !e.isInstanceOf[MongoExecutionTimeoutException]
                  && e.hasErrorLabel(MongoException.UNKNOWN_TRANSACTION_COMMIT_RESULT_LABEL)
-               )(completeWith(session.commitTransaction(), ()))
+               )(session.commitTransaction())
       } yield res
     }
   }
-
-  /** Observable[Void] by definition will never emit a value to be mapped (see org.mongodb.scala.internal.MapObservable).
-    * When converting to Future, it works since it completes with `None` (see org.mongodb.scala.Observable.headOption).
-    * This function converts an Observable[Void] to the provided value to continue.
-    *
-    * `completeWithUnit` now exists on `Observable` but throws "java.lang.IllegalStateException: The Observable has not been subscribed to."
-    */
-  def completeWith[A](obs: Observable[Void], f: => A): Observable[A] =
-    new Observable[A] {
-      override def subscribe(observer: Observer[_ >: A]): Unit =
-        obs.subscribe(
-          new Observer[Void] {
-            override def onError(throwable: Throwable): Unit =
-              observer.onError(throwable)
-
-            override def onSubscribe(subscription: Subscription): Unit =
-              observer.onSubscribe(subscription)
-
-            override def onComplete(): Unit = {
-              observer.onNext(f)
-              observer.onComplete()
-            }
-
-            override def onNext(tResult: Void): Unit =
-              ??? // by definition never called
-          }
-        )
-    }
 }
 
 
