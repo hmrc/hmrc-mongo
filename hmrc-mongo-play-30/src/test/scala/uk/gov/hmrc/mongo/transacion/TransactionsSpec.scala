@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.transaction
 
-import org.mongodb.scala.{MongoException, Observable}
+import org.mongodb.scala.{MongoException, Observable, ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.bson.BsonDocument
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}

@@ -17,7 +17,7 @@
 package uk.gov.hmrc.mongo
 
 import org.bson.{BsonType, BsonValue}
-import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, MongoServerException}
+import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, MongoServerException, ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.bson.{BsonDocument, BsonString}
 import org.mongodb.scala.model.{Aggregates, Filters, IndexModel, ValidationAction, ValidationLevel}
 import org.slf4j.{Logger, LoggerFactory}

@@ -86,6 +86,8 @@ class TimePeriodLockServiceSpec
   private lazy val lockId        = "lockId"
   private lazy val ttl: Duration = 1000.millis
 
-  override protected val repository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
-  private lazy val lockService      = TimePeriodLockService(repository, lockId, ttl)
+  override protected val repository: MongoLockRepository =
+    new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
+
+  private lazy val lockService = TimePeriodLockService(repository, lockId, ttl)
 }

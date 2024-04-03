@@ -31,7 +31,8 @@ class MongoMetricRepositorySpec
      with LoneElement
      with DefaultPlayMongoRepositorySupport[PersistedMetric] {
 
-  override lazy val repository = new MongoMetricRepository(mongoComponent)
+  override val repository: MongoMetricRepository =
+    new MongoMetricRepository(mongoComponent)
 
   "MongoMetricRepository.putAll" should {
     "store the provided PersistedMetrics with the 'name' keys" in {

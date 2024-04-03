@@ -19,6 +19,7 @@ package uk.gov.hmrc.mongo.workitem
 import java.time.temporal.ChronoUnit
 
 import org.bson.types.ObjectId
+import org.mongodb.scala.{ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.model._
 import org.scalatest.{BeforeAndAfterEach, OptionValues}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
@@ -43,7 +44,7 @@ class WorkItemModuleRepositorySpec
   "WorkItemModuleRepository" should {
     "read the work item fields" in {
       val _id = new ObjectId()
-      val documentCreationTime = timeSource.now
+      val documentCreationTime = timeSource.now()
       val workItemModuleCreationTime = documentCreationTime.plus(1, ChronoUnit.HOURS)
 
       repository.collection.updateOne(
@@ -65,7 +66,7 @@ class WorkItemModuleRepositorySpec
       ).futureValue shouldBe Some(WorkItem[ExampleItemWithModule](
           id           = _id,
           receivedAt   = workItemModuleCreationTime,
-          updatedAt    = timeSource.now,
+          updatedAt    = timeSource.now(),
           availableAt  = workItemModuleCreationTime,
           status       = ProcessingStatus.InProgress,
           failureCount = 0,
@@ -74,13 +75,13 @@ class WorkItemModuleRepositorySpec
       )
     }
 
-   "never update T" in {
+    "never update T" in {
       intercept[IllegalStateException] {
-        repository.pushNew(ExampleItemWithModule(new ObjectId(), timeSource.now, "test"), timeSource.now)
+        repository.pushNew(ExampleItemWithModule(new ObjectId(), timeSource.now(), "test"), timeSource.now())
       }.getMessage shouldBe "The model object cannot be created via the work item module repository"
 
       intercept[IllegalStateException] {
-        val m = ExampleItemWithModule(new ObjectId(), timeSource.now, "test")
+        val m = ExampleItemWithModule(new ObjectId(), timeSource.now(), "test")
         val writes =
           WorkItem.formatForFields[ExampleItemWithModule](
             fieldNames = WorkItemModuleRepository.workItemFields("testModule")
@@ -90,9 +91,9 @@ class WorkItemModuleRepositorySpec
         writes.writes(
           WorkItem(
             id           = new ObjectId(),
-            receivedAt   = timeSource.now,
-            updatedAt    = timeSource.now,
-            availableAt  = timeSource.now,
+            receivedAt   = timeSource.now(),
+            updatedAt    = timeSource.now(),
+            availableAt  = timeSource.now(),
             status       = ProcessingStatus.ToDo,
             failureCount = 0,
             item         = m
@@ -107,7 +108,7 @@ class WorkItemModuleRepositorySpec
 
     "change state successfully" in {
       val _id = new ObjectId()
-      val documentCreationTime = timeSource.now
+      val documentCreationTime = timeSource.now()
       val workItemModuleCreationTime = documentCreationTime.plus(1, ChronoUnit.HOURS)
 
       repository.collection.updateOne(

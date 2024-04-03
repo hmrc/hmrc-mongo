@@ -29,6 +29,6 @@ object PersistedMetric {
   val format: Format[PersistedMetric] = {
     ( (__ \ "name"     ).format[String]
     ~ (__ \ "count"    ).format[Int]
-    )(PersistedMetric.apply, unlift(PersistedMetric.unapply))
+    )(PersistedMetric.apply, pm => (pm.name, pm.count))
   }
 }

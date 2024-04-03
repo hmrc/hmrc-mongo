@@ -17,6 +17,7 @@
 package uk.gov.hmrc.mongo.encryption
 
 import org.bson.types.ObjectId
+import org.mongodb.scala.{ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.Updates
 import org.scalatest.{BeforeAndAfterEach, OptionValues}
@@ -222,10 +223,10 @@ object SensitiveEncryptionAsObjectSpec {
     n2: Int
   )
   object Nested {
-    val format =
+    val format: Format[Nested] =
       ( (__ \ "n1").format[String]
       ~ (__ \ "n2").format[Int]
-      )(Nested.apply, unlift(Nested.unapply))
+      )(Nested.apply, n => (n.n1, n.n2))
   }
 
   case class SensitiveNested(override val decryptedValue: Nested) extends Sensitive[Nested]
@@ -256,7 +257,7 @@ object SensitiveEncryptionAsObjectSpec {
     val cryptoFormat: OFormat[Crypted] =
       ( (__ \ "encrypted").format[Boolean]
       ~ (__ \ "value"    ).format[String]
-      )((_, v) => Crypted.apply(v), unlift(Crypted.unapply).andThen(v => (true, v)))
+      )((_, v) => Crypted.apply(v), c => (true, c.value))
 
     def sensitiveFormat[A: Format, B <: Sensitive[A]](apply: A => B, unapply: B => A)(implicit crypto: Encrypter with Decrypter): OFormat[B] =
       cryptoFormat
@@ -265,21 +266,21 @@ object SensitiveEncryptionAsObjectSpec {
           sn => crypto.encrypt(PlainText(implicitly[Format[A]].writes(unapply(sn)).toString))
         )
 
-    implicit val ssFormat: Format[SensitiveString]  = sensitiveFormat[String, SensitiveString](SensitiveString.apply, unlift(SensitiveString.unapply))
-    implicit val sbFormat: Format[SensitiveBoolean] = sensitiveFormat[Boolean, SensitiveBoolean](SensitiveBoolean.apply, unlift(SensitiveBoolean.unapply))
-    implicit val slFormat: Format[SensitiveLong]    = sensitiveFormat[Long, SensitiveLong](SensitiveLong.apply, unlift(SensitiveLong.unapply))
+    implicit val ssFormat: Format[SensitiveString]  = sensitiveFormat[String, SensitiveString](SensitiveString.apply, _.decryptedValue)
+    implicit val sbFormat: Format[SensitiveBoolean] = sensitiveFormat[Boolean, SensitiveBoolean](SensitiveBoolean.apply, _.decryptedValue)
+    implicit val slFormat: Format[SensitiveLong]    = sensitiveFormat[Long, SensitiveLong](SensitiveLong.apply, _.decryptedValue)
     implicit val snFormat: Format[SensitiveNested]  = {
       implicit val nf = Nested.format
-      sensitiveFormat(SensitiveNested.apply, unlift(SensitiveNested.unapply))
+      sensitiveFormat(SensitiveNested.apply, _.decryptedValue)
     }
 
-    val format =
+    val format: Format[MyObject] =
       ( (__ \ "_id"              ).format[ObjectId]
       ~ (__ \ "sensitiveString"  ).format[SensitiveString]
       ~ (__ \ "sensitiveBoolean" ).format[SensitiveBoolean]
       ~ (__ \ "sensitiveLong"    ).format[SensitiveLong]
       ~ (__ \ "sensitiveNested"  ).format[SensitiveNested]
       ~ (__ \ "sensitiveOptional").formatNullable[SensitiveString]
-      )(MyObject.apply, unlift(MyObject.unapply))
+      )(MyObject.apply, mo => (mo.id, mo.sensitiveString, mo.sensitiveBoolean, mo.sensitiveLong, mo.sensitiveNested, mo.sensitiveOptional))
   }
 }

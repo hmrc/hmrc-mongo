@@ -17,7 +17,7 @@
 package uk.gov.hmrc.mongo.metrix
 
 import com.google.inject.ImplementedBy
-import org.mongodb.scala.ReadPreference
+import org.mongodb.scala.{ObservableFuture, ReadPreference, SingleObservableFuture}
 import org.mongodb.scala.model.{DeleteOneModel, IndexModel, IndexOptions, ReplaceOneModel, ReplaceOptions}
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Indexes.ascending

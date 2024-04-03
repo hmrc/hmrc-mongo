@@ -20,6 +20,7 @@ import org.bson._
 import org.bson.codecs.{Codec, DecoderContext, EncoderContext}
 import org.bson.json.{JsonMode, JsonReader, JsonWriter, JsonWriterSettings}
 import org.bson.types.Decimal128
+import org.mongodb.scala.bsonDocumentToDocument
 import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
 import org.slf4j.{Logger, LoggerFactory}
 import play.api.libs.json._

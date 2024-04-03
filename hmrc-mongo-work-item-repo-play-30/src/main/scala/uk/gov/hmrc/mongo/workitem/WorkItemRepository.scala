@@ -19,15 +19,15 @@ package uk.gov.hmrc.mongo.workitem
 import org.bson.types.ObjectId
 import org.bson.conversions.Bson
 import org.bson.codecs.Codec
-import java.time.{Duration, Instant}
+import org.mongodb.scala.{ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.bson.BsonDocument
+import org.mongodb.scala.model._
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.metrix.MetricSource
-import org.mongodb.scala.model._
-
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
+import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
 
 /** The repository to set and get the work item's for processing.

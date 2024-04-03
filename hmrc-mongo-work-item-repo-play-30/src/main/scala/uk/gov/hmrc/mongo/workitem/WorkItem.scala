@@ -88,7 +88,7 @@ object WorkItem {
     ~ asPath(fieldNames.status      ).format[ProcessingStatus]
     ~ asPath(fieldNames.failureCount).format[Int]
     ~ asPath(fieldNames.item        ).format[T]
-    )(WorkItem.apply[T] _, unlift(WorkItem.unapply[T]))
+    )(WorkItem.apply[T] _, wi => (wi.id, wi.receivedAt, wi.updatedAt, wi.availableAt, wi.status, wi.failureCount, wi.item))
   }
 
   private lazy val restInstantReads: Reads[Instant] =
@@ -143,6 +143,6 @@ object WorkItem {
     ~ (__ \ "status"      ).format[ProcessingStatus]
     ~ (__ \ "failureCount").format[Int]
     ~ (__ \ "item"        ).format[T]
-    )(WorkItem.apply[T] _, unlift(WorkItem.unapply[T]))
+    )(WorkItem.apply[T] _, wi => (wi.id, wi.receivedAt, wi.updatedAt, wi.availableAt, wi.status, wi.failureCount, wi.item))
   }
 }

@@ -30,64 +30,65 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.reflectiveCalls
 
-trait TimeSource {
-  val timeSource = new {
-    private val clock =
-      Clock.tickMillis(ZoneId.systemDefault())
+class TimeSource {
+  private val clock =
+    Clock.tickMillis(ZoneId.systemDefault())
 
-    private val nowRef =
-      new AtomicReference[Instant](Instant.now(clock))
+  private val nowRef =
+    new AtomicReference[Instant](Instant.now(clock))
 
-    def now: Instant =
-      nowRef.get()
+  def now(): Instant =
+    nowRef.get()
 
-    def advanceADay() =
-      setAndGet(now.plus(1, ChronoUnit.DAYS))
+  def advanceADay() =
+    setAndGet(now().plus(1, ChronoUnit.DAYS))
 
-    def advance(duration: Duration) =
-      setAndGet(now.plus(duration))
+  def advance(duration: Duration) =
+    setAndGet(now().plus(duration))
 
-    def retreat1Day() =
-      setAndGet(now.minus(1, ChronoUnit.DAYS))
+  def retreat1Day() =
+    setAndGet(now().minus(1, ChronoUnit.DAYS))
 
-    def retreatAlmostDay() =
-      setAndGet(now.minus(1, ChronoUnit.DAYS).plus(1, ChronoUnit.MINUTES))
+  def retreatAlmostDay() =
+    setAndGet(now().minus(1, ChronoUnit.DAYS).plus(1, ChronoUnit.MINUTES))
 
-    private def setAndGet(newNow: Instant) = {
-      nowRef.set(newNow)
-      newNow
-    }
+  private def setAndGet(newNow: Instant) = {
+    nowRef.set(newNow)
+    newNow
   }
+}
+
+trait TimeSourceProvider {
+  val timeSource: TimeSource = new TimeSource
 }
 
 trait WithWorkItemRepositoryModule
   extends ScalaFutures
   with DefaultPlayMongoRepositorySupport[WorkItem[ExampleItemWithModule]]
-  with TimeSource {
-    this: TestSuite =>
+  with TimeSourceProvider { this: TestSuite =>
 
   implicit val eif: Format[ExampleItemWithModule] = ExampleItemWithModule.formats
 
-  override lazy val repository = new WorkItemModuleRepository[ExampleItemWithModule](
-    collectionName = "items",
-    moduleName     = "testModule",
-    mongoComponent = mongoComponent,
-    extraIndexes   = Seq(IndexModel(Indexes.ascending("testModule.updatedAt"), IndexOptions().expireAfter(24 * 60 * 60, TimeUnit.SECONDS)))
-  ) {
-    override val inProgressRetryAfter: Duration =
-      Duration.ofHours(1)
+  override val repository: WorkItemModuleRepository[ExampleItemWithModule] =
+    new WorkItemModuleRepository[ExampleItemWithModule](
+      collectionName = "items",
+      moduleName     = "testModule",
+      mongoComponent = mongoComponent,
+      extraIndexes   = Seq(IndexModel(Indexes.ascending("testModule.updatedAt"), IndexOptions().expireAfter(24 * 60 * 60, TimeUnit.SECONDS)))
+    ) {
+      override val inProgressRetryAfter: Duration =
+        Duration.ofHours(1)
 
-    override def now(): Instant =
-      timeSource.now
-  }
+      override def now(): Instant =
+        timeSource.now()
+    }
 }
 
 trait WithWorkItemRepository
   extends ScalaFutures
   with DefaultPlayMongoRepositorySupport[WorkItem[ExampleItem]]
   with IntegrationPatience
-  with TimeSource {
-    this: TestSuite =>
+  with TimeSourceProvider { this: TestSuite =>
 
   def exampleItemRepository(collectionName: String) = {
     val workItemFields =
@@ -112,13 +113,14 @@ trait WithWorkItemRepository
         Duration.ofHours(1)
 
       override def now(): Instant =
-        timeSource.now
+        timeSource.now()
     }
   }
 
   override lazy val collectionName = "items"
 
-  override lazy val repository = exampleItemRepository(collectionName)
+  override val repository: WorkItemRepository[ExampleItem] =
+    exampleItemRepository(collectionName)
 
   val item1 = ExampleItem("id1")
   val item2 = item1.copy(id = "id2")

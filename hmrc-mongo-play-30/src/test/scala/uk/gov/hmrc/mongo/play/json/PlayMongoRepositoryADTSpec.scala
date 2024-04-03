@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.play.json
 
-import org.mongodb.scala.{Document, ReadPreference}
+import org.mongodb.scala.{Document, ObservableFuture, ReadPreference, SingleObservableFuture, documentToUntypedDocument}
 import org.mongodb.scala.bson.BsonDocument
 import org.scalacheck.Arbitrary
 import org.scalatest.BeforeAndAfterAll

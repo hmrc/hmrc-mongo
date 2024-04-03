@@ -32,7 +32,8 @@ class ScheduledLockServiceSpec
 
   private val timestampSupport = new CurrentTimestampSupport
 
-  override protected val repository = new MongoLockRepository(mongoComponent, timestampSupport)
+  override protected val repository: MongoLockRepository =
+    new MongoLockRepository(mongoComponent, timestampSupport)
 
   private val lockId = "lockId"
   private val schedulerInterval = 5.seconds

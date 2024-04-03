@@ -37,7 +37,7 @@ object Lock {
     ~ (__ \ "owner"      ).format[String]
     ~ (__ \ "timeCreated").format[Instant]
     ~ (__ \ "expiryTime" ).format[Instant]
-    )(Lock.apply, unlift(Lock.unapply))
+    )(Lock.apply, l => (l.id, l.owner, l.timeCreated, l.expiryTime))
   }
 
   val id          = "_id"

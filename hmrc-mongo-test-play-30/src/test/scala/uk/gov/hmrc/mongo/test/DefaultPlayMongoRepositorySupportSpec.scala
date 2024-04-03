@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.test
 
-import com.mongodb.MongoQueryException
+import org.mongodb.scala.{MongoQueryException, ObservableFuture, SingleObservableFuture}
 import com.mongodb.client.model.{Filters, Indexes}
 import org.mongodb.scala.model.{IndexModel, IndexOptions}
 import org.scalatest.{Assertion, Failed, Outcome, Succeeded}
@@ -106,7 +106,7 @@ class DefaultPlayMongoRepositorySupportSpec
     }
   }
 
-  override protected lazy val repository =
+  override protected val repository: PlayMongoRepository[JsObject] =
     new PlayMongoRepository[JsObject](
       mongoComponent,
       collectionName = "test-collection",
@@ -146,7 +146,7 @@ class DefaultPlayMongoRepositorySupportWithTtlSpec
     }
   }
 
-  override protected lazy val repository =
+  override protected val repository: PlayMongoRepository[JsObject] =
     new PlayMongoRepository[JsObject](
       mongoComponent,
       collectionName = "test-collection",
@@ -173,7 +173,7 @@ class DefaultPlayMongoRepositorySupportMissingTtlSpec
       case outcome   => outcome
     }
 
-  override protected lazy val repository =
+  override protected val repository: PlayMongoRepository[JsObject] =
     new PlayMongoRepository[JsObject](
       mongoComponent,
       collectionName = "test-collection",
@@ -203,7 +203,7 @@ class DefaultPlayMongoRepositorySupportWithInvalidTtlDataSpec
       case outcome   => outcome
     }
 
-  override protected lazy val repository =
+  override protected val repository: PlayMongoRepository[JsObject] =
     new PlayMongoRepository[JsObject](
       mongoComponent,
       collectionName = "test-collection",

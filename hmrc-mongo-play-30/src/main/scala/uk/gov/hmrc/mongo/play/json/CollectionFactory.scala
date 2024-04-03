@@ -27,10 +27,10 @@ import scala.reflect.ClassTag
 
 trait CollectionFactory {
   def collection[A: ClassTag](
-    db: MongoDatabase,
+    db            : MongoDatabase,
     collectionName: String,
-    domainFormat: Format[A],
-    extraCodecs: Seq[Codec[_]] = Seq.empty
+    domainFormat  : Format[A],
+    extraCodecs   : Seq[Codec[_]] = Seq.empty
   ): MongoCollection[A] =
     db.getCollection[A](collectionName)
       .withCodecRegistry(

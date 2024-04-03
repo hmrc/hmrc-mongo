@@ -78,27 +78,27 @@ class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDriv
 
     "encoding byte arrays in standard Mongo binary encoding" should {
       "round trip binary data" in {
-        forAll { bytes: Array[Byte] =>
+        forAll { (bytes: Array[Byte]) =>
           val jsValue = MongoBinaryFormats.byteArrayFormat.writes(bytes)
           MongoBinaryFormats.byteArrayFormat.reads(jsValue).asOpt should contain(bytes)
         }
       }
 
       "be compatible with byte array codec" in {
-        forAll { bytes: Array[Byte] =>
+        forAll { (bytes: Array[Byte]) =>
           MongoBinaryFormats.byteArrayFormat.writes(bytes) shouldBe codecWrite(bytes)(classOf[Array[Byte]])
         }
       }
 
       "allow reading bytes written by byte array codec" in {
-        forAll { bytes: Array[Byte] =>
+        forAll { (bytes: Array[Byte]) =>
           val jsValue = codecWrite(bytes)(classOf[Array[Byte]])
           MongoBinaryFormats.byteArrayFormat.reads(jsValue).asOpt should contain(bytes)
         }
       }
 
       "not allow reading bytes written with the wrong binary subtype" in {
-        forAll { uuid: UUID =>
+        forAll { (uuid: UUID) =>
           val jsValue = codecWrite(uuid, UuidRepresentation.JAVA_LEGACY)(classOf[UUID])
           MongoBinaryFormats.byteArrayFormat.reads(jsValue) shouldBe JsError(
             "Invalid BSON binary subtype for generic binary data: '03'"
@@ -109,27 +109,27 @@ class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDriv
 
     "encoding byte buffers in standard Mongo binary encoding" should {
       "round trip binary data" in {
-        forAll { bytes: Array[Byte] =>
+        forAll { (bytes: Array[Byte]) =>
           val jsValue = MongoBinaryFormats.byteBufferFormat.writes(ByteBuffer.wrap(bytes))
           MongoBinaryFormats.byteBufferFormat.reads(jsValue).asOpt should contain(ByteBuffer.wrap(bytes))
         }
       }
 
       "be compatible with byte array codec" in {
-        forAll { bytes: Array[Byte] =>
+        forAll { (bytes: Array[Byte]) =>
           MongoBinaryFormats.byteBufferFormat.writes(ByteBuffer.wrap(bytes)) shouldBe codecWrite(bytes)(classOf[Array[Byte]])
         }
       }
 
       "allow reading bytes written by byte array codec" in {
-        forAll { bytes: Array[Byte] =>
+        forAll { (bytes: Array[Byte]) =>
           val jsValue = codecWrite(bytes)(classOf[Array[Byte]])
           MongoBinaryFormats.byteBufferFormat.reads(jsValue).asOpt should contain(ByteBuffer.wrap(bytes))
         }
       }
 
       "not allow reading bytes written with the wrong binary subtype" in {
-        forAll { uuid: UUID =>
+        forAll { (uuid: UUID) =>
           val jsValue = codecWrite(uuid, UuidRepresentation.JAVA_LEGACY)(classOf[UUID])
           MongoBinaryFormats.byteBufferFormat.reads(jsValue) shouldBe JsError(
             "Invalid BSON binary subtype for generic binary data: '03'"
@@ -140,27 +140,27 @@ class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDriv
 
     "encoding Akka/Pekko ByteString in standard Mongo binary encoding" should {
       "round trip binary data" in {
-        forAll { bytes: Array[Byte] =>
+        forAll { (bytes: Array[Byte]) =>
           val jsValue = MongoBinaryFormats.byteStringFormat.writes(ByteString(bytes))
           MongoBinaryFormats.byteStringFormat.reads(jsValue).asOpt should contain(ByteString(bytes))
         }
       }
 
       "be compatible with byte array codec" in {
-        forAll { bytes: Array[Byte] =>
+        forAll { (bytes: Array[Byte]) =>
           MongoBinaryFormats.byteStringFormat.writes(ByteString(bytes)) shouldBe codecWrite(bytes)(classOf[Array[Byte]])
         }
       }
 
       "allow reading bytes written by byte array codec" in {
-        forAll { bytes: Array[Byte] =>
+        forAll { (bytes: Array[Byte]) =>
           val jsValue = codecWrite(bytes)(classOf[Array[Byte]])
           MongoBinaryFormats.byteStringFormat.reads(jsValue).asOpt should contain(ByteString(bytes))
         }
       }
 
       "not allow reading bytes written with the wrong binary subtype" in {
-        forAll { uuid: UUID =>
+        forAll { (uuid: UUID) =>
           val jsValue = codecWrite(uuid, UuidRepresentation.STANDARD)(classOf[UUID])
           MongoBinaryFormats.byteStringFormat.reads(jsValue) shouldBe JsError(
             "Invalid BSON binary subtype for generic binary data: '04'"
@@ -170,22 +170,21 @@ class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDriv
     }
 
     "encoding UUIDs in standard Mongo UUID encoding" should {
-
       "be compatible with UuidRepresentation.STANDARD java.util.UUID codec" in {
-        forAll { uuid: UUID =>
+        forAll { (uuid: UUID) =>
           MongoUuidFormats.uuidFormat.writes(uuid) shouldBe codecWrite(uuid, UuidRepresentation.STANDARD)(classOf[UUID])
         }
       }
 
       "allow reading UUID written with UuidRepresentation.STANDARD" in {
-        forAll { uuid: UUID =>
+        forAll { (uuid: UUID) =>
           val jsValue = codecWrite(uuid, UuidRepresentation.STANDARD)(classOf[UUID])
           MongoUuidFormats.uuidReads.reads(jsValue).asOpt should contain(uuid)
         }
       }
 
       "not allow reading UUID written with UuidRepresentation.JAVA_LEGACY" in {
-        forAll { uuid: UUID =>
+        forAll { (uuid: UUID) =>
           val jsValue = codecWrite(uuid, UuidRepresentation.JAVA_LEGACY)(classOf[UUID])
           assertThrows[BSONException] {
             MongoUuidFormats.uuidReads.reads(jsValue)
@@ -194,19 +193,17 @@ class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDriv
       }
 
       "fail when reading data written with generic binary subtype as UUID" in {
-        forAll { bytes: Array[Byte] =>
+        forAll { (bytes: Array[Byte]) =>
           MongoUuidFormats.uuidReads.reads(codecWrite(bytes)(classOf[Array[Byte]])) shouldBe JsError(
             "Invalid BSON binary subtype for UUID: '00'"
           )
         }
       }
-
     }
 
     "encoding UUIDs in legacy Mongo UUID encoding" should {
-
       "be compatible with UuidRepresentation.LEGACY java.util.UUID codec" in {
-        forAll { uuid: UUID =>
+        forAll { (uuid: UUID) =>
           MongoLegacyUuidFormats.uuidFormat.writes(uuid) shouldBe codecWrite(uuid, UuidRepresentation.JAVA_LEGACY)(
             classOf[UUID]
           )
@@ -214,21 +211,21 @@ class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDriv
       }
 
       "allow reading UUID written with UuidRepresentation.JAVA_LEGACY" in {
-        forAll { uuid: UUID =>
+        forAll { (uuid: UUID) =>
           val jsValue = codecWrite(uuid, UuidRepresentation.JAVA_LEGACY)(classOf[UUID])
           MongoLegacyUuidFormats.uuidReads.reads(jsValue).asOpt should contain(uuid)
         }
       }
 
       "allow reading UUID written with UuidRepresentation.STANDARD" in {
-        forAll { uuid: UUID =>
+        forAll { (uuid: UUID) =>
           val jsValue = codecWrite(uuid, UuidRepresentation.STANDARD)(classOf[UUID])
           MongoLegacyUuidFormats.uuidReads.reads(jsValue).asOpt should contain(uuid)
         }
       }
 
       "fail when reading data written with generic binary subtype as UUID" in {
-        forAll { bytes: Array[Byte] =>
+        forAll { (bytes: Array[Byte]) =>
           MongoLegacyUuidFormats.uuidReads.reads(codecWrite(bytes)(classOf[Array[Byte]])) shouldBe JsError(
             "Invalid BSON binary subtype for UUID: '00'"
           )
