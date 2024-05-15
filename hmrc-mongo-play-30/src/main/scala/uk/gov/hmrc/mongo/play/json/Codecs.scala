@@ -36,37 +36,26 @@ trait Codecs extends CodecHelper {
   private val bsonDocumentCodec = DEFAULT_CODEC_REGISTRY.get(classOf[BsonDocument])
   private val bsonValueCodec    = DEFAULT_CODEC_REGISTRY.get(classOf[BsonValue])
 
-  /** @param legacyNumbers `true` will preserve the Number modifications which occured with simple-reactivemongo when storing
-    * extremely large and small numbers.
-    * The default value `false` should be preferred in most cases. This does change the previous behaviour from reactivemongo,
-    * but only for extreme values not within typical usage (e.g. 4.648216657858037E+74). This ensures that should numbers in
-    * this extreme range occur, they will be stored and retrieved accurately, whereas with the legacy behaviour they may be
-    * modified in unexpected ways.
-    */
   def playFormatCodec[A](
-    format       : Format[A],
-    legacyNumbers: Boolean = false
+    format: Format[A]
   )(implicit ct: ClassTag[A]): Codec[A] =
-    playFormatSumCodec[A, A](format, legacyNumbers)
+    playFormatSumCodec[A, A](format)
 
 
   /** This variant of `playFormatCodec` allows to register a codec for subclasses, which are defined by a play format for a supertype.
     * This is helpful when writing an instance of the subclass to mongo, since codecs are looked up by reflection, and the format will need to be registered explicitly for the subclass.
     *
     * See @playFormatSumCodecsBuilder for a simplified notation when registering for multiple subclasses.
-    *
-    * @param legacyNumbers see `playFormatCodec`
     */
   private[json] def playFormatSumCodec[A, B <: A](
-    format       : Format[A],
-    legacyNumbers: Boolean
+    format: Format[A]
   )(implicit ct: ClassTag[B]): Codec[B] = new Codec[B] {
 
     override def getEncoderClass: Class[B] =
       ct.runtimeClass.asInstanceOf[Class[B]]
 
     override def encode(writer: BsonWriter, value: B, encoderContext: EncoderContext): Unit = {
-      val bs: BsonValue = jsonToBson(legacyNumbers)(format.writes(value))
+      val bs: BsonValue = jsonToBson(format.writes(value))
       bsonValueCodec.encode(writer, bs, encoderContext)
     }
 
@@ -101,47 +90,41 @@ trait Codecs extends CodecHelper {
     *     extraCodecs  = Codecs.playFormatCodecsBuilder(sumFormat).forType[Sum1].forType[Sum2].build
     *   )
     * ```
-    * @param legacyNumbers see `playFormatCodec`
     */
   def playFormatCodecsBuilder[A](
-    format       : Format[A],
-    legacyNumbers: Boolean   = false
+    format: Format[A]
   )(implicit ct: ClassTag[A]) =
-    new SumCodecsBuilder(format, legacyNumbers, Seq(playFormatSumCodec[A, A](format, legacyNumbers)))
+    new SumCodecsBuilder(format, Seq(playFormatSumCodec[A, A](format)))
 
   class SumCodecsBuilder[A] private[json](
-    format       : Format[A],
-    legacyNumbers: Boolean       = false,
-    acc          : Seq[Codec[_]]
+    format: Format[A],
+    acc   : Seq[Codec[_]]
   ) {
     def forType[B <: A](implicit ct: ClassTag[B]): SumCodecsBuilder[A] =
       new SumCodecsBuilder[A](
         format,
-        legacyNumbers,
-        acc :+ playFormatSumCodec[A, B](format, legacyNumbers)
+        acc :+ playFormatSumCodec[A, B](format)
       )
 
     def build: Seq[Codec[_]] =
       acc
   }
 
-  def toBson[A: Writes](a: A, legacyNumbers: Boolean = false): BsonValue =
-    jsonToBson(legacyNumbers)(Json.toJson(a))
+  def toBson[A: Writes](a: A): BsonValue =
+    jsonToBson(Json.toJson(a))
 
   def fromBson[A: Reads](bs: BsonValue): A = bsonToJson(bs).as[A]
 
-  private def jsonToBson(legacyNumbers: Boolean)(js: JsValue): BsonValue =
+  private def jsonToBson(js: JsValue): BsonValue =
     js match {
       case JsNull       => BsonNull.VALUE
       case JsBoolean(b) => BsonBoolean.valueOf(b)
       case JsTrue       => BsonBoolean.valueOf(true)  // added to keep compiler warnings happy - but is unreachable since extends JsBoolean
       case JsFalse      => BsonBoolean.valueOf(false) // added to keep compiler warnings happy - but is unreachable since extends JsBoolean
-      case JsNumber(n)  =>
-        if (legacyNumbers) toBsonNumberLegacy(n)
-        else toBsonNumber(n)
-      case JsString(s) => new BsonString(s)
-      case JsArray(a)  => new BsonArray(a.map(jsonToBson(legacyNumbers)).asJava)
-      case o: JsObject =>
+      case JsNumber(n)  => toBsonNumber(n)
+      case JsString(s)  => new BsonString(s)
+      case JsArray(a)   => new BsonArray(a.map(jsonToBson).asJava)
+      case o: JsObject  =>
         if (o.keys.exists(k => k.startsWith("$") && !List("$numberDecimal", "$numberLong").contains(k)))
           // mongo types, identified with $ in `MongoDB Extended JSON format`  (e.g. BsonObjectId, BsonDateTime)
           // should use default conversion to Json. Then PlayJsonReaders will then convert as appropriate
@@ -151,7 +134,7 @@ trait Codecs extends CodecHelper {
           new BsonDocument(
             o.fields.map {
               case (k, v) =>
-                new BsonElement(k, jsonToBson(legacyNumbers)(v))
+                new BsonElement(k, jsonToBson(v))
             }.asJava
           )
     }
@@ -181,14 +164,6 @@ trait Codecs extends CodecHelper {
         }
     }
 
-  // Following number conversion comes from https://github.com/ReactiveMongo/Play-ReactiveMongo/blob/4071a4fd580d7c6edeccac318d839456f69a847d/src/main/scala/play/modules/reactivemongo/Formatters.scala#L62-L64
-  // It will loose precision on BigDecimals which can't be represented as doubles, and incorrectly identify some large Doubles as Long.
-  // But is backward compatible with simple-reactivemongo
-  private def toBsonNumberLegacy(bd: BigDecimal): BsonValue =
-    if (!bd.ulp.isWhole) new BsonDouble(bd.toDouble)
-    else if (bd.isValidInt) new BsonInt32(bd.toInt)
-    else new BsonInt64(bd.toLong)
-
   private def toBsonNumber(bd: BigDecimal): BsonValue =
     if (!bd.ulp.isWhole && bd.isDecimalDouble) new BsonDouble(bd.doubleValue)
     else if (bd.isValidInt) new BsonInt32(bd.intValue)
@@ -213,9 +188,9 @@ trait Codecs extends CodecHelper {
   }
 
   implicit class JsonOps[A: Writes](a: A) {
-    def toBson(legacyNumbers: Boolean = false): BsonValue = outer.toBson(a, legacyNumbers)
+    def toBson: BsonValue = outer.toBson(a)
 
-    def toDocument(legacyNumbers: Boolean = false): ScalaDocument = outer.toBson(a, legacyNumbers).asDocument()
+    def toDocument: ScalaDocument = outer.toBson(a).asDocument()
   }
 
   implicit class BsonOps(bs: BsonValue) {

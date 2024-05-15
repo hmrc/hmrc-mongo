@@ -340,6 +340,7 @@ In the exceptional case that a TTL Index is not required, this can be indicated 
 
 ### Version 2.0.0
 - Built for Scala 3 as well as Scala 2.13. Scala 2.12 has been dropped.
+- `legacyNumbers` has been dropped - it has proved unnecessary now simple-reactivemongo migrations have taken place.
 
 ### Version 1.8.0
 - Updates mongo-scala-driver to 5.0

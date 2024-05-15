@@ -31,8 +31,7 @@ import scala.reflect.ClassTag
 
 private [json] trait CodecHelper {
   private[json] def playFormatSumCodec[A, B <: A](
-    format       : Format[A],
-    legacyNumbers: Boolean
+    format: Format[A]
   )(implicit ct: ClassTag[B]): Codec[B]
 
  /** This variant of `playFormatCodec` allows to register codecs for all direct subclasses, which are defined by a play format for a supertype.
@@ -49,15 +48,12 @@ private [json] trait CodecHelper {
     *     extraCodecs  = Codecs.playFormatSumCodecs(sumFormat)
     *   )
     * ```
-    * @param legacyNumbers see `playFormatCodec`
-    * @throws IllegalArgumentException if the class is not a sealed trait
     */
   inline def playFormatSumCodecs[A: scala.deriving.Mirror.SumOf](
-    format       : Format[A],
-    legacyNumbers: Boolean    = false
+    format: Format[A]
   ): Seq[Codec[_]] =
     findSubclasstagsOfSealedTrait[A]
-      .map { subclass => playFormatSumCodec(format, legacyNumbers)(subclass) }
+      .map { subclass => playFormatSumCodec(format)(subclass) }
       .toSeq
 
 

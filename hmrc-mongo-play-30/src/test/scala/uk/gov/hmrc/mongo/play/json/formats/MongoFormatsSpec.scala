@@ -58,7 +58,6 @@ class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDriv
     }
 
     "encoding java.time values" should {
-
       "be compatible with default java.time.Instant codec" in {
         forAll(epochMillisGen) { epochMillis =>
           val javaInstant = jat.Instant.ofEpochMilli(epochMillis)
