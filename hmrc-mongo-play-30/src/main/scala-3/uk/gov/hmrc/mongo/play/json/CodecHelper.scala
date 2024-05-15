@@ -26,7 +26,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import org.mongodb.scala.{Document => ScalaDocument}
 import play.api.libs.json._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.reflect.ClassTag
 
 private [json] trait CodecHelper {

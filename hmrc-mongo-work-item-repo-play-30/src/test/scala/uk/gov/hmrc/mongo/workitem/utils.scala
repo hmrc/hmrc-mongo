@@ -28,7 +28,6 @@ import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.language.reflectiveCalls
 
 class TimeSource {
   private val clock =

@@ -16,8 +16,8 @@
 
 package uk.gov.hmrc.mongo.lock
 
-import org.mongodb.scala.{MongoServerException, ObservableFuture, SingleObservableFuture}
 import com.mongodb.client.model.Filters
+import org.mongodb.scala.MongoServerException
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey

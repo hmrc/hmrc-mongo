@@ -4,11 +4,10 @@ import uk.gov.hmrc.DefaultBuildSettings
 // https://www.scala-sbt.org/1.x/docs/Parallel-Execution.html
 Global / concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.Untagged)
 
-val scala2_12 = "2.12.18"
 val scala2_13 = "2.13.12"
 val scala3    = "3.3.3"
 
-ThisBuild / majorVersion     := 1
+ThisBuild / majorVersion     := 2
 ThisBuild / scalaVersion     := scala2_13
 ThisBuild / isPublicArtefact := true
 ThisBuild / scalacOptions    ++= Seq("-feature")
@@ -25,7 +24,7 @@ lazy val library = Project("hmrc-mongo", file("."))
 
 lazy val hmrcMongoCommon = Project("hmrc-mongo-common", file("hmrc-mongo-common"))
   .settings(
-    crossScalaVersions := Seq(scala2_12, scala2_13, scala3),
+    crossScalaVersions := Seq(scala2_13, scala3),
     libraryDependencies ++= LibDependencies.mongoCommon(scalaVersion.value)
   )
 
@@ -38,7 +37,7 @@ def copyPlay30Sources(module: Project) =
 
 lazy val hmrcMongoPlay28 = Project("hmrc-mongo-play-28", file("hmrc-mongo-play-28"))
   .settings(
-    crossScalaVersions := Seq(scala2_12, scala2_13),
+    crossScalaVersions := Seq(scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoPlay("play-28", scalaVersion.value),
     copyPlay30Sources(hmrcMongoPlay30)
   ).dependsOn(hmrcMongoCommon)
@@ -58,7 +57,7 @@ lazy val hmrcMongoPlay30 = Project("hmrc-mongo-play-30", file("hmrc-mongo-play-3
 
 lazy val hmrcMongoTestPlay28 = Project("hmrc-mongo-test-play-28", file("hmrc-mongo-test-play-28"))
   .settings(
-    crossScalaVersions := Seq(scala2_12, scala2_13),
+    crossScalaVersions := Seq(scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoTestPlay("play-28", scalaVersion.value),
     copyPlay30Sources(hmrcMongoTestPlay30)
   ).dependsOn(hmrcMongoPlay28)
@@ -78,7 +77,7 @@ lazy val hmrcMongoTestPlay30 = Project("hmrc-mongo-test-play-30", file("hmrc-mon
 
 lazy val hmrcMongoMetrixPlay28 = Project("hmrc-mongo-metrix-play-28", file("hmrc-mongo-metrix-play-28"))
   .settings(
-    crossScalaVersions := Seq(scala2_12, scala2_13),
+    crossScalaVersions := Seq(scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoMetrixPlay("play-28"),
     copyPlay30Sources(hmrcMongoMetrixPlay30)
   ).dependsOn(hmrcMongoPlay28, hmrcMongoTestPlay28 % Test)
@@ -98,7 +97,7 @@ lazy val hmrcMongoMetrixPlay30 = Project("hmrc-mongo-metrix-play-30", file("hmrc
 
 lazy val hmrcMongoWorkItemRepoPlay28 = Project("hmrc-mongo-work-item-repo-play-28", file("hmrc-mongo-work-item-repo-play-28"))
   .settings(
-    crossScalaVersions := Seq(scala2_12, scala2_13),
+    crossScalaVersions := Seq(scala2_13),
     libraryDependencies ++= LibDependencies.hmrcMongoWorkItemRepoPlay("play-28"),
     copyPlay30Sources(hmrcMongoWorkItemRepoPlay30)
   ).dependsOn(hmrcMongoMetrixPlay28, hmrcMongoTestPlay28 % Test)

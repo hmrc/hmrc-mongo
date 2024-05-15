@@ -22,7 +22,7 @@ import com.codahale.metrics.{Gauge, MetricRegistry}
 import play.api.Logger
 import uk.gov.hmrc.mongo.lock.LockService
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 

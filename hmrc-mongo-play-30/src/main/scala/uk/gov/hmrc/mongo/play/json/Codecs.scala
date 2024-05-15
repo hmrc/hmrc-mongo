@@ -26,7 +26,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import org.mongodb.scala.{Document => ScalaDocument}
 import play.api.libs.json._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.reflect.ClassTag
 
 trait Codecs extends CodecHelper {
@@ -134,6 +134,8 @@ trait Codecs extends CodecHelper {
     js match {
       case JsNull       => BsonNull.VALUE
       case JsBoolean(b) => BsonBoolean.valueOf(b)
+      case JsTrue       => BsonBoolean.valueOf(true)  // added to keep compiler warnings happy - but is unreachable since extends JsBoolean
+      case JsFalse      => BsonBoolean.valueOf(false) // added to keep compiler warnings happy - but is unreachable since extends JsBoolean
       case JsNumber(n)  =>
         if (legacyNumbers) toBsonNumberLegacy(n)
         else toBsonNumber(n)

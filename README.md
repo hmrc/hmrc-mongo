@@ -338,18 +338,22 @@ In the exceptional case that a TTL Index is not required, this can be indicated 
 
 ## Changes
 
+### Version 2.0.0
+- Built for Scala 3 as well as Scala 2.13. Scala 2.12 has been dropped.
+
 ### Version 1.8.0
 - Updates mongo-scala-driver to 5.0
 
 ### Version 1.7.0
 - Targets JVM 11.
+- `MongoCacheRepository` and `SessionCacheRepository` are easier to use since they support `extraIndexes` and `extraCodecs`.
 
 ### Version 1.5.0
 - Adds `ScheduledLockService` - A locking implementation that makes working with scheduled tasks less painful and more predictable.
 
 ### Version 1.4.0
-- Supports Play 2.9.
-  Note, joda time is no longer supported with Play 2.9 build.
+- Supports Play 3.0 and Play 2.9.
+  Note, joda time is no longer supported with Play 2.9/3.0 build.
 
 ### Version 1.3.0
 - Restore target JVM 8.

@@ -27,7 +27,6 @@ import java.time.{Clock, Instant, ZoneId}
 import java.time.temporal.ChronoUnit
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.language.reflectiveCalls
 
 class WorkItemRepositorySpec
   extends AnyWordSpec

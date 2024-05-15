@@ -28,7 +28,6 @@ import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.{Format, Reads}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.language.reflectiveCalls
 
 class WorkItemModuleRepositorySpec
   extends AnyWordSpec
