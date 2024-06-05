@@ -20,6 +20,7 @@ import java.time.{Instant, Duration => JavaDuration}
 import com.google.inject.ImplementedBy
 
 import javax.inject.{Inject, Singleton}
+import org.mongodb.scala.{ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.model.Filters._
 import org.mongodb.scala.model.Updates
 import play.api.Logger

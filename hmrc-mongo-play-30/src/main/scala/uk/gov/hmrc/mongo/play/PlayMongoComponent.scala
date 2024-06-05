@@ -18,7 +18,7 @@ package uk.gov.hmrc.mongo.play
 
 import com.google.inject.AbstractModule
 import com.mongodb.ConnectionString
-import org.mongodb.scala.{MongoClient, MongoDatabase}
+import org.mongodb.scala.{MongoClient, MongoDatabase, ObservableFuture}
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Logger}
 import uk.gov.hmrc.mongo.MongoComponent

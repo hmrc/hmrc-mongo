@@ -15,18 +15,19 @@
  */
 
 package uk.gov.hmrc.mongo.cache
-import play.api.libs.functional.syntax.{unlift, _}
+import play.api.libs.functional.syntax._
 import play.api.libs.json.{OFormat, __}
 
 final case class Person(
   name: String,
-  age: Int,
-  sex: String
+  age : Int,
+  sex : String
 )
 
 object Person {
   val format: OFormat[Person] =
-    ((__ \ "name").format[String]
-      ~ (__ \ "age").format[Int]
-      ~ (__ \ "sex").format[String])(Person.apply, unlift(Person.unapply))
+    ( (__ \ "name").format[String]
+    ~ (__ \ "age" ).format[Int]
+    ~ (__ \ "sex" ).format[String]
+    )(Person.apply, p => (p.name, p.age, p.sex))
 }

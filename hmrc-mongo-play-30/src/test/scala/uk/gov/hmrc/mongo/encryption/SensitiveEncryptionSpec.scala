@@ -17,6 +17,7 @@
 package uk.gov.hmrc.mongo.encryption
 
 import org.bson.types.ObjectId
+import org.mongodb.scala.{ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.Updates
 import org.scalatest.{BeforeAndAfterEach, OptionValues}
@@ -215,10 +216,10 @@ object SensitiveEncryptionSpec {
     n2: Int
   )
   object Nested {
-    val format =
+    val format: Format[Nested] =
       ( (__ \ "n1").format[String]
       ~ (__ \ "n2").format[Int]
-      )(Nested.apply, unlift(Nested.unapply))
+      )(Nested.apply, n => (n.n1, n.n2))
   }
 
   case class SensitiveNested(override val decryptedValue: Nested) extends Sensitive[Nested]
@@ -264,7 +265,7 @@ object SensitiveEncryptionSpec {
       ~ (__ \ "sensitiveLong"    ).format[SensitiveLong]
       ~ (__ \ "sensitiveNested"  ).format[SensitiveNested]
       ~ (__ \ "sensitiveOptional").formatNullable[SensitiveString]
-      )(MyObject.apply, unlift(MyObject.unapply))
+      )(MyObject.apply, mo => (mo.id, mo.sensitiveString, mo.sensitiveBoolean, mo.sensitiveLong, mo.sensitiveNested, mo.sensitiveOptional))
     }
   }
 }

@@ -17,10 +17,12 @@
 package uk.gov.hmrc.mongo.metrix
 
 import com.codahale.metrics.{Metric, MetricFilter, MetricRegistry}
-import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.{times, verify, verifyNoMoreInteractions, when}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.Inside._
+import org.scalatestplus.mockito.MockitoSugar
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
 import uk.gov.hmrc.mongo.lock.{Lock, LockService, MongoLockRepository}
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
@@ -33,7 +35,6 @@ class MetricOrchestratorSpec
   extends AnyWordSpec
      with Matchers
      with MockitoSugar
-     with ArgumentMatchersSugar
      with DefaultPlayMongoRepositorySupport[PersistedMetric] {
 
   import MetricOrchestrationResult._
@@ -169,7 +170,8 @@ class MetricOrchestratorSpec
       val orchestrator     = metricOrchestratorFor(List(mockMetricSource))
 
       val acquiredMetrics = Map(otherMetricName -> 4, resetableMetricName -> 2, notResetedMetricName -> 8)
-      when(mockMetricSource.metrics(any)).thenReturn(Future.successful(acquiredMetrics))
+      when(mockMetricSource.metrics(any[ExecutionContext]))
+        .thenReturn(Future.successful(acquiredMetrics))
       orchestrator
         .attemptMetricRefresh(resetToZeroFor = Some((metric: PersistedMetric) => {
           metric.name == "reseted.name"
@@ -177,7 +179,8 @@ class MetricOrchestratorSpec
         .futureValue
 
       val newAcquiredMetrics = Map(otherMetricName -> 5, notResetedMetricName -> 6)
-      when(mockMetricSource.metrics(any)).thenReturn(Future.successful(newAcquiredMetrics))
+      when(mockMetricSource.metrics(any[ExecutionContext]))
+        .thenReturn(Future.successful(newAcquiredMetrics))
       orchestrator
         .attemptMetricRefresh(resetToZeroFor = Some((metric: PersistedMetric) => {
           metric.name == "reseted.name"
@@ -284,8 +287,10 @@ class MetricOrchestratorSpec
     }
   }
 
-  private val metricRegistry        = new MetricRegistry()
-  override protected val repository = new MongoMetricRepository(mongoComponent)
+  private val metricRegistry = new MetricRegistry()
+
+  override protected val repository: MongoMetricRepository =
+    new MongoMetricRepository(mongoComponent)
 
   override def beforeEach(): Unit = {
     super.beforeEach()

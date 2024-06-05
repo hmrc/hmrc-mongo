@@ -94,6 +94,8 @@ class LockServiceSpec
   private val clock         = Clock.tickMillis(ZoneId.systemDefault())
   private val now           = Instant.now(clock)
 
-  override protected val repository = new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
-  private val lockService           = LockService(repository, lockId, ttl)
+  override protected val repository: MongoLockRepository =
+    new MongoLockRepository(mongoComponent, new CurrentTimestampSupport)
+
+  private val lockService = LockService(repository, lockId, ttl)
 }

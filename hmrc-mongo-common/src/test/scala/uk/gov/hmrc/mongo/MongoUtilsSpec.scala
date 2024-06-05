@@ -17,7 +17,7 @@
 package uk.gov.hmrc.mongo
 
 import com.mongodb.MongoCommandException
-import org.mongodb.scala.Document
+import org.mongodb.scala.{Document, ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.bson.{BsonArray, BsonDateTime, BsonDocument, BsonInt32, BsonString}
 import org.mongodb.scala.model.{Indexes, IndexModel, IndexOptions}
 import org.scalatest.BeforeAndAfterEach
@@ -26,8 +26,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.util.concurrent.TimeUnit
-import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
+import scala.jdk.CollectionConverters._
 import ExecutionContext.Implicits.global
 
 class MongoUtilsSpec
@@ -245,11 +245,12 @@ class MongoUtilsSpec
           IndexModel(Indexes.ascending("field1"), IndexOptions()),
           IndexModel(Indexes.ascending("field2"), IndexOptions())
         )
-      val res = (for {
-         _   <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         res <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
-       } yield res
-      ).futureValue
+      val res =
+        (for {
+           _   <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+           res <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+         } yield res
+        ).futureValue
       res shouldBe Map.empty[String, TtlState]
     }
 
@@ -262,11 +263,12 @@ class MongoUtilsSpec
                                                     .expireAfter(1000, TimeUnit.MILLISECONDS)
                     )
         )
-      val res = (for {
-         _   <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         res <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
-       } yield res
-      ).futureValue
+      val res =
+        (for {
+           _   <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+           res <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+         } yield res
+        ).futureValue
       res shouldBe Map("field2" -> TtlState.NoData)
     }
 
@@ -279,13 +281,14 @@ class MongoUtilsSpec
                                                     .expireAfter(1000, TimeUnit.MILLISECONDS)
                     )
         )
-      val res = (for {
-         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         items =  (1 to 99).map(i => BsonDocument("field2" -> (if (i == 30) new BsonInt32(i) else new BsonDateTime(i))))
-        _      <- collection.insertMany(items) .toFuture()
-         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
-       } yield res
-      ).futureValue
+      val res =
+        (for {
+           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+           items =  (1 to 99).map(i => BsonDocument("field2" -> (if (i == 30) new BsonInt32(i) else new BsonDateTime(i))))
+           _     <- collection.insertMany(items) .toFuture()
+           res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+         } yield res
+        ).futureValue
       res shouldBe Map("field2" -> TtlState.InvalidType("int"))
     }
 
@@ -298,13 +301,14 @@ class MongoUtilsSpec
                                                     .expireAfter(1000, TimeUnit.MILLISECONDS)
                     )
         )
-      val res = (for {
-         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         items =  (1 to 99).map(i => BsonDocument())
-        _      <- collection.insertMany(items) .toFuture()
-         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
-       } yield res
-      ).futureValue
+      val res =
+        (for {
+           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+           items =  (1 to 99).map(i => BsonDocument())
+           _     <- collection.insertMany(items) .toFuture()
+           res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+         } yield res
+        ).futureValue
       res shouldBe Map("field2" -> TtlState.InvalidType("missing"))
     }
 
@@ -317,13 +321,14 @@ class MongoUtilsSpec
                                                     .expireAfter(1000, TimeUnit.MILLISECONDS)
                     )
         )
-      val res = (for {
-         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonDateTime(i)))
-        _      <- collection.insertMany(items) .toFuture()
-         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
-       } yield res
-      ).futureValue
+      val res =
+        (for {
+           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+           items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonDateTime(i)))
+           _     <- collection.insertMany(items) .toFuture()
+           res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+         } yield res
+        ).futureValue
       res shouldBe Map("field2" -> TtlState.ValidType)
     }
 
@@ -336,13 +341,14 @@ class MongoUtilsSpec
                                                     .expireAfter(1000, TimeUnit.MILLISECONDS)
                     )
         )
-      val res = (for {
-         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonArray(Seq(new BsonDateTime(i), new BsonString(i.toString)).asJava)))
-        _      <- collection.insertMany(items) .toFuture()
-         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
-       } yield res
-      ).futureValue
+      val res =
+        (for {
+           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+           items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonArray(Seq(new BsonDateTime(i), new BsonString(i.toString)).asJava)))
+           _     <- collection.insertMany(items) .toFuture()
+           res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+         } yield res
+        ).futureValue
       res shouldBe Map("field2" -> TtlState.ValidType)
     }
 
@@ -355,13 +361,14 @@ class MongoUtilsSpec
                                                     .expireAfter(1000, TimeUnit.MILLISECONDS)
                     )
         )
-      val res = (for {
-         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonArray(Seq(new BsonString(i.toString), new BsonString(i.toString)).asJava)))
-        _      <- collection.insertMany(items) .toFuture()
-         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
-       } yield res
-      ).futureValue
+      val res =
+        (for {
+           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+           items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonArray(Seq(new BsonString(i.toString), new BsonString(i.toString)).asJava)))
+           _     <- collection.insertMany(items) .toFuture()
+           res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
+         } yield res
+        ).futureValue
       res shouldBe Map("field2" -> TtlState.InvalidType("array"))
     }
 
@@ -374,13 +381,14 @@ class MongoUtilsSpec
                                                     .expireAfter(1000, TimeUnit.MILLISECONDS)
                     )
         )
-      val res = (for {
-         _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonDateTime(i)))
-        _      <- collection.insertMany(items) .toFuture()
-         res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = false)
-       } yield res
-      ).futureValue
+      val res =
+        (for {
+           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+           items =  (1 to 99).map(i => BsonDocument("field2" -> new BsonDateTime(i)))
+           _     <- collection.insertMany(items) .toFuture()
+           res   <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = false)
+         } yield res
+        ).futureValue
       res shouldBe Map("field2" -> TtlState.TypeCheckSkipped)
     }
   }

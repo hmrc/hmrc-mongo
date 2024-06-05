@@ -16,8 +16,8 @@
 
 package uk.gov.hmrc.mongo.lock
 
-import com.mongodb.MongoServerException
 import com.mongodb.client.model.Filters
+import org.mongodb.scala.MongoServerException
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
@@ -269,7 +269,8 @@ class MongoLockRepositorySpec
     override def timestamp(): Instant = now
   }
 
-  override protected lazy val repository = new MongoLockRepository(mongoComponent, timestampSupport)
+  override protected val repository: MongoLockRepository =
+    new MongoLockRepository(mongoComponent, timestampSupport)
 
   private lazy val lockId = "lockId"
   private lazy val owner  = "owner"

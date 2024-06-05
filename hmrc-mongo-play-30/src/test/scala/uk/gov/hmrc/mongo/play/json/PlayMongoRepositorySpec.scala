@@ -21,7 +21,7 @@ import org.apache.pekko.util.ByteString
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
 import org.bson.types.ObjectId
-import org.mongodb.scala.{Document, ReadPreference}
+import org.mongodb.scala.{Document, ObservableFuture, ReadPreference, SingleObservableFuture, documentToUntypedDocument}
 import org.mongodb.scala.bson.{BsonDocument, BsonString}
 import org.mongodb.scala.model.{Filters, Updates}
 import org.scalacheck.{Arbitrary, Gen}
@@ -219,7 +219,7 @@ class PlayMongoRepositorySpec
     // Clients should really be using BSON directly (which does guarantee order) or modelling in JSON appropriately (e.g. Array or order labelled objects).
     // However, in the spirit of making the migration from simple-reactive mongo as easy as possible, we attempt to keep the order. This comes with caveats, such as
     // the "_id" field will always bubble up to the first entry, and any mutation of the JSON object (adding/removing entries) will loose the ordering.
-   "preserve order in json keys" in {
+    "preserve order in json keys" in {
       val repo =
         new PlayMongoRepository[JsObject](
           mongoComponent = mongoComponent,
@@ -362,33 +362,33 @@ object PlayMongoRepositorySpec {
   )
 
   val stringWrapperFormat: Format[StringWrapper] =
-    implicitly[Format[String]].inmap(StringWrapper.apply, unlift(StringWrapper.unapply))
+    implicitly[Format[String]].inmap(StringWrapper.apply, _.unwrap)
 
   val booleanWrapperFormat: Format[BooleanWrapper] =
-    implicitly[Format[Boolean]].inmap(BooleanWrapper.apply, unlift(BooleanWrapper.unapply))
+    implicitly[Format[Boolean]].inmap(BooleanWrapper.apply, _.unwrap)
 
   val intWrapperFormat: Format[IntWrapper] =
-    implicitly[Format[Int]].inmap(IntWrapper.apply, unlift(IntWrapper.unapply))
+    implicitly[Format[Int]].inmap(IntWrapper.apply, _.unwrap)
 
   val longWrapperFormat: Format[LongWrapper] =
-    implicitly[Format[Long]].inmap(LongWrapper.apply, unlift(LongWrapper.unapply))
+    implicitly[Format[Long]].inmap(LongWrapper.apply, _.unwrap)
 
   val doubleWrapperFormat: Format[DoubleWrapper] =
-    implicitly[Format[Double]].inmap(DoubleWrapper.apply, unlift(DoubleWrapper.unapply))
+    implicitly[Format[Double]].inmap(DoubleWrapper.apply, _.unwrap)
 
   val bigDecimalWrapperFormat: Format[BigDecimalWrapper] =
-    implicitly[Format[BigDecimal]].inmap(BigDecimalWrapper.apply, unlift(BigDecimalWrapper.unapply))
+    implicitly[Format[BigDecimal]].inmap(BigDecimalWrapper.apply, _.unwrap)
 
   // Note without the following import, it will compile, but use play's UUID formats.
   import MongoUuidFormats.Implicits._
 
   val uuidWrapperFormat: Format[UUIDWrapper] =
-    implicitly[Format[UUID]].inmap(UUIDWrapper.apply, unlift(UUIDWrapper.unapply))
+    implicitly[Format[UUID]].inmap(UUIDWrapper.apply, _.unwrap)
 
   import MongoBinaryFormats.Implicits._
 
   val binaryWrapperFormat: Format[BinaryWrapper] =
-    implicitly[Format[ByteString]].inmap(BinaryWrapper.apply, unlift(BinaryWrapper.unapply))
+    implicitly[Format[ByteString]].inmap(BinaryWrapper.apply, _.unwrap)
 
   val sumFormat: Format[Sum] = new Format[Sum] {
     override def reads(js: JsValue) =
@@ -418,7 +418,7 @@ object PlayMongoRepositorySpec {
     implicit val sf   : Format[Sum              ] = sumFormat
   }
 
-  val myObjectFormat = {
+  val myObjectFormat: Format[MyObject] = {
     import Implicits._
     import MongoFormats.Implicits._
     // Note without the following import, it will compile, but use plays Javatime formats.
@@ -441,7 +441,7 @@ object PlayMongoRepositorySpec {
     ~ (__ \ "uuidWrapper"      ).format[UUIDWrapper      ]
     ~ (__ \ "binary"           ).format[ByteString       ]
     ~ (__ \ "binaryWrapper"    ).format[BinaryWrapper    ]
-    )(MyObject.apply, unlift(MyObject.unapply))
+    )(MyObject.apply, mo => (mo.id, mo.string, mo.boolean, mo.int, mo.long, mo.double, mo.bigDecimal, mo.sum, mo.javaInstant, mo.javaLocalDate, mo.objectId, mo.listString, mo.listLong, mo.uuid, mo.uuidWrapper, mo.binary, mo.binaryWrapper))
   }
 
   val myObjectSchema =
@@ -515,7 +515,7 @@ object PlayMongoRepositorySpec {
       Arbitrary(
         Gen.alphaNumStr
         .suchThat(s => scala.util.Try(BsonDocument(s -> "")).isSuccess)
-        .map(BsonFieldName)
+        .map(BsonFieldName.apply)
       )
     Arbitrary.arbContainer2[Map,BsonFieldName,String]
       .arbitrary.map { m =>

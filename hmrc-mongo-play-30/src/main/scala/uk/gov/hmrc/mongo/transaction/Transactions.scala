@@ -192,7 +192,7 @@ object TransactionConfiguration {
                                TransactionOptions.builder()
                                  .readConcern(ReadConcern.MAJORITY)
                                  .writeConcern(WriteConcern.MAJORITY)
-                                 .readPreference(ReadPreference.primary)
+                                 .readPreference(ReadPreference.primary())
                                  .build()
                              )
     )

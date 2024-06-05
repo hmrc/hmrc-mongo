@@ -16,6 +16,7 @@
 
 package uk.gov.hmrc.mongo.cache
 
+import org.mongodb.scala.ObservableFuture
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
@@ -149,13 +150,14 @@ class MongoCacheRepositorySpec
     override def timestamp(): Instant = now
   }
 
-  protected override val repository = new MongoCacheRepository[String](
-    mongoComponent   = mongoComponent,
-    collectionName   = "play-mongo-cache",
-    ttl              = ttl,
-    timestampSupport = timestampSupport,
-    cacheIdType      = CacheIdType.SimpleCacheId
-  )
+  protected override val repository: MongoCacheRepository[String] =
+    new MongoCacheRepository[String](
+      mongoComponent   = mongoComponent,
+      collectionName   = "play-mongo-cache",
+      ttl              = ttl,
+      timestampSupport = timestampSupport,
+      cacheIdType      = CacheIdType.SimpleCacheId
+    )
 
   private def createCacheAndReturnIndexExpiry(ttl: Duration): Option[Long] = {
     val repository = new MongoCacheRepository[String](
