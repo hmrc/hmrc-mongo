@@ -6,16 +6,12 @@ object LibDependencies {
     "org.scalatest"          %% "scalatest"                  % "3.2.17"       % Test,
     "org.scalatestplus"      %% "scalacheck-1-17"            % "3.2.17.0"     % Test,
     "com.vladsch.flexmark"   %  "flexmark-all"               % "0.64.8"       % Test,
-    "ch.qos.logback"         %  "logback-classic"            % "1.2.12"       % Test
-  ) ++
-    (CrossVersion.partialVersion(scalaVersion) match {
-      case Some((2, 12)) => Seq.empty
-      case _             => // spilt out into it's own jar in 2.13
-                            Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4" % Test)
-    })
+    "ch.qos.logback"         %  "logback-classic"            % "1.2.12"       % Test,
+    "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4"        % Test
+  )
 
   def mongoCommon(scalaVersion: String): Seq[ModuleID] = Seq(
-    "org.mongodb.scala" %% "mongo-scala-driver" % "5.1.0" cross CrossVersion.for3Use2_13,
+    "org.mongodb.scala" %% "mongo-scala-driver" % "5.1.1" cross CrossVersion.for3Use2_13,
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
   ) ++ test(scalaVersion)
 
@@ -30,13 +26,12 @@ object LibDependencies {
 
   def hmrcMongoTestPlay(playSuffix: String, scalaVersion: String): Seq[ModuleID] = Seq(
     "org.scalatest"         %% "scalatest"       % scalatestVersion(playSuffix),
-    "com.vladsch.flexmark"  %  "flexmark-all"    % flexmarkAllVersion(playSuffix),
-    "org.scalatestplus"     %% "mockito-3-4"     % "3.2.10.0" % Test
+    "com.vladsch.flexmark"  %  "flexmark-all"    % flexmarkAllVersion(playSuffix)
   ) ++ test(scalaVersion)
 
   def hmrcMongoMetrixPlay(playSuffix: String): Seq[ModuleID] = Seq(
     "io.dropwizard.metrics" %  "metrics-core"    % "4.2.22", // version chosen for compatibility with bootstrap-play
-    "org.scalatestplus"     %% "mockito-3-4"     % "3.2.10.0" % Test
+    "org.scalatestplus"     %% "mockito-4-11"    % "3.2.17.0" % Test
   )
 
   def hmrcMongoWorkItemRepoPlay(playSuffix: String): Seq[ModuleID] =

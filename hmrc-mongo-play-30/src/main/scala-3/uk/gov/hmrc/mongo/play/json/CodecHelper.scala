@@ -73,8 +73,9 @@ private [json] trait CodecHelper {
         // when looking up the codec.
         // We can't use summonInline[ValueOf[T]] since this would fail if the enum contains non-singleton values.
         // Luckily for singleton values the mirror is actually the type itself.
-        val c = summonInline[Mirror.Of[t]] match
-                  case v: t => v.getClass.asInstanceOf[Class[? <: T]]
-                  case _    => summonInline[ClassTag[t]].runtimeClass.asInstanceOf[Class[? <: T]]
-        c :: sealedChildrenRec[T, ts]
+        // Use of Try rather than matching on `case v: t` is to avoid the warnings
+        val c = scala.util.Try(summonInline[Mirror.Of[t]].asInstanceOf[t]).toOption match
+                  case Some(v) => v.getClass
+                  case _       => summonInline[ClassTag[t]].runtimeClass
+        c.asInstanceOf[Class[? <: T]] :: sealedChildrenRec[T, ts]
 }
