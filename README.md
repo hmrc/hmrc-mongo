@@ -338,6 +338,9 @@ In the exceptional case that a TTL Index is not required, this can be indicated 
 
 ## Changes
 
+### Version 2.1.0
+- Fix in `playFormatSumCodecs` for enum singletons
+
 ### Version 2.0.0
 - Built for Scala 3 as well as Scala 2.13. Scala 2.12 has been dropped.
 - `legacyNumbers` has been dropped - it has proved unnecessary now simple-reactivemongo migrations have taken place.

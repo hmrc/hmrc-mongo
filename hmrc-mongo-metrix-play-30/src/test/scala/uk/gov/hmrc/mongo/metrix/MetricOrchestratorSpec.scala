@@ -40,7 +40,6 @@ class MetricOrchestratorSpec
   import MetricOrchestrationResult._
 
   "metric orchestrator" should {
-
     "register all the gauges" in {
       val acquiredMetrics = Map("a" -> 1, "b" -> 2)
 
@@ -268,7 +267,6 @@ class MetricOrchestratorSpec
     }
 
     "gauges are registered after all metrics are written to mongo even if writing takes a long time" in {
-
       val acquiredMetrics = Map("a" -> 1, "b" -> 2)
 
       val orchestrator = metricOrchestratorFor(

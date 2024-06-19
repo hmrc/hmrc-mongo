@@ -39,7 +39,7 @@ trait Codecs extends CodecHelper {
   def playFormatCodec[A](
     format: Format[A]
   )(implicit ct: ClassTag[A]): Codec[A] =
-    playFormatSumCodec[A, A](format)
+    playFormatSumCodec[A, A](format, ct.runtimeClass.asInstanceOf[Class[A]])
 
 
   /** This variant of `playFormatCodec` allows to register a codec for subclasses, which are defined by a play format for a supertype.
@@ -48,11 +48,12 @@ trait Codecs extends CodecHelper {
     * See @playFormatSumCodecsBuilder for a simplified notation when registering for multiple subclasses.
     */
   private[json] def playFormatSumCodec[A, B <: A](
-    format: Format[A]
-  )(implicit ct: ClassTag[B]): Codec[B] = new Codec[B] {
+    format: Format[A],
+    clazz : Class[B]
+  ): Codec[B] = new Codec[B] {
 
     override def getEncoderClass: Class[B] =
-      ct.runtimeClass.asInstanceOf[Class[B]]
+      clazz
 
     override def encode(writer: BsonWriter, value: B, encoderContext: EncoderContext): Unit = {
       val bs: BsonValue = jsonToBson(format.writes(value))
@@ -67,9 +68,8 @@ trait Codecs extends CodecHelper {
       val json = bsonToJson(bs)
 
       format.reads(json) match {
-        case JsSuccess(v: B, _) => v
-        case JsSuccess(v, _)    => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} - it was ${v.getClass.getName}")
-        case JsError(errors)    => sys.error(s"Failed to parse json as ${ct.runtimeClass.getName} : $errors")
+        case JsSuccess(v, _) => scala.util.Try(v.asInstanceOf[B]).getOrElse(sys.error(s"Failed to parse json as ${getEncoderClass.getName} - it was ${v.getClass.getName}")) // TODO can we use ClassTag when present for improved feedback
+        case JsError(errors) => sys.error(s"Failed to parse json as ${clazz.getName} : $errors")
       }
     }
   }
@@ -94,7 +94,7 @@ trait Codecs extends CodecHelper {
   def playFormatCodecsBuilder[A](
     format: Format[A]
   )(implicit ct: ClassTag[A]) =
-    new SumCodecsBuilder(format, Seq(playFormatSumCodec[A, A](format)))
+    new SumCodecsBuilder(format, Seq(playFormatSumCodec[A, A](format, ct.runtimeClass.asInstanceOf[Class[A]])))
 
   class SumCodecsBuilder[A] private[json](
     format: Format[A],
@@ -103,7 +103,7 @@ trait Codecs extends CodecHelper {
     def forType[B <: A](implicit ct: ClassTag[B]): SumCodecsBuilder[A] =
       new SumCodecsBuilder[A](
         format,
-        acc :+ playFormatSumCodec[A, B](format)
+        acc :+ playFormatSumCodec[A, B](format, ct.runtimeClass.asInstanceOf[Class[B]])
       )
 
     def build: Seq[Codec[_]] =
