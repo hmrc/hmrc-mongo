@@ -27,6 +27,8 @@ import org.mongodb.scala.{Document => ScalaDocument}
 import play.api.libs.json._
 
 import scala.jdk.CollectionConverters._
+import scala.compiletime.{erasedValue, summonInline}
+import scala.deriving.Mirror
 import scala.reflect.ClassTag
 
 private [json] trait CodecHelper {
@@ -50,34 +52,29 @@ private [json] trait CodecHelper {
     *   )
     * ```
     */
-  inline def playFormatSumCodecs[T: scala.deriving.Mirror.SumOf](
+  inline def playFormatSumCodecs[T: Mirror.SumOf](
     format: Format[T]
   ): Seq[Codec[_]] =
-    sealedChildren[T].map(subclass => playFormatSumCodec(format, subclass.runtimeClass.asInstanceOf[Class[T]]))
-      ++ singletonValues[T].map(value => playFormatSumCodec(format, value.getClass))
+    sealedChildren[T]
+      .map(subclass => playFormatSumCodec(format, subclass))
 
 
   // https://users.scala-lang.org/t/scala-3-macro-get-a-list-of-all-direct-child-objects-of-a-sealed-trait/8450
   // https://docs.scala-lang.org/scala3/reference/contextual/derivation.html
-  private inline def sealedChildren[T](using m: scala.deriving.Mirror.SumOf[T]): Seq[ClassTag[T]] =
+  private inline def sealedChildren[T](using m: Mirror.SumOf[T]): Seq[Class[? <: T]] =
     sealedChildrenRec[m.MirroredType, m.MirroredElemTypes]
 
-  inline def sealedChildrenRec[T, Elem <: Tuple]: List[ClassTag[T]] =
-    import scala.compiletime.*
-
+  private inline def sealedChildrenRec[T, Elem <: Tuple]: List[Class[? <: T]] =
     inline erasedValue[Elem] match
       case _: EmptyTuple => Nil
-      case _: (t *: ts)  => summonInline[ClassTag[t]].asInstanceOf[ClassTag[T]] :: sealedChildrenRec[T, ts]
-
-  // Collect all values too - this only works if the enum *only* contains singletons
-  // How to summon ValueOf[t] *only* when it exists?
-  private inline def singletonValues[A](using m: scala.deriving.Mirror.SumOf[A]): Seq[A] =
-    singletonValuesRec[m.MirroredType, m.MirroredElemTypes]
-
-  inline def singletonValuesRec[T, Elem <: Tuple]: List[T] =
-    import scala.compiletime.*
-
-    inline erasedValue[Elem] match
-      case _: EmptyTuple => Nil
-      case _: (t *: ts)  => summonInline[ValueOf[t]].value.asInstanceOf[T] :: singletonValuesRec[T, ts]
+      case _: (t *: ts)  =>
+        // For enum singletons (implemented as anonymous types `val X = new MyEnum {}`)
+        // the ClassTag gives a different result ("MyEnum") to X.getClass ("MyEnum$$anon$0") - which is used
+        // when looking up the codec.
+        // We can't use summonInline[ValueOf[T]] since this would fail if the enum contains non-singleton values.
+        // Luckily for singleton values the mirror is actually the type itself.
+        val c = summonInline[Mirror.Of[t]] match
+                  case v: t => v.getClass.asInstanceOf[Class[? <: T]]
+                  case _    => summonInline[ClassTag[t]].runtimeClass.asInstanceOf[Class[? <: T]]
+        c :: sealedChildrenRec[T, ts]
 }
