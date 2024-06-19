@@ -20,12 +20,12 @@ import org.bson.codecs.Codec
 import play.api.libs.json._
 
 import scala.reflect.runtime.universe._
-import scala.reflect.ClassTag
 
 private [json] trait CodecHelper {
   private[json] def playFormatSumCodec[A, B <: A](
     format: Format[A],
-  )(implicit ct: ClassTag[B]): Codec[B]
+    clazz : Class[B]
+  ): Codec[B]
 
  /** This variant of `playFormatCodec` allows to register codecs for all direct subclasses, which are defined by a play format for a supertype.
     * This is helpful when writing an instance of the subclass to mongo, since codecs are looked up by reflection, and the format will need to be registered explicitly for the subclass.
@@ -44,8 +44,8 @@ private [json] trait CodecHelper {
     * @throws IllegalArgumentException if the class is not a sealed trait
     */
  def playFormatSumCodecs[A](
-    format: Format[A],
-  )(implicit tt: TypeTag[A]): Seq[Codec[_]] = {
+    format: Format[A]
+  )(implicit tt: TypeTag[A]): Seq[Codec[A]] = {
     val clazz: ClassSymbol =
       tt.tpe.typeSymbol.asClass
 
@@ -55,7 +55,7 @@ private [json] trait CodecHelper {
 
     clazz.knownDirectSubclasses
       .collect { case c: ClassSymbol => c }
-      .map(subclassSymbol => playFormatSumCodec(format)(ClassTag(tt.mirror.runtimeClass(subclassSymbol))))
+      .map(subclassSymbol => playFormatSumCodec[A, A](format, tt.mirror.runtimeClass(subclassSymbol).asInstanceOf[Class[A]]))
       .toSeq
   }
 }

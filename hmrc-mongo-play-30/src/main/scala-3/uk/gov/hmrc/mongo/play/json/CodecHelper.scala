@@ -31,8 +31,9 @@ import scala.reflect.ClassTag
 
 private [json] trait CodecHelper {
   private[json] def playFormatSumCodec[A, B <: A](
-    format: Format[A]
-  )(implicit ct: ClassTag[B]): Codec[B]
+    format: Format[A],
+    clazz : Class[B]
+  ): Codec[B]
 
  /** This variant of `playFormatCodec` allows to register codecs for all direct subclasses, which are defined by a play format for a supertype.
     * This is helpful when writing an instance of the subclass to mongo, since codecs are looked up by reflection, and the format will need to be registered explicitly for the subclass.
@@ -49,23 +50,34 @@ private [json] trait CodecHelper {
     *   )
     * ```
     */
-  inline def playFormatSumCodecs[A: scala.deriving.Mirror.SumOf](
-    format: Format[A]
+  inline def playFormatSumCodecs[T: scala.deriving.Mirror.SumOf](
+    format: Format[T]
   ): Seq[Codec[_]] =
-    findSubclasstagsOfSealedTrait[A]
-      .map { subclass => playFormatSumCodec(format)(subclass) }
-      .toSeq
+    sealedChildren[T].map(subclass => playFormatSumCodec(format, subclass.runtimeClass.asInstanceOf[Class[T]]))
+      ++ singletonValues[T].map(value => playFormatSumCodec(format, value.getClass))
 
 
   // https://users.scala-lang.org/t/scala-3-macro-get-a-list-of-all-direct-child-objects-of-a-sealed-trait/8450
   // https://docs.scala-lang.org/scala3/reference/contextual/derivation.html
-  private inline def findSubclasstagsOfSealedTrait[T](using m: scala.deriving.Mirror.SumOf[T]): Set[ClassTag[T]] =
-    allInstances[m.MirroredElemTypes, m.MirroredType].toSet
+  private inline def sealedChildren[T](using m: scala.deriving.Mirror.SumOf[T]): Seq[ClassTag[T]] =
+    sealedChildrenRec[m.MirroredType, m.MirroredElemTypes]
 
-  inline def allInstances[ET <: Tuple, T]: List[ClassTag[T]] =
+  inline def sealedChildrenRec[T, Elem <: Tuple]: List[ClassTag[T]] =
     import scala.compiletime.*
 
-    inline erasedValue[ET] match
+    inline erasedValue[Elem] match
       case _: EmptyTuple => Nil
-      case _: (t *: ts)  => summonInline[ClassTag[t]].asInstanceOf[ClassTag[T]] :: allInstances[ts, T]
+      case _: (t *: ts)  => summonInline[ClassTag[t]].asInstanceOf[ClassTag[T]] :: sealedChildrenRec[T, ts]
+
+  // Collect all values too - this only works if the enum *only* contains singletons
+  // How to summon ValueOf[t] *only* when it exists?
+  private inline def singletonValues[A](using m: scala.deriving.Mirror.SumOf[A]): Seq[A] =
+    singletonValuesRec[m.MirroredType, m.MirroredElemTypes]
+
+  inline def singletonValuesRec[T, Elem <: Tuple]: List[T] =
+    import scala.compiletime.*
+
+    inline erasedValue[Elem] match
+      case _: EmptyTuple => Nil
+      case _: (t *: ts)  => summonInline[ValueOf[t]].value.asInstanceOf[T] :: singletonValuesRec[T, ts]
 }

@@ -110,7 +110,6 @@ class PlayMongoRepositoryEnumSpec
       ))
       .toFuture()
       .map(_.getBoolean("was"))
-}
 
 object PlayMongoRepositoryEnumSpec:
 
