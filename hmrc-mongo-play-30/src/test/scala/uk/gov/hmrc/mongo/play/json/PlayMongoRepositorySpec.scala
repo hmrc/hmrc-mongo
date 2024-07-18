@@ -29,7 +29,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.compatible.Assertion
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
@@ -44,7 +44,7 @@ import scala.concurrent.duration.DurationInt
 import ExecutionContext.Implicits.global
 
 class PlayMongoRepositorySpec
-  extends AnyWordSpecLike
+  extends AnyWordSpec
      with Matchers
      with ScalaFutures
      with ScalaCheckDrivenPropertyChecks
