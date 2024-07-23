@@ -23,7 +23,7 @@ import org.mongodb.scala.model.{Indexes, IndexModel, IndexOptions}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
@@ -31,7 +31,7 @@ import scala.jdk.CollectionConverters._
 import ExecutionContext.Implicits.global
 
 class MongoUtilsSpec
-  extends AnyWordSpecLike
+  extends AnyWordSpec
      with Matchers
      with ScalaFutures
      with IntegrationPatience

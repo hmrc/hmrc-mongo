@@ -17,23 +17,25 @@
 package uk.gov.hmrc.mongo.cache
 
 import org.mongodb.scala.ObservableFuture
+import org.scalatest.OptionValues
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Millis, Seconds, Span}
-import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json._
+import uk.gov.hmrc.mongo.{CurrentTimestampSupport, TimestampSupport}
 import uk.gov.hmrc.mongo.play.json.Codecs._
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
-import uk.gov.hmrc.mongo.{CurrentTimestampSupport, TimestampSupport}
 
 import java.time.{Clock, Instant, ZoneId}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 class MongoCacheRepositorySpec
-  extends AnyWordSpecLike
+  extends AnyWordSpec
      with Matchers
      with DefaultPlayMongoRepositorySupport[CacheItem]
+     with OptionValues
      with ScalaFutures
      with Eventually {
 
@@ -120,6 +122,43 @@ class MongoCacheRepositorySpec
 
       repository.deleteEntity(cacheId).futureValue
       count().futureValue shouldBe 1
+    }
+  }
+
+  "cache" should {
+    "support . in key name" in {
+      val dataKeyWithDot = DataKey[Person]("step.1")
+      repository.put(cacheId)(dataKeyWithDot, person)
+
+      repository.get[Person](cacheId)(dataKeyWithDot).futureValue shouldBe Some(person)
+    }
+
+    "update same object" in {
+      // demonstrates updating the cache in steps and the retrieving the whole result
+      // step 1
+      val dataKey1 = DataKey[Person]("step1")
+      repository.put(cacheId)(dataKey1, person)
+
+      // step 2
+      case class Foo(value: String)
+      import play.api.libs.functional.syntax._
+      implicit val ff: Format[Foo] = implicitly[Format[String]].inmap(Foo.apply, _.value)
+      val foo  = Foo("bar")
+      val dataKey2 = DataKey[Foo]("step2")
+      repository.put(cacheId)(dataKey2, foo)
+
+      // read by steps individually
+      repository.get[Person](cacheId)(dataKey1).futureValue shouldBe Some(person)
+      repository.get[Foo](cacheId)(dataKey2).futureValue shouldBe Some(foo)
+
+      // read out all steps together
+      case class AllSteps(person: Person, foo: Foo)
+      implicit val asf: Format[AllSteps] =
+        ( (__ \ "step1").format[Person]
+        ~ (__ \ "step2").format[Foo]
+        )(AllSteps.apply, as => (as.person, as.foo))
+      val cacheItem = repository.findById(cacheId).futureValue.value
+      cacheItem.data.as[AllSteps] shouldBe AllSteps(person, foo)
     }
   }
 

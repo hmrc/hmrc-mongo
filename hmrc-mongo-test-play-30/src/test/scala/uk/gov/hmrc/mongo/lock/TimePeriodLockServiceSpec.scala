@@ -17,7 +17,7 @@
 package uk.gov.hmrc.mongo.lock
 
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.wordspec.AnyWordSpec
 import uk.gov.hmrc.mongo.CurrentTimestampSupport
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
@@ -26,7 +26,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, DurationInt}
 
 class TimePeriodLockServiceSpec
-  extends AnyWordSpecLike
+  extends AnyWordSpec
      with Matchers
      with DefaultPlayMongoRepositorySupport[Lock] {
 

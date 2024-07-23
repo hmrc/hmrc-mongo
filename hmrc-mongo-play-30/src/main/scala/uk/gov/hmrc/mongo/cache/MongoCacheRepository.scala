@@ -20,7 +20,7 @@ import org.bson.codecs.Codec
 import org.mongodb.scala.{WriteConcern, ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, IndexModel, IndexOptions, Indexes, ReturnDocument, Updates}
 import play.api.libs.functional.syntax._
-import play.api.libs.json.{Format, JsObject, JsResultException, Reads, Writes, __}
+import play.api.libs.json.{Format, JsObject, JsPath, JsResultException, Reads, Writes, __}
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
@@ -67,15 +67,18 @@ class MongoCacheRepository[CacheId](
 
   def get[A: Reads](
     cacheId: CacheId
-  )(dataKey: DataKey[A]): Future[Option[A]] =
+  )(dataKey: DataKey[A]): Future[Option[A]] = {
+    def dataPath: JsPath =
+      dataKey.unwrap.split('.').foldLeft[JsPath](JsPath)(_ \ _)
     findById(cacheId)
       .map(
         _.flatMap(cache =>
-          (cache.data \ dataKey.unwrap)
+          dataPath.asSingleJson(cache.data)
             .validateOpt[A]
             .fold(e => throw JsResultException(e), identity)
         )
       )
+  }
 
   def put[A: Writes](
     cacheId: CacheId

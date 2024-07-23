@@ -29,7 +29,7 @@ import org.mongodb.scala.MongoClient.DEFAULT_CODEC_REGISTRY
 import org.scalacheck.Gen
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpecLike
+import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import play.api.libs.json.JsError
 import play.api.libs.json.JsValue
@@ -39,7 +39,11 @@ import java.nio.ByteBuffer
 import java.util.UUID
 import java.{time => jat}
 
-class MongoFormatsSpec extends AnyWordSpecLike with Matchers with ScalaCheckDrivenPropertyChecks with EitherValues {
+class MongoFormatsSpec
+  extends AnyWordSpec
+     with Matchers
+     with ScalaCheckDrivenPropertyChecks
+     with EitherValues {
 
   import org.scalacheck.Shrink.shrinkAny // disable shrinking here - will just generate invalid numbers
 
