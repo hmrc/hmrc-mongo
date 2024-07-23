@@ -279,6 +279,9 @@ The functions exposed by this class are:
 
   Returns the whole entity.
 
+  The data can be extracted and converted to your model (with an appropriate `Reads[A]`) with `cacheItem.data.as[A]`.
+
+  Effectively you can store/update the data in steps and extract all the data at the end.
 
 ### SessionCacheRepository
 
