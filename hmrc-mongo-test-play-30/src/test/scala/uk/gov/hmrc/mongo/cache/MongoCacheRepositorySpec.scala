@@ -123,6 +123,16 @@ class MongoCacheRepositorySpec
     }
   }
 
+  "cache" should {
+    "support . in key name" in {
+      val person1  = Person("Sarah", 30, "Female")
+      val dataKey1 = DataKey[Person]("step.1")
+      repository.put(cacheId)(dataKey1, person1)
+
+      repository.get[Person](cacheId)(dataKey1).futureValue shouldBe Some(person1)
+    }
+  }
+
   "ensureIndex" should {
     "rebuild indexes when they are modified" in {
       createCacheAndReturnIndexExpiry(1000.millis) shouldBe Some(1L)
