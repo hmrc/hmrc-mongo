@@ -51,20 +51,20 @@ Should you fail to update the status, e.g. you process crashes, then the WorkIte
 You can repeatedly call `pullOutstanding` (e.g. on a scheduler) until there are no more WorkItems to be processed.
 
 If you mark a WorkItem as `Failed` (with `markAs`), it will be timestamped with the result of `now`. This allows you to not reprocess `Failed` WorkItems immediately by providing an appropriate `failedBefore` parameter.
-Similarly, `ToDo` WorkItems will only be returned when their `availableAt` field is after the provided `availableBefore` parameter.
+Similarly, `ToDo` WorkItems will only be returned when their `availableAt` field is before the provided `availableBefore` parameter.
 
 e.g.
 ```scala
-def process: Future[Unit] =
+def process(): Future[Unit] =
   workItemRepository.pullOutstanding(failedBefore = now.minus(1, day), availableBefore = now) // grab the next WorkItem
     .flatMap {
-      case None => Future.unit // there is no more - we've finished
+      case None     => Future.unit // there is no more - we've finished
       case Some(wi) => processWorkItem(wi.item).flatMap { // call your function to process a WorkItem
         case Success => workItemRepository.complete(wi.id, ProcessingStatus.Succeeded) // mark as completed
                         workItemRepository.completeAndDelete(wi.id) // alternatively, remove from mongo
-        case Failure if wi.failureCount < config.maxRetries =>
-                        workItemRepository.markAs(wi.id, ProcessingStatus.Failed) // mark as failed - it will be reprocessed after a duration specified by `inProgressRetryAfterProperty`
+        case Failure if wi.failureCount < config.maxRetries
+                     => workItemRepository.markAs(wi.id, ProcessingStatus.Failed) // mark as failed - it will be reprocessed after a duration specified by `inProgressRetryAfterProperty`
         case Failure => workItemRepository.markAs(wi.id, ProcessingStatus.PermanentlyFailed) // you can also mark as any other status defined by `ProcessingStatus`
-      }.flatMap(_ => process) // and repeat
+      }.flatMap(_ => process()) // and repeat
     }
 ```
