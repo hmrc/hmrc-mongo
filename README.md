@@ -333,6 +333,19 @@ You may see `com.mongodb.MongoCommandException, with message: Command failed wit
 Tests should ensure the data is stored in the expected encrypted format.
 You may want to refer to [these examples](/hmrc-mongo-play-30/src/test/scala/uk/gov/hmrc/mongo/encryption)
 
+## Streaming
+
+`hmrc-mongo` does not provide any streaming helpers. This can be achieved with [Pekko](https://pekko.apache.org/docs/pekko/current/stream/stream-quickstart.html) (or Akka similarly).
+
+Instead of using `toFuture` to convert a reactivestream (cursor of results) into a Future of a strict sequence, you can wrap with `Source.fromPublisher` to get a Pekko stream. You can then use the Pekko api to process the stream - e.g.
+
+```scala
+import import pekko.stream.scaladsl.Source
+Source.fromPublisher(collection.find())
+  .mapAsync(parallelism = 1)(entry => doForEach(entry): Future[Result])
+  .runForeach(res => logger.info(s"processed: $res"))
+```
+
 ## TTL Indexes
 
 TTL Indexes are generally expected. `PlayMongoRepository` will log warnings on startup if there is no TTL Index. `DefaultPlayMongoRepositorySupport` will by default fail the test if there isn't a TTL Index or it points to a non-Date field.
