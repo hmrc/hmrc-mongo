@@ -42,8 +42,6 @@ class PlayMongoComponent @Inject() (
   private val mongoUri =
     configuration.get[String]("mongodb.uri")
 
-  logger.info(s"MongoComponent: MongoConnector configuration being used: $mongoUri")
-
   override lazy val client: MongoClient =
     MongoClient(uri = mongoUri)
 
@@ -51,7 +49,15 @@ class PlayMongoComponent @Inject() (
     configuration.get[FiniteDuration]("hmrc.mongo.init.timeout")
 
   override val database: MongoDatabase = {
-    val database = client.getDatabase(new ConnectionString(mongoUri).getDatabase)
+    val connectionString = new ConnectionString(mongoUri)
+
+    // We don't want to log the whole mongoUri.
+    // Use URI, since ConnectionString does not provide a simple way to see all parameters together.
+    // However URI does not handle multiple hosts - so get from ConnectionString
+    val uri = new java.net.URI(mongoUri)
+    logger.info(s"MongoComponent: MongoConnector configuration being used - hosts: ${connectionString.getHosts}, database: ${connectionString.getDatabase}, query: ${Option(uri.getRawQuery).getOrElse("")}")
+
+    val database = client.getDatabase(connectionString.getDatabase)
     try {
       Await.result(database.listCollectionNames().toFuture().map { collectionNames =>
         logger.info(s"Existing collections:${collectionNames.mkString("\n  ", "\n  ", "")}")

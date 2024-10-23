@@ -354,6 +354,9 @@ In the exceptional case that a TTL Index is not required, this can be indicated 
 
 ## Changes
 
+### Version 2.3.0
+- Only logging relevant parts of mongo uri
+
 ### Version 2.1.0
 - Fix in `playFormatSumCodecs` for enum singletons
 
