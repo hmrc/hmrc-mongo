@@ -11,7 +11,7 @@ object LibDependencies {
   )
 
   def mongoCommon(scalaVersion: String): Seq[ModuleID] = Seq(
-    "org.mongodb.scala" %% "mongo-scala-driver" % "5.1.2" cross CrossVersion.for3Use2_13,
+    "org.mongodb.scala" %% "mongo-scala-driver" % "5.2.1" cross CrossVersion.for3Use2_13,
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
   ) ++ test(scalaVersion)
 
@@ -21,7 +21,7 @@ object LibDependencies {
   def hmrcMongoPlay(playSuffix: String, scalaVersion: String): Seq[ModuleID] = Seq(
     playOrg(playSuffix) %% "play"                     % playVersion(playSuffix),
     playOrg(playSuffix) %% "play-guice"               % playVersion(playSuffix),
-    "uk.gov.hmrc"       %% s"crypto-json-$playSuffix" % "8.0.0" % Test
+    "uk.gov.hmrc"       %% s"crypto-json-$playSuffix" % "8.1.0" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoTestPlay(playSuffix: String, scalaVersion: String): Seq[ModuleID] = Seq(
@@ -40,8 +40,8 @@ object LibDependencies {
   private def playVersion(playSuffix: String) =
     playSuffix match {
       case "play-28" => "2.8.21"
-      case "play-29" => "2.9.3"
-      case "play-30" => "3.0.3"
+      case "play-29" => "2.9.6"
+      case "play-30" => "3.0.6"
     }
 
   private def playOrg(playSuffix: String) =
