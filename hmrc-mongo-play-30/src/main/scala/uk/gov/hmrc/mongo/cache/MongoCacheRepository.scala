@@ -17,7 +17,7 @@
 package uk.gov.hmrc.mongo.cache
 
 import org.bson.codecs.Codec
-import org.mongodb.scala.{WriteConcern, ObservableFuture, SingleObservableFuture}
+import org.mongodb.scala.{WriteConcern, SingleObservableFuture}
 import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, IndexModel, IndexOptions, Indexes, ReturnDocument, Updates}
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{Format, JsObject, JsPath, JsResultException, Reads, Writes, __}

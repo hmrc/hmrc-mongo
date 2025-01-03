@@ -19,7 +19,7 @@ package uk.gov.hmrc.mongo.cache
 import org.bson.codecs.Codec
 import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.{Reads, Writes}
-import play.api.mvc.Request
+import play.api.mvc.RequestHeader
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, TimestampSupport}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -38,7 +38,7 @@ class SessionCacheRepository(
 )(implicit
   ec: ExecutionContext
 ) extends MongoDatabaseCollection {
-  val cacheRepo = new MongoCacheRepository[Request[Any]](
+  val cacheRepo = new MongoCacheRepository[RequestHeader](
     mongoComponent   = mongoComponent,
     collectionName   = collectionName,
     replaceIndexes   = replaceIndexes,
@@ -58,14 +58,14 @@ class SessionCacheRepository(
   def putSession[T: Writes](
     dataKey: DataKey[T],
     data: T
-  )(implicit request: Request[Any]): Future[(String, String)] =
+  )(implicit request: RequestHeader): Future[(String, String)] =
     cacheRepo
       .put[T](request)(dataKey, data)
       .map(res => sessionIdKey -> res.id)
 
-  def getFromSession[T: Reads](dataKey: DataKey[T])(implicit request: Request[Any]): Future[Option[T]] =
+  def getFromSession[T: Reads](dataKey: DataKey[T])(implicit request: RequestHeader): Future[Option[T]] =
     cacheRepo.get[T](request)(dataKey)
 
-  def deleteFromSession[T](dataKey: DataKey[T])(implicit request: Request[Any]): Future[Unit] =
+  def deleteFromSession[T](dataKey: DataKey[T])(implicit request: RequestHeader): Future[Unit] =
     cacheRepo.delete(request)(dataKey)
 }
