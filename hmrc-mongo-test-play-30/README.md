@@ -104,7 +104,7 @@ class UserRepositorySpec
      with ScalaFutures {
 
   override protected lazy val optSchema: Option[BsonDocument] =
-    BsonDocument("""
+    Some(BsonDocument("""
       { bsonType: "object"
       , required: [ "_id", "created", "name" ]
       , properties:
@@ -113,7 +113,7 @@ class UserRepositorySpec
         , name    : { bsonType: "string" }
         }
       }
-    """)
+    """))
 }
 ```
 

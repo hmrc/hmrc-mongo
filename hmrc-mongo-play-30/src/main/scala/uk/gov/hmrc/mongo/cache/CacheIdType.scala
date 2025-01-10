@@ -16,9 +16,9 @@
 
 package uk.gov.hmrc.mongo.cache
 
-import play.api.mvc.Request
+import play.api.mvc.RequestHeader
 
-trait CacheIdType[CacheId] {
+trait CacheIdType[-CacheId] {
   def run: CacheId => String
 }
 
@@ -27,8 +27,8 @@ object CacheIdType {
     override def run: String => String = identity
   }
 
-  object SessionCacheId extends CacheIdType[Request[Any]] {
-    override def run: Request[Any] => String =
+  object SessionCacheId extends CacheIdType[RequestHeader] {
+    override def run: RequestHeader => String =
       _.session
         .get("sessionId")
         .getOrElse(throw NoSessionException)
@@ -36,8 +36,8 @@ object CacheIdType {
     case object NoSessionException extends Exception("Could not find sessionId")
   }
 
-  case class SessionUuid(sessionIdKey: String) extends CacheIdType[Request[Any]] {
-    override def run: Request[Any] => String =
+  case class SessionUuid(sessionIdKey: String) extends CacheIdType[RequestHeader] {
+    override def run: RequestHeader => String =
       _.session
         .get(sessionIdKey)
         .getOrElse(java.util.UUID.randomUUID.toString)
