@@ -84,7 +84,7 @@ Other parameters:
 - `replaceIndexes` - by default, the indices defined by `indexes` parameter will be created in addition to any previously defined indices. If an index definition changes, you will get a `MongoCommandException` for the conflict. If an index definition has been removed, it will still be left in the database. By setting `replaceIndexes` to `true`, it will remove any previously but no longer defined indices, and replace any indices with changed definition. **Please check how reindexing affects your application before turning on**
 - `extraCodecs` - you may provide extra `Codec`s in order to support the types you wish to use in your repository. Some examples are:
   - you may want to provide a `UuidCodec` in order to work with UUIDs as binary values - see [UUIDs](./MIGRATION.md#UUIDs) for more information.
-  - Since the Mongo driver uses the runtime class of objects to look up the codec, if you are working with a `sealed trait` you may want to use `Codecs.playFormatSumCodecs` to create a codec for each subtype detected. See [ADTs](./MIGRATION.md#atds) for more information.
+  - Since the Mongo driver uses the runtime class of objects to look up the codec, if you are working with an ADT (`sealed trait` or Scala 3 `enum`) you may want to use `Codecs.playFormatSumCodecs` to create a codec for each subtype detected. See [ADTs](./MIGRATION.md#atds) for more information.
 
 ## Lock
 
