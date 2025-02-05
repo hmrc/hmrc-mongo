@@ -87,6 +87,7 @@ object ProcessingStatus {
     implicit val format: Format[ProcessingStatus] = outer.format
   }
 
+  @deprecated("A Codec for ProcessingStatus is already registered for WorkItemRepository", "2.5.0")
   def toBson(status: ProcessingStatus): BsonValue =
     new BsonString(status.name)
 }

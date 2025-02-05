@@ -25,7 +25,7 @@ import org.mongodb.scala.model._
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.metrix.MetricSource
 import uk.gov.hmrc.mongo.MongoComponent
-import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
+import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 
 import java.time.{Duration, Instant}
 import scala.concurrent.{ExecutionContext, Future}
@@ -62,7 +62,18 @@ abstract class WorkItemRepository[T](
                      IndexModel(Indexes.ascending(workItemFields.status), IndexOptions().background(true))
                    ) ++ extraIndexes,
   replaceIndexes = replaceIndexes,
-  extraCodecs    = extraCodecs
+  extraCodecs    = Codecs.playFormatCodecsBuilder(ProcessingStatus.format)
+                     .forType[ProcessingStatus.ToDo.type]
+                     .forType[ProcessingStatus.InProgress.type]
+                     .forType[ProcessingStatus.Succeeded.type]
+                     .forType[ProcessingStatus.Deferred.type]
+                     .forType[ProcessingStatus.Failed.type]
+                     .forType[ProcessingStatus.PermanentlyFailed.type]
+                     .forType[ProcessingStatus.Ignored.type]
+                     .forType[ProcessingStatus.Duplicate.type]
+                     .forType[ProcessingStatus.Cancelled.type]
+                     .build
+                     ++ extraCodecs
 ) with Operations.Cancel
   with Operations.FindById[T]
   with MetricSource {
@@ -156,20 +167,20 @@ abstract class WorkItemRepository[T](
 
     def todoQuery: Bson =
       Filters.and(
-        Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.ToDo)),
+        Filters.equal(workItemFields.status, ProcessingStatus.ToDo),
         Filters.lt(workItemFields.availableAt, availableBefore)
       )
 
     def failedQuery: Bson =
       Filters.and(
-        Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.Failed)),
+        Filters.equal(workItemFields.status, ProcessingStatus.Failed),
         Filters.lt(workItemFields.updatedAt, failedBefore),
         Filters.lt(workItemFields.availableAt, availableBefore)
       )
 
     def inProgressQuery: Bson =
       Filters.and(
-        Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.InProgress)),
+        Filters.equal(workItemFields.status, ProcessingStatus.InProgress),
         Filters.lt(workItemFields.updatedAt, now().minus(inProgressRetryAfter))
       )
 
@@ -201,7 +212,7 @@ abstract class WorkItemRepository[T](
     collection.updateOne(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
-                 Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.InProgress))
+                 Filters.equal(workItemFields.status, ProcessingStatus.InProgress)
                ),
       update = setStatusOperation(newStatus, None)
     ).toFuture()
@@ -214,7 +225,7 @@ abstract class WorkItemRepository[T](
     collection.deleteOne(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
-                 Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.InProgress))
+                 Filters.equal(workItemFields.status, ProcessingStatus.InProgress)
                )
     ).toFuture()
      .map(_.getDeletedCount > 0)
@@ -228,9 +239,7 @@ abstract class WorkItemRepository[T](
     collection.findOneAndUpdate(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
-                 Filters.in(workItemFields.status,
-                   ProcessingStatus.cancellable.toSeq.map(ProcessingStatus.toBson): _*
-                )
+                 Filters.in(workItemFields.status, ProcessingStatus.cancellable.toSeq: _*)
                ),
       update  = setStatusOperation(ProcessingStatus.Cancelled, None),
     ).toFuture()
@@ -260,7 +269,7 @@ abstract class WorkItemRepository[T](
 
   private def setStatusOperation(newStatus: ProcessingStatus, availableAt: Option[Instant]): Bson =
     Updates.combine(
-      Updates.set(workItemFields.status, ProcessingStatus.toBson(newStatus)),
+      Updates.set(workItemFields.status, newStatus),
       Updates.set(workItemFields.updatedAt, now()),
       (availableAt.map(when => Updates.set(workItemFields.availableAt, when)).getOrElse(BsonDocument())),
       (if (newStatus == ProcessingStatus.Failed) Updates.inc(workItemFields.failureCount, 1) else BsonDocument())
