@@ -161,17 +161,10 @@ abstract class WorkItemRepository[T](
       )
 
     def failedQuery: Bson =
-      Filters.or(
-        Filters.and(
-          Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.Failed)),
-          Filters.lt(workItemFields.updatedAt, failedBefore),
-          Filters.lt(workItemFields.availableAt, availableBefore)
-        ),
-        Filters.and(
-          Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.Failed)),
-          Filters.lt(workItemFields.updatedAt, failedBefore),
-          Filters.exists(workItemFields.availableAt, false)
-        )
+      Filters.and(
+        Filters.equal(workItemFields.status, ProcessingStatus.toBson(ProcessingStatus.Failed)),
+        Filters.lt(workItemFields.updatedAt, failedBefore),
+        Filters.lt(workItemFields.availableAt, availableBefore)
       )
 
     def inProgressQuery: Bson =
