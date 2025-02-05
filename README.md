@@ -5,7 +5,7 @@
 
 Provides support to use the [Official Scala driver for MongoDB](https://docs.mongodb.com/drivers/scala)
 
-It is designed to make the transition from [Simple Reactivemongo](https://github.com/hmrc/simple-reactivemongo) as easy as possible.
+It was designed to make the transition from [Simple Reactivemongo](https://github.com/hmrc/simple-reactivemongo) as easy as possible.
 
 ## Main features
 
@@ -14,16 +14,12 @@ It provides a `PlayMongoRepository` class to help set up a `org.mongodb.scala.Mo
 The model objects are mapped to json with [Play json](https://github.com/playframework/play-json). This library will then map the json to mongo BSON.
 
 Other included features are:
+- [test support](#test-support)
 - [lock](#lock)
 - [cache](#cache)
 - [transactions](#transactions)
-- [test support](https://github.com/hmrc/hmrc-mongo/tree/main/hmrc-mongo-test-play-30)
 - [metrix](https://github.com/hmrc/hmrc-mongo/tree/main/hmrc-mongo-metrix-play-30)
 - [work-item-repo](https://github.com/hmrc/hmrc-mongo/tree/main/hmrc-mongo-work-item-repo-play-30)
-
-## Migration
-
-See [MIGRATION](https://github.com/hmrc/hmrc-mongo/blob/main/MIGRATION.md) for migrating from Simple-reactivemongo.
 
 ## Adding to your build
 
@@ -33,7 +29,9 @@ In your SBT build add:
 resolvers += "HMRC-open-artefacts-maven2" at "https://open.artefacts.tax.service.gov.uk/maven2"
 
 libraryDependencies ++= Seq(
-  "uk.gov.hmrc.mongo" %% "hmrc-mongo-play-xx" % "[INSERT_VERSION]"
+  "uk.gov.hmrc.mongo" %% "hmrc-mongo-play-xx" % "[INSERT_VERSION]",
+
+  "uk.gov.hmrc.mongo" %% "hmrc-mongo-test-play-xx" % "[INSERT_VERSION]" % Test
 )
 ```
 
@@ -41,9 +39,13 @@ Where `play-xx` is your version of Play (e.g. `play-30`).
 
 ## PlayMongoRepository
 
+`uk.gov.hmrc.mongo.play.json.PlayMongoRepository` is provided to help initialise a `org.mongodb.scala.MongoCollection[Entity]`. It will initialise indices and register entity codecs which use a provided play json `Format`. To query and update the data, you will use the MongoCollection (`collection`) directly with the official mongo api.
+
+### Steps:
+
 Create a case class to represent the data model to be serialised/deserialised to `MongoDB`
 
-Create [JSON Format](https://www.playframework.com/documentation/2.8.x/ScalaJsonCombinators) to map the data model to JSON.
+Create [JSON Format](https://www.playframework.com/documentation/3.0.x/ScalaJsonCombinators) to map the data model to JSON.
 
 Extend [PlayMongoRepository](https://github.com/hmrc/hmrc-mongo/blob/main/hmrc-mongo-play-30/src/main/scala/uk/gov/hmrc/mongo/play/PlayMongoRepository.scala), providing the collectionName, the mongoComponent, and domainFormat.
 
@@ -52,7 +54,7 @@ The mongoComponent can be injected if you register the PlayMongoModule with play
 play.modules.enabled += "uk.gov.hmrc.mongo.play.PlayMongoModule"
 ```
 
-Ensure the repository is annotated with `javax.inject.Singleton` so indexes are only initialised on startup.
+Ensure the repository is annotated with `javax.inject.Singleton` so indices are only initialised on startup.
 
 ```scala
 @Singleton
@@ -65,11 +67,6 @@ class UserRepository @Inject()(
   domainFormat   = User.mongoFormat,
   indexes        = Seq(
                      IndexModel(Indexes.ascending("name"), IndexOptions().name("nameIdx").unique(true))
-                   ),
-  extraCodecs    = Seq(
-                     new UuidCodec(UuidRepresentation.STANDARD),
-                     Codecs.playFormatCodec(AdminUser.mongoFormat),
-                     Codecs.playFormatCodec(StandardUser.mongoFormat)
                    )
 ) {
   // queries and updates can now be implemented with the available `collection: org.mongodb.scala.MongoCollection`
@@ -78,13 +75,21 @@ class UserRepository @Inject()(
 }
 ```
 
-Other parameters:
-- `indexes` - in the above example, the indices were also provided to the constructor. They will be ensured to be created before the Repository is available, by blocking. Mark Indices as `background` as appropriate.
+Parameters:
+- `indexes` - the indices to be created. The constructor will wait for any errors (e.g. constraint violations), but any long running indexing will continue in the background.
 - `optSchema` - you may provide a `BSONDocument` to represent the schema. If provided, all inserts will be validated against this. This may be useful when migrating from simple-reactivemongo to ensure the domainFormat has not changed, if relying on library provided formats (e.g. dates).
-- `replaceIndexes` - by default, the indices defined by `indexes` parameter will be created in addition to any previously defined indices. If an index definition changes, you will get a `MongoCommandException` for the conflict. If an index definition has been removed, it will still be left in the database. By setting `replaceIndexes` to `true`, it will remove any previously but no longer defined indices, and replace any indices with changed definition. **Please check how reindexing affects your application before turning on**
-- `extraCodecs` - you may provide extra `Codec`s in order to support the types you wish to use in your repository. Some examples are:
-  - you may want to provide a `UuidCodec` in order to work with UUIDs as binary values - see [UUIDs](./MIGRATION.md#UUIDs) for more information.
-  - Since the Mongo driver uses the runtime class of objects to look up the codec, if you are working with a `sealed trait` you may want to use `Codecs.playFormatSumCodecs` to create a codec for each subtype detected. See [ADTs](./MIGRATION.md#atds) for more information.
+- `replaceIndexes` - if `false` (the default), then only indices defined by `indexes` parameter that do not exist in mongo will be created, and if the index definition conflicts with an existing one, you will get a `MongoCommandException`. If an index definition is removed, it will still be left in the database (you will see a log warning at startup when orphan indices are identified).
+
+  By setting `replaceIndexes` to `true`, it will remove any previously but no longer defined indices, and replace any indices with changed definition.
+
+  **Please check how reindexing affects your application before turning on.**
+- `extraCodecs` - you may provide extra `Codec`s in order to support more types in filters and updates, without seeing `CodecConfigurationException`. See [CODECS.md](CODECS.md) for details.
+
+## Test Support
+
+`DefaultPlayMongoRepositorySupport` is provided for unit testing your instances of `PlayMongoRepository`. It will initialise an instance of your repository using a test collection, and will ensure that data is clean and indices created before each test.
+
+See the [test support module](hmrc-mongo-test-play-30/README.md) for more details.
 
 ## Lock
 
@@ -348,9 +353,14 @@ Source.fromPublisher(collection.find())
 
 ## TTL Indexes
 
-TTL Indexes are generally expected. `PlayMongoRepository` will log warnings on startup if there is no TTL Index. `DefaultPlayMongoRepositorySupport` will by default fail the test if there isn't a TTL Index or it points to a non-Date field.
+TTL Indexes are generally expected. `PlayMongoRepository` will log warnings on startup if there is no TTL Index. `DefaultPlayMongoRepositorySupport` will also fail the test if the repositoriy does not have a TTL Index or it points to a non-Date field.
 
-In the exceptional case that a TTL Index is not required, this can be indicated by overriding `requiresTtlIndex` with `false` in `PlayMongoRepository`.
+In the exceptional case that a TTL Index is not required, this can be indicated by overriding `requiresTtlIndex` with `false` in `PlayMongoRepository`. It should be documented why it is unnecessary since the failure to use a TTL index can lead to an ever growing collection and affect performance.
+
+
+## Primary Elections and Failover
+See [PRIMARY_ELECTIONS_AND_FAILOVER.md](PRIMARY_ELECTIONS_AND_FAILOVER.md)
+
 
 ## Changes
 

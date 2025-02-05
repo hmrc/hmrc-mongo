@@ -18,7 +18,7 @@ collecting, and will be shipped out by whatever method you are using.
 > `T getValue();`
 
 ## How data gathering works
-<img src="https://github.com/hmrc/hmrc-mongo/blob/main/hmrc-mongo-metrix-play-28/diagrams/metrixDataGathering.png" width="500" alt="Metric Gathering">
+<img src="./diagrams/metrixDataGathering.png" width="500" alt="Metric Gathering">
 
 Metrix has a very simple interface, and all metrics collected are a simple integer count.
 
@@ -37,7 +37,7 @@ for this operation. They also control the creation and registration of individua
 
 ## How reporting works
 
-<img src="https://github.com/hmrc/hmrc-mongo/blob/main/hmrc-mongo-metrix-play-28/diagrams/metricReportingMechanism.png" width="250" alt="Metric Reporting">
+<img src="./diagrams/metricReportingMechanism.png" width="250" alt="Metric Reporting">
 
 There is a CacheGauge registered in the MetricRegistry for each metric gathered from metric sources.
 
@@ -88,7 +88,7 @@ resolvers += "HMRC-open-artefacts-maven2" at "https://open.artefacts.tax.service
 libraryDependencies += "uk.gov.hmrc.mongo" %% "hmrc-mongo-metrix-play-xx" % "[INSERT-VERSION]"
 ```
 
-Where `play-xx` is your version of Play (e.g. `play-28`)
+Where `play-xx` is your version of Play (e.g. `play-30`)
 
 ## Compatibility
 Metrix uses the official [mongo-scala](https://mongodb.github.io/mongo-scala-driver/) driver, instead of [ReactiveMongo](https://github.com/ReactiveMongo/ReactiveMongo)
