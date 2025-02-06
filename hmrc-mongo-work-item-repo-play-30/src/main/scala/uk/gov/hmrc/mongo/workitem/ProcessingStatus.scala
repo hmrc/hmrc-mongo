@@ -24,20 +24,20 @@ sealed trait ProcessingStatus {
   def name: String
 }
 
-sealed trait ResultStatus
+sealed trait Result
 
 object ProcessingStatus {
   outer =>
 
-  case object ToDo              extends ProcessingStatus                   { override val name = "todo"               }
-  case object InProgress        extends ProcessingStatus                   { override val name = "in-progress"        }
-  case object Succeeded         extends ProcessingStatus with ResultStatus { override val name = "succeeded"          }
-  case object Deferred          extends ProcessingStatus with ResultStatus { override val name = "deferred"           }
-  case object Failed            extends ProcessingStatus with ResultStatus { override val name = "failed"             }
-  case object PermanentlyFailed extends ProcessingStatus with ResultStatus { override val name = "permanently-failed" }
-  case object Ignored           extends ProcessingStatus with ResultStatus { override val name = "ignored"            }
-  case object Duplicate         extends ProcessingStatus with ResultStatus { override val name = "duplicate"          }
-  case object Cancelled         extends ProcessingStatus with ResultStatus { override val name = "cancelled"          }
+  case object ToDo              extends ProcessingStatus             { override val name = "todo"               }
+  case object InProgress        extends ProcessingStatus             { override val name = "in-progress"        }
+  case object Succeeded         extends ProcessingStatus with Result { override val name = "succeeded"          }
+  case object Deferred          extends ProcessingStatus with Result { override val name = "deferred"           }
+  case object Failed            extends ProcessingStatus with Result { override val name = "failed"             }
+  case object PermanentlyFailed extends ProcessingStatus with Result { override val name = "permanently-failed" }
+  case object Ignored           extends ProcessingStatus with Result { override val name = "ignored"            }
+  case object Duplicate         extends ProcessingStatus with Result { override val name = "duplicate"          }
+  case object Cancelled         extends ProcessingStatus with Result { override val name = "cancelled"          }
 
   val values: Set[ProcessingStatus] =
     Set(

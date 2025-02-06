@@ -198,7 +198,7 @@ abstract class WorkItemRepository[T](
     * It will also update the updatedAt timestamp.
     * It will return false if the WorkItem is not InProgress.
     */
-  def complete(id: ObjectId, newStatus: ProcessingStatus with ResultStatus): Future[Boolean] =
+  def complete(id: ObjectId, newStatus: ResultStatus): Future[Boolean] =
     collection.updateOne(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
