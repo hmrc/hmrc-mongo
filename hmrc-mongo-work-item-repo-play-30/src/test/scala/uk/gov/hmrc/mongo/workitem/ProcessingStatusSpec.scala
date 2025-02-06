@@ -22,6 +22,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import play.api.libs.json.{JsError, JsString, Json}
 import uk.gov.hmrc.mongo.play.json.Codecs
 
+@annotation.nowarn("msg=deprecated")
 class ProcessingStatusSpec extends AnyWordSpec with Matchers {
   import ProcessingStatus._
 

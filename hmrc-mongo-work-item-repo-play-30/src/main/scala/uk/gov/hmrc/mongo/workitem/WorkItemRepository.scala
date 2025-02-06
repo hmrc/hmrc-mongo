@@ -62,17 +62,7 @@ abstract class WorkItemRepository[T](
                      IndexModel(Indexes.ascending(workItemFields.status), IndexOptions().background(true))
                    ) ++ extraIndexes,
   replaceIndexes = replaceIndexes,
-  extraCodecs    = Codecs.playFormatCodecsBuilder(ProcessingStatus.format)
-                     .forType[ProcessingStatus.ToDo.type]
-                     .forType[ProcessingStatus.InProgress.type]
-                     .forType[ProcessingStatus.Succeeded.type]
-                     .forType[ProcessingStatus.Deferred.type]
-                     .forType[ProcessingStatus.Failed.type]
-                     .forType[ProcessingStatus.PermanentlyFailed.type]
-                     .forType[ProcessingStatus.Ignored.type]
-                     .forType[ProcessingStatus.Duplicate.type]
-                     .forType[ProcessingStatus.Cancelled.type]
-                     .build
+  extraCodecs    = Codecs.playFormatSumCodecs(ProcessingStatus.format)
                      ++ extraCodecs
 ) with Operations.Cancel
   with Operations.FindById[T]
@@ -208,7 +198,7 @@ abstract class WorkItemRepository[T](
     * It will also update the updatedAt timestamp.
     * It will return false if the WorkItem is not InProgress.
     */
-  def complete(id: ObjectId, newStatus: ResultStatus): Future[Boolean] =
+  def complete(id: ObjectId, newStatus: ProcessingStatus with ResultStatus): Future[Boolean] =
     collection.updateOne(
       filter = Filters.and(
                  Filters.equal(workItemFields.id, id),
