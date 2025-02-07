@@ -57,9 +57,9 @@ abstract class WorkItemRepository[T](
   mongoComponent = mongoComponent,
   domainFormat   = WorkItem.formatForFields[T](workItemFields)(itemFormat),
   indexes        = Seq(
-                     IndexModel(Indexes.ascending(workItemFields.status, workItemFields.updatedAt), IndexOptions().background(true)),
-                     IndexModel(Indexes.ascending(workItemFields.status, workItemFields.availableAt), IndexOptions().background(true)),
-                     IndexModel(Indexes.ascending(workItemFields.status), IndexOptions().background(true))
+                     IndexModel(Indexes.ascending(workItemFields.status, workItemFields.updatedAt)),
+                     IndexModel(Indexes.ascending(workItemFields.status, workItemFields.availableAt)),
+                     IndexModel(Indexes.ascending(workItemFields.status))
                    ) ++ extraIndexes,
   replaceIndexes = replaceIndexes,
   extraCodecs    = Codecs.playFormatSumCodecs(ProcessingStatus.format)

@@ -43,7 +43,7 @@ class MongoMetricRepository @Inject() (
   mongoComponent = mongoComponent,
   domainFormat   = PersistedMetric.format,
   indexes        = Seq(
-                     IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true).background(true))
+                     IndexModel(ascending("name"), IndexOptions().name("metric_key_idx").unique(true))
                    )
 ) with MetricRepository {
 
