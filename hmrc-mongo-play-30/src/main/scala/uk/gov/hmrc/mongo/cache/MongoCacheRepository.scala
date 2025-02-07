@@ -49,7 +49,6 @@ class MongoCacheRepository[CacheId](
                      IndexModel(
                        Indexes.ascending("modifiedDetails.lastUpdated"),
                        IndexOptions()
-                         .background(false)
                          .name("lastUpdatedIndex")
                          .expireAfter(ttl.toMillis, TimeUnit.MILLISECONDS)
                      )
