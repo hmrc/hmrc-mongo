@@ -364,6 +364,9 @@ See [PRIMARY_ELECTIONS_AND_FAILOVER.md](PRIMARY_ELECTIONS_AND_FAILOVER.md)
 
 ## Changes
 
+### Version 2.6.0
+- Add `MongoComment.NoIndexRequired` util to help log analysis tools understand where the lack of an index is expected (e.g. `collection.find().comment(NoIndexRequired)`).
+
 ### Version 2.4.0
 - SessionCache only requires `RequestHeader` rather than `Request`.
 

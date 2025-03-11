@@ -21,7 +21,7 @@ import org.mongodb.scala.{ObservableFuture, ReadPreference, SingleObservableFutu
 import org.mongodb.scala.model.{DeleteOneModel, IndexModel, IndexOptions, ReplaceOneModel, ReplaceOptions}
 import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Indexes.ascending
-import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.{MongoComponent, MongoComment}
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 
 import javax.inject.{Inject, Singleton}
@@ -52,6 +52,7 @@ class MongoMetricRepository @Inject() (
   override def findAll(): Future[List[PersistedMetric]] =
     collection.withReadPreference(ReadPreference.secondaryPreferred())
       .find()
+      .comment(MongoComment.NoIndexRequired)
       .toFuture()
       .map(_.toList)
 
