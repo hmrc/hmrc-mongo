@@ -107,7 +107,7 @@ trait MongoUtils {
                                 dataType <- if (!checkType)
                                               Future.successful(TtlState.TypeCheckSkipped)
                                             else for {
-                                              hasData  <- collection.find().limit(1).headOption().map(_.isDefined)
+                                              hasData  <- collection.find().comment(MongoComment.NoIndexRequired).limit(1).headOption().map(_.isDefined)
                                               dataType <- if (!hasData)
                                                             Future.successful(TtlState.NoData)
                                                           else

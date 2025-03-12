@@ -21,7 +21,7 @@ object LibDependencies {
   def hmrcMongoPlay(playSuffix: String, scalaVersion: String): Seq[ModuleID] = Seq(
     playOrg(playSuffix) %% "play"                     % playVersion(playSuffix),
     playOrg(playSuffix) %% "play-guice"               % playVersion(playSuffix),
-    "uk.gov.hmrc"       %% s"crypto-json-$playSuffix" % "8.1.0" % Test
+    "uk.gov.hmrc"       %% s"crypto-json-$playSuffix" % "8.2.0" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoTestPlay(playSuffix: String, scalaVersion: String): Seq[ModuleID] = Seq(
@@ -39,29 +39,25 @@ object LibDependencies {
 
   private def playVersion(playSuffix: String) =
     playSuffix match {
-      case "play-28" => "2.8.21"
       case "play-29" => "2.9.6"
       case "play-30" => "3.0.6"
     }
 
   private def playOrg(playSuffix: String) =
     playSuffix match {
-      case "play-28"
-         | "play-29" => "com.typesafe.play"
+      case "play-29" => "com.typesafe.play"
       case "play-30" => "org.playframework"
     }
 
   private def scalatestVersion(playSuffix: String) =
     // version chosen for compatibility with scalatestplus-play
     playSuffix match {
-      case "play-28" => "3.1.1"
       case "play-29"
          | "play-30" => "3.2.17"
     }
 
   private def flexmarkAllVersion(playSuffix: String) =
     playSuffix match {
-      case "play-28" => "0.35.10"
       case "play-29"
          | "play-30" => "0.64.8"
     }
