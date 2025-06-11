@@ -4,8 +4,8 @@ import uk.gov.hmrc.DefaultBuildSettings
 // https://www.scala-sbt.org/1.x/docs/Parallel-Execution.html
 Global / concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.Untagged)
 
-val scala2_13 = "2.13.12"
-val scala3    = "3.3.3"
+val scala2_13 = "2.13.16"
+val scala3    = "3.3.6"
 
 ThisBuild / majorVersion     := 2
 ThisBuild / scalaVersion     := scala2_13
