@@ -16,7 +16,7 @@
 
 package uk.gov.hmrc.mongo.test
 
-import org.mongodb.scala.{Document, MongoClient, MongoDatabase, ObservableFuture, ReadPreference, SingleObservableFuture, documentToUntypedDocument}
+import org.mongodb.scala.{Document, MongoClient, MongoDatabase, ReadPreference, SingleObservableFuture, documentToUntypedDocument}
 import org.scalatest.{Args, BeforeAndAfterAll, BeforeAndAfterEach, Failed, Outcome, Status, Succeeded, TestSuite}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Logger

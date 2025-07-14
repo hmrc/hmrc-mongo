@@ -19,12 +19,11 @@ package uk.gov.hmrc.mongo.workitem
 import org.bson.types.ObjectId
 import org.bson.conversions.Bson
 import org.bson.codecs.Codec
-import org.mongodb.scala.{ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model._
 import play.api.libs.json._
-import uk.gov.hmrc.mongo.metrix.MetricSource
 import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.metrix.MetricSource
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 
 import java.time.{Duration, Instant}

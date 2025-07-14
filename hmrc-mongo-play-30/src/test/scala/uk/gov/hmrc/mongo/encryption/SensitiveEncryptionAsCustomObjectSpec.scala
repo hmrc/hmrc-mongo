@@ -107,7 +107,7 @@ class SensitiveEncryptionAsObjectSpec
                   sensitiveLong     = unencryptedLong,
                   sensitiveNested   = unencryptedNested,
                   sensitiveOptional = None
-                )).headOption()
+                )).toFutureOption()
          res <- playMongoRepository.collection.find().headOption().map(_.value)
          _   =  res.sensitiveString  shouldBe unencryptedString
          _   =  res.sensitiveBoolean shouldBe unencryptedBoolean
