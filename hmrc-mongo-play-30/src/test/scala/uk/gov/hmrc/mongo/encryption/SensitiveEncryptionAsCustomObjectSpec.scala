@@ -17,7 +17,6 @@
 package uk.gov.hmrc.mongo.encryption
 
 import org.bson.types.ObjectId
-import org.mongodb.scala.{ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.Updates
 import org.scalatest.{BeforeAndAfterEach, OptionValues}
@@ -28,6 +27,7 @@ import play.api.Configuration
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
+import uk.gov.hmrc.mongo.logging.ObservableFutureImplicits._
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 import uk.gov.hmrc.mongo.play.json.formats.MongoFormats
 import uk.gov.hmrc.crypto.{Crypted, Decrypter, Encrypter, PlainText, Sensitive, SymmetricCryptoFactory}
