@@ -6,12 +6,13 @@ object LibDependencies {
     "org.scalatest"          %% "scalatest"                  % "3.2.17"       % Test,
     "org.scalatestplus"      %% "scalacheck-1-17"            % "3.2.17.0"     % Test,
     "com.vladsch.flexmark"   %  "flexmark-all"               % "0.64.8"       % Test,
-    "ch.qos.logback"         %  "logback-classic"            % "1.2.12"       % Test,
+    "ch.qos.logback"         %  "logback-classic"            % "1.5.18"       % Test,
     "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4"        % Test
   )
 
   def mongoCommon(scalaVersion: String): Seq[ModuleID] = Seq(
     "org.mongodb.scala" %% "mongo-scala-driver" % "5.5.1" cross CrossVersion.for3Use2_13,
+    "uk.gov.hmrc"       %% "mdc"                % "0.1.0",
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
   ) ++ test(scalaVersion)
 

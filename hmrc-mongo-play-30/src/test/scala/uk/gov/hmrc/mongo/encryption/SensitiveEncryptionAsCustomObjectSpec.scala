@@ -17,7 +17,7 @@
 package uk.gov.hmrc.mongo.encryption
 
 import org.bson.types.ObjectId
-import org.mongodb.scala.{ObservableFuture, SingleObservableFuture}
+import org.mongodb.scala.SingleObservableFuture
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.Updates
 import org.scalatest.{BeforeAndAfterEach, OptionValues}

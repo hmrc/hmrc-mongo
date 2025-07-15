@@ -16,38 +16,10 @@
 
 package uk.gov.hmrc.mongo.logging
 
-import org.slf4j.MDC
 import org.mongodb.scala.{Observable, SingleObservable}
+import uk.gov.hmrc.mdc.Mdc
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters._
-
-// TODO this code also lives in http-verbs, if it's moved to a new logging library it could be reused here
-private object Mdc {
-
-  def mdcData: Map[String, String] =
-    Option(MDC.getCopyOfContextMap).map(_.asScala.toMap).getOrElse(Map.empty)
-
-  def withMdc[A](block: => Future[A], mdcData: Map[String, String])(implicit ec: ExecutionContext): Future[A] =
-    block.map { a =>
-      putMdc(mdcData)
-      a
-    }.recoverWith {
-      case t =>
-        putMdc(mdcData)
-        Future.failed(t)
-    }
-
-  def putMdc(mdc: Map[String, String]): Unit =
-    mdc.foreach {
-      case (k, v) => MDC.put(k, v)
-    }
-
-  /** Restores MDC data to the continuation of a block, which may be discarding MDC data (e.g. uses a different execution context)
-    */
-  def preservingMdc[A](block: => Future[A])(implicit ec: ExecutionContext): Future[A] =
-    withMdc(block, mdcData)
-}
 
 /** Can be used instead of [[org.mongodb.scala.ObservableFuture]] and [[org.mongodb.scala.SingleObservableFuture]]
   * to convert an [[Observable]] to a [[Future]] but preserving any MDC data for logging.

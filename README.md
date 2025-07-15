@@ -378,7 +378,7 @@ See [PRIMARY_ELECTIONS_AND_FAILOVER.md](PRIMARY_ELECTIONS_AND_FAILOVER.md)
     .toFuture() // Now any MDC previously associated with the execution context will be preserved.
   ```
 
-  Note however, that `head` and `headOption` on an `Observable` are _not_ covered, and will still require manual MDC preservation.
+  Note however, that `head` and `headOption` on an `Observable` are _not_ covered, and will still require manual MDC preservation. See [mdc](https://github.com/hmrc/mdc) library.
 
 
 ### Version 2.6.0

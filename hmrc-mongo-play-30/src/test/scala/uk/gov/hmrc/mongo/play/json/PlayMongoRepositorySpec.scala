@@ -21,11 +21,12 @@ import org.apache.pekko.util.ByteString
 import org.bson.UuidRepresentation
 import org.bson.codecs.UuidCodec
 import org.bson.types.ObjectId
-import org.mongodb.scala.{Document, ObservableFuture, ReadPreference, SingleObservableFuture, documentToUntypedDocument}
+import org.mongodb.scala.{Document, ReadPreference, documentToUntypedDocument}
+import org.mongodb.scala.{ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.bson.{BsonDocument, BsonString}
 import org.mongodb.scala.model.{Filters, Updates}
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, LoneElement}
 import org.scalatest.compatible.Assertion
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
@@ -41,11 +42,13 @@ import java.time.{Instant, LocalDate, ZoneOffset}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 
+
 import ExecutionContext.Implicits.global
 
 class PlayMongoRepositorySpec
   extends AnyWordSpec
      with Matchers
+     with LoneElement
      with ScalaFutures
      with ScalaCheckDrivenPropertyChecks
      with BeforeAndAfterAll {
