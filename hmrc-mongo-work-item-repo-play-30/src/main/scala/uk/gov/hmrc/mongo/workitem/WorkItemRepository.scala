@@ -19,12 +19,12 @@ package uk.gov.hmrc.mongo.workitem
 import org.bson.types.ObjectId
 import org.bson.conversions.Bson
 import org.bson.codecs.Codec
-import org.mongodb.scala.{ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model._
 import play.api.libs.json._
-import uk.gov.hmrc.mongo.metrix.MetricSource
+import uk.gov.hmrc.mdc.Mdc
 import uk.gov.hmrc.mongo.MongoComponent
+import uk.gov.hmrc.mongo.metrix.MetricSource
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 
 import java.time.{Duration, Instant}
@@ -249,9 +249,10 @@ abstract class WorkItemRepository[T](
      }
 
   def findById(id: ObjectId): Future[Option[WorkItem[T]]] =
-    collection.find(Filters.equal("_id", id))
-      .toFuture()
-      .map(_.headOption)
+    Mdc.preservingMdc(
+      collection.find(Filters.equal("_id", id))
+        .headOption()
+    )
 
   /** Returns the number of WorkItems in the specified ProcessingStatus */
   def count(state: ProcessingStatus): Future[Long] =

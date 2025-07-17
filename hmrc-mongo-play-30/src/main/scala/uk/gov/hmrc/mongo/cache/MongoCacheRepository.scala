@@ -17,10 +17,11 @@
 package uk.gov.hmrc.mongo.cache
 
 import org.bson.codecs.Codec
-import org.mongodb.scala.{WriteConcern, SingleObservableFuture}
+import org.mongodb.scala.WriteConcern
 import org.mongodb.scala.model.{Filters, FindOneAndUpdateOptions, IndexModel, IndexOptions, Indexes, ReturnDocument, Updates}
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{Format, JsObject, JsPath, JsResultException, Reads, Writes, __}
+import uk.gov.hmrc.mdc.Mdc
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
 import uk.gov.hmrc.mongo.play.json.{Codecs, PlayMongoRepository}
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
@@ -59,9 +60,11 @@ class MongoCacheRepository[CacheId](
 
   def findById(cacheId: CacheId): Future[Option[CacheItem]] = {
     val id = cacheIdType.run(cacheId)
-    collection
-      .find(Filters.equal("_id", id))
-      .headOption()
+    Mdc.preservingMdc(
+      collection
+        .find(Filters.equal("_id", id))
+        .headOption()
+    )
   }
 
   def get[A: Reads](
@@ -88,13 +91,13 @@ class MongoCacheRepository[CacheId](
     val timestamp = timestampSupport.timestamp()
     this.collection
       .findOneAndUpdate(
-        filter = Filters.equal("_id", id),
-        update = Updates.combine(
-          Updates.set("data." + dataKey.unwrap, Codecs.toBson(data)),
-          Updates.set("modifiedDetails.lastUpdated", timestamp),
-          Updates.setOnInsert("_id", id),
-          Updates.setOnInsert("modifiedDetails.createdAt", timestamp)
-        ),
+        filter  = Filters.equal("_id", id),
+        update  = Updates.combine(
+                    Updates.set("data." + dataKey.unwrap, Codecs.toBson(data)),
+                    Updates.set("modifiedDetails.lastUpdated", timestamp),
+                    Updates.setOnInsert("_id", id),
+                    Updates.setOnInsert("modifiedDetails.createdAt", timestamp)
+                  ),
         options = FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER)
       )
       .toFuture()
@@ -108,9 +111,9 @@ class MongoCacheRepository[CacheId](
       .findOneAndUpdate(
         filter = Filters.equal("_id", id),
         update = Updates.combine(
-          Updates.unset("data." + dataKey.unwrap),
-          Updates.set("modifiedDetails.lastUpdated", timestampSupport.timestamp())
-        )
+                   Updates.unset("data." + dataKey.unwrap),
+                   Updates.set("modifiedDetails.lastUpdated", timestampSupport.timestamp())
+                 )
       )
       .toFuture()
       .map(_ => ())

@@ -20,7 +20,6 @@ import org.bson._
 import org.bson.codecs.Codec
 import play.api.libs.json._
 
-import scala.jdk.CollectionConverters._
 import scala.compiletime.{erasedValue, summonInline}
 import scala.deriving.Mirror
 import scala.reflect.ClassTag

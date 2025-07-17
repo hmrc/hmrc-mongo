@@ -364,6 +364,23 @@ See [PRIMARY_ELECTIONS_AND_FAILOVER.md](PRIMARY_ELECTIONS_AND_FAILOVER.md)
 
 ## Changes
 
+### Version 2.7.0
+- Introduces `uk.gov.hmrc.mongo.logging.ObservableFutureImplicits` to preserve MDC when converting `Observable` and `SingleObservable` to `Future` with `toFuture` and `toFutureOption`.
+
+  `PlayMongoRepository` now mixes in this trait, so `toFuture` and `toFutureOption` will preserve MDC without any further imports.
+
+  ```scala
+  // Only required if not extending `PlayMongoRepository`
+  import uk.gov.hmrc.mongo.logging.ObservableFutureImplicits._
+
+  collection
+    .find()
+    .toFuture() // Now any MDC previously associated with the execution context will be preserved.
+  ```
+
+  Note however, that `head` and `headOption` on an `Observable` are _not_ covered, and will still require manual MDC preservation. See [mdc](https://github.com/hmrc/mdc) library.
+
+
 ### Version 2.6.0
 - Add `MongoComment.NoIndexRequired` util to help log analysis tools understand where the lack of an index is expected (e.g. `collection.find().comment(NoIndexRequired)`).
 - Drops support for Play 2.8. Only Play 2.9 & Play 3.0 are supported.

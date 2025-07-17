@@ -22,6 +22,7 @@ import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.Format
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
+import uk.gov.hmrc.mongo.logging.ObservableFutureImplicits
 
 import java.util.concurrent.TimeoutException
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -39,15 +40,16 @@ import scala.reflect.ClassTag
   * @param extraCodecs optional - to support more types
   */
 class PlayMongoRepository[A: ClassTag](
-  mongoComponent: MongoComponent,
+  mongoComponent          : MongoComponent,
   final val collectionName: String,
-  final val domainFormat: Format[A],
-  final val indexes: Seq[IndexModel],
-  final val optSchema: Option[BsonDocument] = None,
-  replaceIndexes: Boolean = false,
-  extraCodecs   : Seq[Codec[_]] = Seq.empty
+  final val domainFormat  : Format[A],
+  final val indexes       : Seq[IndexModel],
+  final val optSchema     : Option[BsonDocument] = None,
+  replaceIndexes          : Boolean = false,
+  extraCodecs             : Seq[Codec[_]] = Seq.empty
 )(implicit ec: ExecutionContext)
-    extends MongoDatabaseCollection {
+    extends MongoDatabaseCollection
+       with ObservableFutureImplicits {
 
   private val logger = play.api.Logger(getClass)
 

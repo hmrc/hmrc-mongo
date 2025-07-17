@@ -90,6 +90,6 @@ object WorkItemModuleRepository {
   def readonlyFormat[T](trd: Reads[T]): Format[T] =
     Format(
       trd,
-      (o: T) => throw new IllegalStateException("A work item module is not supposed to be written")
+      _ => throw new IllegalStateException("A work item module is not supposed to be written")
     )
 }
