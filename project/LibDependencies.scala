@@ -40,26 +40,22 @@ object LibDependencies {
 
   private def playVersion(playSuffix: String) =
     playSuffix match {
-      case "play-29" => "2.9.6"
-      case "play-30" => "3.0.6"
+      case "play-30" => "3.0.9"
     }
 
   private def playOrg(playSuffix: String) =
     playSuffix match {
-      case "play-29" => "com.typesafe.play"
       case "play-30" => "org.playframework"
     }
 
   private def scalatestVersion(playSuffix: String) =
     // version chosen for compatibility with scalatestplus-play
     playSuffix match {
-      case "play-29"
-         | "play-30" => "3.2.17"
+      case "play-30" => "3.2.17"
     }
 
   private def flexmarkAllVersion(playSuffix: String) =
     playSuffix match {
-      case "play-29"
-         | "play-30" => "0.64.8"
+      case "play-30" => "0.64.8"
     }
 }

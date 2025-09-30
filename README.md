@@ -364,6 +364,9 @@ See [PRIMARY_ELECTIONS_AND_FAILOVER.md](PRIMARY_ELECTIONS_AND_FAILOVER.md)
 
 ## Changes
 
+### Version 2.8.0
+- Removes support for Play 2.9
+
 ### Version 2.7.0
 - Introduces `uk.gov.hmrc.mongo.logging.ObservableFutureImplicits` to preserve MDC when converting `Observable` and `SingleObservable` to `Future` with `toFuture` and `toFutureOption`.
 
