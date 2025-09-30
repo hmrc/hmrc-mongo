@@ -12,7 +12,7 @@ object LibDependencies {
 
   def mongoCommon(scalaVersion: String): Seq[ModuleID] = Seq(
     "org.mongodb.scala" %% "mongo-scala-driver" % "5.5.1" cross CrossVersion.for3Use2_13,
-    "uk.gov.hmrc"       %% "mdc"                % "0.1.0",
+    "uk.gov.hmrc"       %% "mdc"                % "0.3.0",
     "org.slf4j"         %  "slf4j-api"          % "1.7.30"
   ) ++ test(scalaVersion)
 
