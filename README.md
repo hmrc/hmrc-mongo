@@ -364,6 +364,9 @@ See [PRIMARY_ELECTIONS_AND_FAILOVER.md](PRIMARY_ELECTIONS_AND_FAILOVER.md)
 
 ## Changes
 
+### Version 2.9.0
+- Bump crypto to latest version
+
 ### Version 2.8.0
 - Removes support for Play 2.9
 
