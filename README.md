@@ -364,6 +364,9 @@ See [PRIMARY_ELECTIONS_AND_FAILOVER.md](PRIMARY_ELECTIONS_AND_FAILOVER.md)
 
 ## Changes
 
+### Version 2.10.0
+- `mongo-scala-driver:5.6.1` for `limit(Int.MaxValue)` fix - https://jira.mongodb.org/browse/JAVA-5970
+
 ### Version 2.9.0
 - Bump crypto to latest version
 
