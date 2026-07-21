@@ -20,7 +20,7 @@ import com.google.inject.AbstractModule
 import com.mongodb.ConnectionString
 import org.mongodb.scala.{MongoClient, MongoDatabase, ObservableFuture}
 import play.api.inject.ApplicationLifecycle
-import play.api.{Configuration, Logger}
+import play.api.{Configuration, Environment, Logger, Mode}
 import uk.gov.hmrc.mongo.MongoComponent
 
 import javax.inject.{Inject, Singleton}
@@ -76,7 +76,18 @@ class PlayMongoComponent @Inject() (
   }
 }
 
-class PlayMongoModule extends AbstractModule {
-  override def configure(): Unit =
-    bind(classOf[MongoComponent]).to(classOf[PlayMongoComponent]).asEagerSingleton()
+class PlayMongoModule(environment: Environment, configuration: Configuration) extends AbstractModule {
+
+  require(configuration != null, "configuration")
+
+  def this() =
+    this(Environment.simple(mode = Mode.Prod), Configuration.empty)
+
+  override def configure(): Unit = {
+    val binding =
+      bind(classOf[MongoComponent]).to(classOf[PlayMongoComponent])
+
+    if (environment.mode == Mode.Test) binding.in(classOf[Singleton])
+    else binding.asEagerSingleton()
+  }
 }
