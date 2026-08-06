@@ -16,7 +16,8 @@
 
 package uk.gov.hmrc.mongo.transaction
 
-import org.mongodb.scala.{MongoException, Observable, ObservableFuture, SingleObservableFuture}
+import org.mockito.Mockito
+import org.mongodb.scala.{ClientSession, MongoException, Observable, ObservableFuture, SingleObservable, SingleObservableFuture}
 import org.mongodb.scala.bson.BsonDocument
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
@@ -176,6 +177,52 @@ class TransactionSpec
         list.futureValue.size shouldBe 2
 
         attempts.get shouldBe 2 // retried once
+      }
+
+      "commit and close the transaction when the callback returns an empty Observable" in {
+        implicit val ts = TransactionConfiguration()
+
+        var session: org.mongodb.scala.ClientSession = null
+
+        withSessionAndTransaction { s =>
+          session = s
+          Observable[Unit](Seq.empty)
+        }.toFuture().futureValue
+
+        session.hasActiveTransaction shouldBe false
+      }
+
+      "close the client session only once, regardless of how many elements the callback emits" in {
+        implicit val ts = TransactionConfiguration()
+
+        // A mock session lets us count how many times `close()` is invoked.
+        val session = Mockito.mock(classOf[ClientSession])
+
+        // Spy the real client so we can hand back our mock session (avoiding a real db round-trip).
+        val spiedClient = Mockito.spy(mongoComponent.client)
+        Mockito
+          .doAnswer((_: org.mockito.invocation.InvocationOnMock) => SingleObservable(session))
+          .when(spiedClient)
+          .startSession()
+
+        val transactions =
+          new Transactions {
+            override val mongoComponent: MongoComponent =
+              new MongoComponent {
+                override val client      = spiedClient
+                override val database    = TransactionSpec.this.mongoComponent.database
+                override val initTimeout = TransactionSpec.this.mongoComponent.initTimeout
+              }
+          }
+
+        transactions
+          .withClientSession(_ => Observable(Seq(1, 2, 3)))
+          .toFuture()
+          .futureValue shouldBe Seq(1, 2, 3)
+
+        // Prior to the fix, `session.close()` was run once per emitted element (i.e. 3 times here),
+        // since it sat inside the for-comprehension's map body.
+        Mockito.verify(session, Mockito.times(1)).close()
       }
     }
   }

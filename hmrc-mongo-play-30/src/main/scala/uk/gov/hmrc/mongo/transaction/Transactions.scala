@@ -124,8 +124,11 @@ trait Transactions {
   ): Observable[A] =
     for {
       session <- tc.clientSessionOptions.fold(mongoComponent.client.startSession())(mongoComponent.client.startSession _)
-      res     <- f(session).recover { case e => session.close(); throw e }
+      // `collect` buffers the results into a single emission (even when `f` is empty), ensuring the session is
+      // always closed. Without this, an empty Observable would short-circuit the for-comprehension, leaking the session.
+      ress    <- f(session).recover { case e => session.close(); throw e }.collect()
       _       =  session.close()
+      res     <- Observable(ress)
       } yield res
 
   /** A transaction is started before running the continuation. It will be committed or aborted depending on whether the callback executes
@@ -153,18 +156,22 @@ trait Transactions {
     retryFor(_.hasErrorLabel(MongoException.TRANSIENT_TRANSACTION_ERROR_LABEL)){
       tc.transactionOptions.fold(session.startTransaction())(session.startTransaction _)
       for {
-        res <- f.recoverWith { case e1 =>
-                 session.abortTransaction()
-                   .recover {
-                     case e2 => logger.error(s"Error aborting transaction: ${e2.getMessage}", e2)
-                                throw e1
-                   }
-                   .map[A](_ => throw e1)
-               }
-        _   <- retryFor(e =>
-                 !e.isInstanceOf[MongoExecutionTimeoutException]
-                 && e.hasErrorLabel(MongoException.UNKNOWN_TRANSACTION_COMMIT_RESULT_LABEL)
-               )(session.commitTransaction())
+        // `collect` buffers the results into a single emission (even when `f` is empty), ensuring the transaction is
+        // always committed. Without this, an empty Observable would short-circuit the for-comprehension, leaving the
+        // transaction open.
+        ress <- f.recoverWith { case e1 =>
+                  session.abortTransaction()
+                    .recover {
+                      case e2 => logger.error(s"Error aborting transaction: ${e2.getMessage}", e2)
+                                 throw e1
+                    }
+                    .map[A](_ => throw e1)
+                }.collect()
+        _    <- retryFor(e =>
+                  !e.isInstanceOf[MongoExecutionTimeoutException]
+                  && e.hasErrorLabel(MongoException.UNKNOWN_TRANSACTION_COMMIT_RESULT_LABEL)
+                )(session.commitTransaction())
+        res  <- Observable(ress)
       } yield res
     }
   }

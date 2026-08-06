@@ -22,7 +22,8 @@ object LibDependencies {
   def hmrcMongoPlay(playSuffix: String, scalaVersion: String): Seq[ModuleID] = Seq(
     playOrg(playSuffix) %% "play"                     % playVersion(playSuffix),
     playOrg(playSuffix) %% "play-guice"               % playVersion(playSuffix),
-    "uk.gov.hmrc"       %% s"crypto-json-$playSuffix" % "8.4.0" % Test
+    "uk.gov.hmrc"       %% s"crypto-json-$playSuffix" % "8.4.0"    % Test,
+    "org.scalatestplus" %% "mockito-4-11"             % "3.2.17.0" % Test
   ) ++ test(scalaVersion)
 
   def hmrcMongoTestPlay(playSuffix: String, scalaVersion: String): Seq[ModuleID] = Seq(
