@@ -21,7 +21,7 @@ import com.google.inject.ImplementedBy
 
 import javax.inject.{Inject, Singleton}
 import org.mongodb.scala.model.Filters._
-import org.mongodb.scala.model.Updates
+import org.mongodb.scala.model.{IndexModel, Updates}
 import play.api.Logger
 import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
 import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
@@ -44,21 +44,29 @@ trait LockRepository {
 }
 
 @Singleton
-class MongoLockRepository @Inject()(
+class MongoLockRepository(
   mongoComponent  : MongoComponent,
-  timestampSupport: TimestampSupport
+  timestampSupport: TimestampSupport,
+  indexes         : Seq[IndexModel]
 )(implicit
   ec: ExecutionContext
 ) extends PlayMongoRepository[Lock](
   mongoComponent,
   collectionName = "locks",
   domainFormat   = Lock.format,
-  indexes        = Seq.empty
+  indexes        = indexes
 ) with LockRepository {
+
+  @Inject()
+  def this(
+    mongoComponent  : MongoComponent,
+    timestampSupport: TimestampSupport
+  )(implicit ec: ExecutionContext) =
+    this(mongoComponent, timestampSupport, Seq.empty)
 
   private val logger = Logger(getClass)
 
-  override lazy val requiresTtlIndex = false // each lock defines it's own expiry, so doesn't rely on ttl indexes
+  override lazy val requiresTtlIndex = false // expiry is enforced by lock operations; TTL indexes are optional cleanup
 
   override def takeLock(lockId: String, owner: String, ttl: Duration): Future[Option[Lock]] = {
     val now = timestampSupport.timestamp()

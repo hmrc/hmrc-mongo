@@ -101,6 +101,39 @@ There are 3 variants that can be used to instigate a lock:
 - `TimePeriodLockService` to lock exclusively for a given time period (i.e. stop other instances executing the task until it stops renewing the lock).
 - `ScheduledLockService` for working with scheduled tasks with variable run times, will wait for current task to finish before allowing another to start.
 
+### Optional indexes and expired lock cleanup
+
+`MongoLockRepository(mongoComponent, timestampSupport)` continues to use `Seq.empty` for indexes. This constructor remains injectable, so existing services need no additional Guice bindings.
+
+Lock expiry is enforced by the repository operations: acquiring a lock deletes an expired document with the same `lockId` before attempting to insert the new lock. Successful `LockService` operations also release their locks. This handles reuse of lock IDs, but expired documents whose IDs are never acquired again can remain indefinitely. A TTL index is optional cleanup; lock acquisition, renewal, release and expiry checks do not depend on it.
+
+To declare indexes, supply a `Seq[IndexModel]` through the three-argument constructor. For example, a service can define an injectable repository with an `expiryTime` TTL index:
+
+```scala
+import javax.inject.{Inject, Singleton}
+import java.util.concurrent.TimeUnit
+import org.mongodb.scala.model.{IndexModel, IndexOptions, Indexes}
+import scala.concurrent.ExecutionContext
+import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
+import uk.gov.hmrc.mongo.lock.MongoLockRepository
+
+@Singleton
+class TtlMongoLockRepository @Inject()(
+  mongoComponent  : MongoComponent,
+  timestampSupport: TimestampSupport
+)(implicit ec: ExecutionContext
+) extends MongoLockRepository(
+  mongoComponent   = mongoComponent,
+  timestampSupport = timestampSupport,
+  indexes          = Seq(
+                       IndexModel(
+                         Indexes.ascending("expiryTime"),
+                         IndexOptions().name("expiryTimeTTL").expireAfter(0, TimeUnit.SECONDS)
+                       )
+                     )
+)
+```
+
 ### LockService
 
 Inject `MongoLockRepository` and create an instance of `LockService`.
