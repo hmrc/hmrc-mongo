@@ -17,22 +17,84 @@
 package uk.gov.hmrc.mongo.lock
 
 import com.mongodb.client.model.Filters
-import org.mongodb.scala.MongoServerException
+import com.google.inject.{AbstractModule, Guice}
+import org.mongodb.scala.{MongoServerException, ObservableFuture}
+import org.mongodb.scala.bson.BsonDocument
+import org.mongodb.scala.model.{IndexModel, IndexOptions, Indexes}
+import org.scalatest.OptionValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import uk.gov.hmrc.mongo.MongoUtils.DuplicateKey
-import uk.gov.hmrc.mongo.TimestampSupport
+import uk.gov.hmrc.mongo.{MongoComponent, TimestampSupport}
 import uk.gov.hmrc.mongo.test.DefaultPlayMongoRepositorySupport
 
 import java.time.{Clock, Instant, ZoneId}
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
+import scala.concurrent.ExecutionContext
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 
 class MongoLockRepositorySpec
   extends AnyWordSpec
      with Matchers
+     with OptionValues
      with DefaultPlayMongoRepositorySupport[Lock] {
+
+  "construction" should {
+    "default to no indexes with the existing constructor" in {
+      repository.indexes shouldBe Seq.empty
+      repository.requiresTtlIndex shouldBe false
+      repository.collection.listIndexes().toFuture().futureValue.map(_("name").asString.getValue) shouldBe Seq("_id_")
+    }
+
+    "support subclasses using the existing named constructor arguments" in {
+      val lockRepository = new MongoLockRepository(
+        mongoComponent   = mongoComponent,
+        timestampSupport = timestampSupport
+      ) {}
+
+      lockRepository.indexes shouldBe Seq.empty
+    }
+
+    "inject the default singleton through both repository types without index bindings" in {
+      val injector = Guice.createInjector(new AbstractModule {
+        override def configure(): Unit = {
+          bind(classOf[MongoComponent]).toInstance(mongoComponent)
+          bind(classOf[TimestampSupport]).toInstance(timestampSupport)
+          bind(classOf[ExecutionContext]).toInstance(global)
+        }
+      })
+
+      val lockRepository = injector.getInstance(classOf[MongoLockRepository])
+      lockRepository.indexes shouldBe Seq.empty
+      injector.getInstance(classOf[LockRepository]) should be theSameInstanceAs lockRepository
+    }
+
+    "create supplied TTL and non-TTL indexes and retain them for default consumers" in {
+      val suppliedIndexes: Seq[IndexModel] = Seq(
+        IndexModel(Indexes.ascending(Lock.expiryTime), IndexOptions().name("expiryTimeTTL").expireAfter(0, TimeUnit.SECONDS)),
+        IndexModel(Indexes.ascending(Lock.owner), IndexOptions().name("ownerIdx"))
+      )
+      val lockRepository = new MongoLockRepository(
+        mongoComponent   = mongoComponent,
+        timestampSupport = timestampSupport,
+        indexes          = suppliedIndexes
+      )
+
+      lockRepository.indexes shouldBe suppliedIndexes
+      lockRepository.initialised.futureValue
+      val createdIndexes = lockRepository.collection.listIndexes().toFuture().futureValue
+      createdIndexes.map(_("name").asString.getValue) should contain theSameElementsAs Seq("_id_", "expiryTimeTTL", "ownerIdx")
+      val ttlIndex = createdIndexes.find(_("name").asString.getValue == "expiryTimeTTL").value
+      ttlIndex("key").asDocument shouldBe BsonDocument(Lock.expiryTime -> 1)
+      ttlIndex("expireAfterSeconds").asNumber.longValue shouldBe 0L
+      createdIndexes.find(_("name").asString.getValue == "ownerIdx").value("key").asDocument shouldBe BsonDocument(Lock.owner -> 1)
+
+      val defaultRepository = new MongoLockRepository(mongoComponent, timestampSupport)
+      defaultRepository.collection.listIndexes().toFuture().futureValue shouldBe createdIndexes
+    }
+  }
 
   "takeLock" should {
     "successfully create a lock if one does not already exist" in {
