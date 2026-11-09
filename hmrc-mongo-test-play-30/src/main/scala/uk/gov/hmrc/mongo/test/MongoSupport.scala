@@ -20,7 +20,7 @@ import org.mongodb.scala.{Document, MongoClient, MongoDatabase, ReadPreference, 
 import org.scalatest.{Args, BeforeAndAfterAll, BeforeAndAfterEach, Failed, Outcome, Status, Succeeded, TestSuite}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Logger
-import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils, TtlWarning}
+import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 
 import scala.concurrent.duration.{FiniteDuration, DurationLong}
 import scala.concurrent.ExecutionContext.Implicits.global

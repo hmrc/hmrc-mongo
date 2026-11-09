@@ -24,6 +24,7 @@ import org.mongodb.scala.model.{Aggregates, Filters, IndexModel, ValidationActio
 import org.slf4j.{Logger, LoggerFactory}
 
 import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 trait MongoUtils {
@@ -119,8 +120,8 @@ trait MongoUtils {
                                                collection: MongoCollection[Document],
                                                ttls: Seq[Document]
                                              )(implicit ec: ExecutionContext): Future[List[TtlWarning]] = {
-    val warnings = ttls.map { ttl =>
-      val keyField = ttl("key").asDocument.getFirstKey // ttl indices are single-field indices
+    val warnings = ttls.map { (ttl: Document) =>
+      val keyField: String = ttl("key").asDocument.getFirstKey // ttl indices are single-field indices
       val indexName: String = ttl.getString("name")
       checkKeyFieldData(collection, keyField, indexName)
     }
@@ -136,7 +137,7 @@ trait MongoUtils {
     collection.find().comment(MongoComment.NoIndexRequired).limit(1).headOption().map(_.isDefined).flatMap{ hasData =>
       if (hasData) {
         val collectionName = collection.namespace.getCollectionName
-        val isANonDateType: List[BsonType] = BsonType.values.toList.filterNot(Set(BsonType.DATE_TIME, BsonType.END_OF_DOCUMENT, BsonType.MIN_KEY, BsonType.MAX_KEY, BsonType.ARRAY ))
+        val isANonDateType: List[BsonType] = BsonType.values.toList.filterNot(Set(BsonType.DATE_TIME, BsonType.END_OF_DOCUMENT, BsonType.MIN_KEY, BsonType.MAX_KEY ))
         val isANonDateTypeOrNull = Filters.or(
           Filters.equal(keyField, null) +: isANonDateType.map(t => Filters.`type`(keyField, t)): _*
         )
@@ -147,7 +148,7 @@ trait MongoUtils {
             Aggregates.group(BsonDocument("$type" -> s"$$$keyField"), Accumulators.sum("n", 1))
           ))
           .hintString(indexName)
-          .maxTime((10, TimeUnit.SECONDS))
+          .maxTime(Duration(10, TimeUnit.SECONDS))
           .toFuture()
           .map(_.map {
             case d if d.getString("_id").getValue == "null" => TtlWarning.NullKeyField(collectionName, keyField, d.getInt32("n").getValue)

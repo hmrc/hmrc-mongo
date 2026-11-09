@@ -398,7 +398,7 @@ class MongoUtilsSpec
       res shouldBe List()
     }
 
-    s"return no warnings when ttl index points at array with only dates" in {
+    s"return a warning when ttl index points at array with only dates" in {
       val indexes1 =
         Seq(
           IndexModel(Indexes.ascending("field1"), IndexOptions()),
@@ -411,11 +411,11 @@ class MongoUtilsSpec
         (for {
            _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
            items =  (1 to 99).map(i => Document("field2" -> new BsonArray(Seq(new BsonDateTime(i), new BsonDateTime(i)).asJava)))
-           _     <- collection.insertMany(items) .toFuture()
+           _     <- collection.insertMany(items).toFuture()
            res   <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
          } yield res
         ).futureValue
-      res shouldBe List()
+      res shouldBe List(TtlWarning.InvalidType(collectionName, "field2", "array", 99))
     }
 
     s"return a warning when ttl index points at array containing both dates and other types" in {
