@@ -22,10 +22,10 @@ import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, Mong
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.{Aggregates, Filters, IndexModel, ValidationAction, ValidationLevel}
 import org.slf4j.{Logger, LoggerFactory}
-
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import org.mongodb.scala.documentToUntypedDocument
 
 trait MongoUtils {
   private val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
