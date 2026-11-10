@@ -25,9 +25,10 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import uk.gov.hmrc.mongo.MongoUtils.TTLDataCheckException
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise, TimeoutException}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success}
 import ExecutionContext.Implicits.global
@@ -61,22 +62,22 @@ class MongoUtilsSpec
           IndexModel(Indexes.ascending("field3"), IndexOptions())
         )
       (for {
-         _               <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         createdIndexes1 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "field1_1", "key" -> BsonDocument("field1" -> 1)),
-                              BsonDocument("name" -> "field2_1", "key" -> BsonDocument("field2" -> 1))
-                            )
-         _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
-         createdIndexes2 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "field2_1", "key" -> BsonDocument("field2" -> 1)),
-                              BsonDocument("name" -> "field3_1", "key" -> BsonDocument("field3" -> 1))
-                            )
-       } yield ()
-      ).futureValue
+        _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+        createdIndexes1 <- collection.listIndexes().toFuture()
+        _ = createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id" -> 1)),
+          BsonDocument("name" -> "field1_1", "key" -> BsonDocument("field1" -> 1)),
+          BsonDocument("name" -> "field2_1", "key" -> BsonDocument("field2" -> 1))
+        )
+        _ <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
+        createdIndexes2 <- collection.listIndexes().toFuture()
+        _ = createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id" -> 1)),
+          BsonDocument("name" -> "field2_1", "key" -> BsonDocument("field2" -> 1)),
+          BsonDocument("name" -> "field3_1", "key" -> BsonDocument("field3" -> 1))
+        )
+      } yield ()
+        ).futureValue
     }
 
     "recreate indexes when changing index key" in {
@@ -91,22 +92,22 @@ class MongoUtilsSpec
           IndexModel(Indexes.ascending("field3"), IndexOptions().name("idx2"))
         )
       (for {
-         _               <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         createdIndexes1 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("key" -> BsonDocument("_id"    -> 1), "name" -> "_id_"),
-                              BsonDocument("key" -> BsonDocument("field1" -> 1), "name" -> "idx1"),
-                              BsonDocument("key" -> BsonDocument("field2" -> 1), "name" -> "idx2")
-                            )
-         _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
-         createdIndexes2 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("key" -> BsonDocument("_id"    -> 1), "name" -> "_id_"),
-                              BsonDocument("key" -> BsonDocument("field1" -> 1), "name" -> "idx1"),
-                              BsonDocument("key" -> BsonDocument("field3" -> 1), "name" -> "idx2")
-                            )
-       } yield ()
-      ).futureValue
+        _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+        createdIndexes1 <- collection.listIndexes().toFuture()
+        _ = createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("key" -> BsonDocument("_id" -> 1), "name" -> "_id_"),
+          BsonDocument("key" -> BsonDocument("field1" -> 1), "name" -> "idx1"),
+          BsonDocument("key" -> BsonDocument("field2" -> 1), "name" -> "idx2")
+        )
+        _ <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
+        createdIndexes2 <- collection.listIndexes().toFuture()
+        _ = createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("key" -> BsonDocument("_id" -> 1), "name" -> "_id_"),
+          BsonDocument("key" -> BsonDocument("field1" -> 1), "name" -> "idx1"),
+          BsonDocument("key" -> BsonDocument("field3" -> 1), "name" -> "idx2")
+        )
+      } yield ()
+        ).futureValue
     }
 
     "recreate indexes when changing index name" in {
@@ -121,22 +122,22 @@ class MongoUtilsSpec
           IndexModel(Indexes.ascending("field2"), IndexOptions().name("idx2"))
         )
       (for {
-         _               <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         createdIndexes1 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1)),
-                              BsonDocument("name" -> "idx2", "key" -> BsonDocument("field2" -> 1))
-                            )
-         _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
-         createdIndexes2 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("key" -> BsonDocument("_id"    -> 1), "name" -> "_id_"),
-                              BsonDocument("key" -> BsonDocument("field2" -> 1), "name" -> "idx2"),
-                              BsonDocument("key" -> BsonDocument("field1" -> 1), "name" -> "idx3")
-                            )
-       } yield ()
-      ).futureValue
+        _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+        createdIndexes1 <- collection.listIndexes().toFuture()
+        _ = createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id" -> 1)),
+          BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1)),
+          BsonDocument("name" -> "idx2", "key" -> BsonDocument("field2" -> 1))
+        )
+        _ <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
+        createdIndexes2 <- collection.listIndexes().toFuture()
+        _ = createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("key" -> BsonDocument("_id" -> 1), "name" -> "_id_"),
+          BsonDocument("key" -> BsonDocument("field2" -> 1), "name" -> "idx2"),
+          BsonDocument("key" -> BsonDocument("field1" -> 1), "name" -> "idx3")
+        )
+      } yield ()
+        ).futureValue
     }
 
     "throw IndexOptionsConflict when changing key with replaceIndexes=false" in {
@@ -149,15 +150,15 @@ class MongoUtilsSpec
           IndexModel(Indexes.ascending("field3"), IndexOptions().name("idx1"))
         )
       (for {
-         _               <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         createdIndexes1 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1))
-                            )
-         _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = false)
-       } yield ()
-      ).failed.futureValue shouldBe an[MongoCommandException]
+        _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+        createdIndexes1 <- collection.listIndexes().toFuture()
+        _ = createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id" -> 1)),
+          BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1))
+        )
+        _ <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = false)
+      } yield ()
+        ).failed.futureValue shouldBe an[MongoCommandException]
     }
 
     "throw IndexOptionsConflict when changing expireAfterSeconds with replaceIndexes=false" in {
@@ -171,16 +172,16 @@ class MongoUtilsSpec
         )
 
       (for {
-         _               <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         createdIndexes1 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 10)
-                            )
-         _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = false)
-         _               <- collection.listIndexes().toFuture()
-       } yield ()
-      ).failed.futureValue shouldBe an[MongoCommandException]
+        _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+        createdIndexes1 <- collection.listIndexes().toFuture()
+        _ = createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id" -> 1)),
+          BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 10)
+        )
+        _ <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = false)
+        _ <- collection.listIndexes().toFuture()
+      } yield ()
+        ).failed.futureValue shouldBe an[MongoCommandException]
     }
 
     "recreate indexes when changing key with replaceIndexes=true" in {
@@ -195,22 +196,22 @@ class MongoUtilsSpec
           IndexModel(Indexes.ascending("field4"), IndexOptions().name("idx2"))
         )
       (for {
-         _               <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         createdIndexes1 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1)),
-                              BsonDocument("name" -> "idx2", "key" -> BsonDocument("field2" -> 1))
-                            )
-         _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
-         createdIndexes2 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field3" -> 1)),
-                              BsonDocument("name" -> "idx2", "key" -> BsonDocument("field4" -> 1))
-                            )
-       } yield ()
-      ).futureValue
+        _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+        createdIndexes1 <- collection.listIndexes().toFuture()
+        _ = createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id" -> 1)),
+          BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1)),
+          BsonDocument("name" -> "idx2", "key" -> BsonDocument("field2" -> 1))
+        )
+        _ <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
+        createdIndexes2 <- collection.listIndexes().toFuture()
+        _ = createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id" -> 1)),
+          BsonDocument("name" -> "idx1", "key" -> BsonDocument("field3" -> 1)),
+          BsonDocument("name" -> "idx2", "key" -> BsonDocument("field4" -> 1))
+        )
+      } yield ()
+        ).futureValue
     }
 
     "recreate indexes when changing expiresAfter with replaceIndexes=true" in {
@@ -223,20 +224,20 @@ class MongoUtilsSpec
           IndexModel(Indexes.ascending("field1"), IndexOptions().name("idx1").expireAfter(20, TimeUnit.SECONDS)),
         )
       (for {
-         _               <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-         createdIndexes1 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 10)
-                            )
-         _               <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
-         createdIndexes2 <- collection.listIndexes().toFuture()
-         _               =  createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
-                              BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id"    -> 1)),
-                              BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 20)
-                            )
-       } yield ()
-      ).futureValue
+        _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+        createdIndexes1 <- collection.listIndexes().toFuture()
+        _ = createdIndexes1.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id" -> 1)),
+          BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 10)
+        )
+        _ <- MongoUtils.ensureIndexes(collection, indexes2, replaceIndexes = true)
+        createdIndexes2 <- collection.listIndexes().toFuture()
+        _ = createdIndexes2.map(toBsonDocument) should contain theSameElementsAs Seq(
+          BsonDocument("name" -> "_id_", "key" -> BsonDocument("_id" -> 1)),
+          BsonDocument("name" -> "idx1", "key" -> BsonDocument("field1" -> 1), "expireAfterSeconds" -> 20)
+        )
+      } yield ()
+        ).futureValue
     }
   }
 
@@ -297,9 +298,9 @@ class MongoUtilsSpec
         val command = aggregateCommand.future.futureValue
         val aggregate = BsonDocument(
           "aggregate" -> command.get("aggregate"),
-          "pipeline"  -> command.get("pipeline"),
-          "cursor"    -> command.get("cursor"),
-          "hint"      -> command.get("hint")
+          "pipeline" -> command.get("pipeline"),
+          "cursor" -> command.get("cursor"),
+          "hint" -> command.get("hint")
         )
         val explanation = mongoComponent.database
           .runCommand(BsonDocument("explain" -> aggregate, "verbosity" -> "executionStats"))
@@ -345,18 +346,18 @@ class MongoUtilsSpec
         Seq(
           IndexModel(Indexes.ascending("field1"), IndexOptions()),
           IndexModel(Indexes.ascending("field2"), IndexOptions()
-                                                    .name("ttlIndex")
-                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
-                    )
+            .name("ttlIndex")
+            .expireAfter(1000, TimeUnit.MILLISECONDS)
+          )
         )
       val res =
         (for {
-           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-           items =  (1 to 99).map(i => Document("field2" -> (if (i == 30) new BsonInt32(i) else new BsonDateTime(i))))
-           _     <- collection.insertMany(items) .toFuture()
-           res   <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
-         } yield res
-        ).futureValue
+          _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+          items = (1 to 99).map(i => Document("field2" -> (if (i == 30) new BsonInt32(i) else new BsonDateTime(i))))
+          _ <- collection.insertMany(items).toFuture()
+          res <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
+        } yield res
+          ).futureValue
       res shouldBe List(TtlWarning.InvalidType(collectionName, "field2", "int", 1))
     }
 
@@ -371,10 +372,10 @@ class MongoUtilsSpec
         )
       val res =
         (for {
-          _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-          items =  (1 to 99).map(i => Document("field2" -> (if (i % 2 == 0) new BsonInt32(i) else new BsonDateTime(i))))
-          _     <- collection.insertMany(items) .toFuture()
-          res   <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
+          _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+          items = (1 to 99).map(i => Document("field2" -> (if (i % 2 == 0) new BsonInt32(i) else new BsonDateTime(i))))
+          _ <- collection.insertMany(items).toFuture()
+          res <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
         } yield res
           ).futureValue
 
@@ -392,10 +393,10 @@ class MongoUtilsSpec
         )
       val res =
         (for {
-          _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-          items =  (1 to 99).map(i => Document("field2" -> (if (i % 2 == 0) new BsonInt32(i) else new BsonString("Something"))))
-          _     <- collection.insertMany(items) .toFuture()
-          res   <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
+          _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+          items = (1 to 99).map(i => Document("field2" -> (if (i % 2 == 0) new BsonInt32(i) else new BsonString("Something"))))
+          _ <- collection.insertMany(items).toFuture()
+          res <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
         } yield res
           ).futureValue
 
@@ -408,18 +409,18 @@ class MongoUtilsSpec
         Seq(
           IndexModel(Indexes.ascending("field1"), IndexOptions()),
           IndexModel(Indexes.ascending("field2"), IndexOptions()
-                                                    .name("ttlIndex")
-                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
-                    )
+            .name("ttlIndex")
+            .expireAfter(1000, TimeUnit.MILLISECONDS)
+          )
         )
       val res =
         (for {
-           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-           items =  (1 to 99).map(_ => Document())
-           _     <- collection.insertMany(items) .toFuture()
-           res   <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
-         } yield res
-        ).futureValue
+          _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+          items = (1 to 99).map(_ => Document())
+          _ <- collection.insertMany(items).toFuture()
+          res <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
+        } yield res
+          ).futureValue
       res shouldBe List(TtlWarning.MissingKeyField(collectionName, "field2", 99))
     }
 
@@ -434,10 +435,10 @@ class MongoUtilsSpec
         )
       val res =
         (for {
-          _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-          items =  (1 to 99).map(_ => Document("field2" -> BsonNull()))
-          _     <- collection.insertMany(items) .toFuture()
-          res   <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
+          _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+          items = (1 to 99).map(_ => Document("field2" -> BsonNull()))
+          _ <- collection.insertMany(items).toFuture()
+          res <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
         } yield res
           ).futureValue
       res shouldBe List(TtlWarning.NullKeyField(collectionName, "field2", 99))
@@ -449,18 +450,18 @@ class MongoUtilsSpec
         Seq(
           IndexModel(Indexes.ascending("field1"), IndexOptions()),
           IndexModel(Indexes.ascending("field2"), IndexOptions()
-                                                    .name("ttlIndex")
-                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
-                    )
+            .name("ttlIndex")
+            .expireAfter(1000, TimeUnit.MILLISECONDS)
+          )
         )
       val res =
         (for {
-           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-           items =  (1 to 99).map(i => Document("field2" -> new BsonDateTime(i)))
-           _     <- collection.insertMany(items) .toFuture()
-           res   <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
-         } yield res
-        ).futureValue
+          _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+          items = (1 to 99).map(i => Document("field2" -> new BsonDateTime(i)))
+          _ <- collection.insertMany(items).toFuture()
+          res <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
+        } yield res
+          ).futureValue
       res shouldBe List()
     }
 
@@ -469,19 +470,19 @@ class MongoUtilsSpec
         Seq(
           IndexModel(Indexes.ascending("field1"), IndexOptions()),
           IndexModel(Indexes.ascending("field2"), IndexOptions()
-                                                    .name("ttlIndex")
-                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
-                    )
+            .name("ttlIndex")
+            .expireAfter(1000, TimeUnit.MILLISECONDS)
+          )
         )
       val res =
         (for {
-           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-           items =  (1 to 99).map(i => Document("field2" -> new BsonArray(Seq(new BsonDateTime(i), new BsonDateTime(i)).asJava)))
-           _     <- collection.insertMany(items).toFuture()
-           res   <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
-         } yield res
-        ).futureValue
-      res shouldBe List(TtlWarning.InvalidType(collectionName, "field2", "array", 99))
+          _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+          items = (1 to 99).map(i => Document("field2" -> new BsonArray(Seq(new BsonDateTime(i), new BsonDateTime(i)).asJava)))
+          _ <- collection.insertMany(items).toFuture()
+          res <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
+        } yield res
+          ).futureValue
+      res shouldBe List()
     }
 
     s"return a warning when ttl index points at array containing both dates and other types" in {
@@ -497,10 +498,10 @@ class MongoUtilsSpec
         )
       val res =
         (for {
-          _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-          items =  (1 to 99).map(i => Document("field2" -> new BsonArray(Seq(new BsonDateTime(i), new BsonString(i.toString)).asJava)))
-          _     <- collection.insertMany(items) .toFuture()
-          res   <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
+          _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+          items = (1 to 99).map(i => Document("field2" -> new BsonArray(Seq(new BsonDateTime(i), new BsonString(i.toString)).asJava)))
+          _ <- collection.insertMany(items).toFuture()
+          res <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
         } yield res
           ).futureValue
       res shouldBe List(TtlWarning.InvalidType(collectionName, "field2", "array", 99))
@@ -511,18 +512,18 @@ class MongoUtilsSpec
         Seq(
           IndexModel(Indexes.ascending("field1"), IndexOptions()),
           IndexModel(Indexes.ascending("field2"), IndexOptions()
-                                                    .name("ttlIndex")
-                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
-                    )
+            .name("ttlIndex")
+            .expireAfter(1000, TimeUnit.MILLISECONDS)
+          )
         )
       val res =
         (for {
-           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-           items =  (1 to 99).map(i => Document("field2" -> new BsonArray(Seq(new BsonString(i.toString), new BsonString(i.toString)).asJava)))
-           _     <- collection.insertMany(items) .toFuture()
-           res   <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
-         } yield res
-        ).futureValue
+          _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+          items = (1 to 99).map(i => Document("field2" -> new BsonArray(Seq(new BsonString(i.toString), new BsonString(i.toString)).asJava)))
+          _ <- collection.insertMany(items).toFuture()
+          res <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
+        } yield res
+          ).futureValue
       res shouldBe List(TtlWarning.InvalidType(collectionName, "field2", "array", 99))
     }
 
@@ -531,18 +532,18 @@ class MongoUtilsSpec
         Seq(
           IndexModel(Indexes.ascending("field1"), IndexOptions()),
           IndexModel(Indexes.ascending("field2"), IndexOptions()
-                                                    .name("ttlIndex")
-                                                    .expireAfter(1000, TimeUnit.MILLISECONDS)
-                    )
+            .name("ttlIndex")
+            .expireAfter(1000, TimeUnit.MILLISECONDS)
+          )
         )
       val res =
         (for {
-           _     <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
-           items =  (1 to 99).map(i => Document("field2" -> new BsonDateTime(i)))
-           _     <- collection.insertMany(items) .toFuture()
-           res   <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
-         } yield res
-        ).futureValue
+          _ <- MongoUtils.ensureIndexes(collection, indexes1, replaceIndexes = false)
+          items = (1 to 99).map(i => Document("field2" -> new BsonDateTime(i)))
+          _ <- collection.insertMany(items).toFuture()
+          res <- MongoUtils.checkKeyFieldData(collection, "field2", "ttlIndex")
+        } yield res
+          ).futureValue
       res shouldBe List()
     }
   }
@@ -558,18 +559,17 @@ class MongoUtilsSpec
       val queryFailure = new RuntimeException("TTL data check failed")
       val mongoUtils = new MongoUtils {
         override private[mongo] def checkKeyFieldDataForTTLs(
-          collection: MongoCollection[Document],
-          ttls: Seq[Document]
-        )(implicit ec: ExecutionContext): Future[List[TtlWarning]] =
+                                                              collection: MongoCollection[Document],
+                                                              ttls: Seq[Document]
+                                                            )(implicit ec: ExecutionContext): Future[List[TtlWarning]] =
           Future.failed(queryFailure)
       }
 
-      // Inspect either outcome so the failure clearly shows Success(()) when the inner future is lost.
       val outcome = mongoUtils.checkTtlIndex(mongoComponent, collectionName, checkType = true)
         .transform(result => Success(result))
         .futureValue
 
-      outcome shouldBe Failure(queryFailure)
+      outcome shouldBe Failure(TTLDataCheckException(queryFailure))
     }
   }
 

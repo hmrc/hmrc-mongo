@@ -21,6 +21,7 @@ import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.IndexModel
 import play.api.libs.json.Format
+import uk.gov.hmrc.mongo.MongoUtils.TTLDataCheckException
 import uk.gov.hmrc.mongo.{MongoComponent, MongoDatabaseCollection, MongoUtils}
 import uk.gov.hmrc.mongo.logging.ObservableFutureImplicits
 
@@ -77,8 +78,9 @@ class PlayMongoRepository[A: ClassTag](
     // don't care about long running index creation.
     Await.result(initialised, initTimeout)
   } catch {
-    case _: TimeoutException => logger.warn(s"Index creation is taking longer than ${initTimeout.toSeconds} s")
-    case t: Throwable        => logger.error(s"Failed to initialise collection $collectionName: ${t.getMessage}", t); throw t
+    case _: TimeoutException      => logger.warn(s"Index creation is taking longer than ${initTimeout.toSeconds} s")
+    case t: TTLDataCheckException => logger.warn(s"An exception occurred while checking TTL key field data", t)
+    case t: Throwable             => logger.error(s"Failed to initialise collection $collectionName: ${t.getMessage}", t); throw t
   }
 
   def ensureIndexes(): Future[Seq[String]] =

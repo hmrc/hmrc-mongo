@@ -22,10 +22,14 @@ import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, Mong
 import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.{Aggregates, Filters, IndexModel, ValidationAction, ValidationLevel}
 import org.slf4j.{Logger, LoggerFactory}
-import java.util.concurrent.TimeUnit
+
+import java.util.concurrent.{TimeUnit, TimeoutException}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import org.mongodb.scala.documentToUntypedDocument
+import uk.gov.hmrc.mongo.MongoUtils.TTLDataCheckException
+
+import scala.util.control.NonFatal
 
 trait MongoUtils {
   private val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
@@ -100,12 +104,16 @@ trait MongoUtils {
 
     val collection = mongoComponent.database.getCollection(collectionName)
 
-    getTTLIndexes(collection).map { ttls =>
-      if (ttls.isEmpty) logger.warn(s"No ttl indexes were found for collection $collectionName")
+    getTTLIndexes(collection).flatMap { ttls =>
+      if (ttls.isEmpty) Future.successful(logger.warn(s"No ttl indexes were found for collection $collectionName"))
       else if (checkType) {
         checkKeyFieldDataForTTLs(collection, ttls)
           .map(_.foreach(warning => logger.warn(s"There are ${warning.message}")))
+          .recover{
+            case NonFatal(t) => throw TTLDataCheckException(t)
+          }
         }
+      else Future.successful(())
     }
   }
 
@@ -137,7 +145,7 @@ trait MongoUtils {
     collection.find().comment(MongoComment.NoIndexRequired).limit(1).headOption().map(_.isDefined).flatMap{ hasData =>
       if (hasData) {
         val collectionName = collection.namespace.getCollectionName
-        val isANonDateType: List[BsonType] = BsonType.values.toList.filterNot(Set(BsonType.DATE_TIME, BsonType.END_OF_DOCUMENT, BsonType.MIN_KEY, BsonType.MAX_KEY ))
+        val isANonDateType: List[BsonType] = BsonType.values.toList.filterNot(Set(BsonType.DATE_TIME, BsonType.END_OF_DOCUMENT, BsonType.MIN_KEY, BsonType.MAX_KEY, BsonType.ARRAY ))
         val isANonDateTypeOrNull = Filters.or(
           Filters.equal(keyField, null) +: isANonDateType.map(t => Filters.`type`(keyField, t)): _*
         )
@@ -232,7 +240,9 @@ trait MongoUtils {
   }
 }
 
-object MongoUtils extends MongoUtils
+object MongoUtils extends MongoUtils {
+  case class TTLDataCheckException(t: Throwable) extends Exception
+}
 
 protected[mongo] sealed trait TtlWarning {
   val message: String
