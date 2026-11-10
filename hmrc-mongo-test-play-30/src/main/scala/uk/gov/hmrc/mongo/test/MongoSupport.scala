@@ -20,7 +20,7 @@ import org.mongodb.scala.{Document, MongoClient, MongoDatabase, ReadPreference, 
 import org.scalatest.{Args, BeforeAndAfterAll, BeforeAndAfterEach, Failed, Outcome, Status, Succeeded, TestSuite}
 import org.scalatest.concurrent.ScalaFutures
 import play.api.Logger
-import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils, TtlState}
+import uk.gov.hmrc.mongo.{MongoComponent, MongoUtils}
 
 import scala.concurrent.duration.{FiniteDuration, DurationLong}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -117,21 +117,22 @@ trait TtlIndexedMongoSupport extends MongoSupport with TestSuite {
     super.withFixture(test) match {
       case Succeeded if checkTtlIndex =>
         (for {
-           was      <- updateIndexPreference(false)
-           ttlState <- MongoUtils.getTtlState(mongoComponent, collectionName, checkType = true)
-           _        <- updateIndexPreference(was)
-         } yield
-           if (ttlState.isEmpty)
-             Failed(s"No ttl indexes were found for collection $collectionName")
-           else {
-             val invalidTypes = ttlState.collect { case (k, TtlState.InvalidType(v)) => s"'$k' with type '$v'" }
-             if (invalidTypes.nonEmpty)
-               Failed(s"Ttl index fields should have type 'date', but found ${invalidTypes.mkString(", ")} for collection $collectionName")
-             else
-               // either ok or we can't comment
-               Succeeded
-           }
-        ).futureValue
+           was        <- updateIndexPreference(false)
+           collection <- Future.successful(mongoComponent.database.getCollection(collectionName))
+           ttls       <- MongoUtils.getTTLIndexes(collection)
+           warnings   <- MongoUtils.checkKeyFieldDataForTTLs(collection, ttls)
+           _          <- updateIndexPreference(was)
+         } yield {
+
+          if (ttls.isEmpty)
+            Failed(s"No ttl indexes were found for collection $collectionName")
+          else if (warnings.nonEmpty)
+            Failed(s"Ttl index fields should have type 'date', but found ${warnings.map(_.message).mkString(", ")}")
+          else
+            // either ok or we can't comment
+            Succeeded
+        }
+          ).futureValue
       case outcome => outcome
     }
 

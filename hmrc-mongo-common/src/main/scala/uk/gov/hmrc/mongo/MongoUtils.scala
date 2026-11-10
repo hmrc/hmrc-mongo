@@ -16,13 +16,20 @@
 
 package uk.gov.hmrc.mongo
 
-import org.bson.{BsonType, BsonValue}
+import com.mongodb.client.model.Accumulators
+import org.bson.BsonType
 import org.mongodb.scala.{Document, MongoCollection, MongoCommandException, MongoServerException, ObservableFuture, SingleObservableFuture}
-import org.mongodb.scala.bson.{BsonDocument, BsonString}
+import org.mongodb.scala.bson.BsonDocument
 import org.mongodb.scala.model.{Aggregates, Filters, IndexModel, ValidationAction, ValidationLevel}
 import org.slf4j.{Logger, LoggerFactory}
 
+import java.util.concurrent.{TimeUnit, TimeoutException}
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import org.mongodb.scala.documentToUntypedDocument
+import uk.gov.hmrc.mongo.MongoUtils.TTLDataCheckException
+
+import scala.util.control.NonFatal
 
 trait MongoUtils {
   private val logger: Logger = LoggerFactory.getLogger(classOf[MongoUtils].getName)
@@ -85,70 +92,80 @@ trait MongoUtils {
                             }
     } yield res
 
-   /**
-     * @return the state of the ttl index.
-     * @param checkType true will additionally check the ttl field type. This is an expensive check
-     * (no index) so may not always be appropriate.
-     */
-   private[mongo] def getTtlState(
-    mongoComponent: MongoComponent,
-    collectionName: String,
-    checkType     : Boolean
-  )(implicit ec: ExecutionContext): Future[Map[String, TtlState]] =
-    for {
-      collection <- Future.successful(mongoComponent.database.getCollection(collectionName))
-      indexes    <- collection.listIndexes().toFuture()
-      res        <- indexes.foldLeft(Future.successful(Map.empty[String, TtlState]))((acc, idx) =>
-                      for {
-                        a <- acc
-                        r <- Future.traverse[BsonValue, (String, TtlState), List](idx.get("expireAfterSeconds").toList){ expireAfter =>
-                              for {
-                                key      <- Future.successful(idx("key").asDocument.getFirstKey) // ttl indices are single-field indices
-                                dataType <- if (!checkType)
-                                              Future.successful(TtlState.TypeCheckSkipped)
-                                            else for {
-                                              hasData  <- collection.find().comment(MongoComment.NoIndexRequired).limit(1).headOption().map(_.isDefined)
-                                              dataType <- if (!hasData)
-                                                            Future.successful(TtlState.NoData)
-                                                          else
-                                                            collection
-                                                              .aggregate(Seq(
-                                                                // this includes array containing Date_Time - which is also valid for a ttl index
-                                                                Aggregates.`match`(Filters.not(Filters.`type`(key, BsonType.DATE_TIME))),
-                                                                Aggregates.project(BsonDocument("type" ->  BsonDocument("$type" -> s"$$$key"))),
-                                                                Aggregates.limit(1)
-                                                              ))
-                                                              .headOption()
-                                                              .map { case None    => TtlState.ValidType
-                                                                     case Some(o) => TtlState.InvalidType(o[BsonString]("type").getValue)
-                                                                   }
-                                             } yield dataType
-                              } yield key -> dataType
-                            }
-                      } yield a ++ r
-                    )
-    } yield res
+  /**
+   * Logs warnings related to the state of the TTL indexes on the collection.
+   * @param checkType true will additionally check for invalid data in the TTL's key field.
+   */
+  private[mongo] def checkTtlIndex(
+                                    mongoComponent: MongoComponent,
+                                    collectionName: String,
+                                    checkType     : Boolean
+                                  )(implicit ec: ExecutionContext): Future[Unit] = {
 
-   /**
-     * @return the state of the ttl index.
-     * @param checkType true will additionally check the ttl field type. This is an expensive check
-     * (no index) so may not always be appropriate.
-     */
-   private[mongo] def checkTtlIndex(
-    mongoComponent: MongoComponent,
-    collectionName: String,
-    checkType     : Boolean
-  )(implicit ec: ExecutionContext): Future[Unit] =
-    getTtlState(mongoComponent, collectionName, checkType)
-      .map(res =>
-        if (res.isEmpty)
-          logger.warn(s"No ttl indexes were found for collection $collectionName")
-        else
-          res.map {
-            case (fieldName, TtlState.InvalidType(t)  ) => logger.warn(s"ttl index for collection $collectionName points at $fieldName which has type '$t', it should be 'date'")
-            case _                                      => // either ok, or we can't comment
+    val collection = mongoComponent.database.getCollection(collectionName)
+
+    getTTLIndexes(collection).flatMap { ttls =>
+      if (ttls.isEmpty) Future.successful(logger.warn(s"No ttl indexes were found for collection $collectionName"))
+      else if (checkType) {
+        checkKeyFieldDataForTTLs(collection, ttls)
+          .map(_.foreach(warning => logger.warn(s"There are ${warning.message}")))
+          .recover{
+            case NonFatal(t) => throw TTLDataCheckException(t)
           }
-      )
+        }
+      else Future.successful(())
+    }
+  }
+
+  private[mongo] def getTTLIndexes(
+     collection    : MongoCollection[Document],
+  )(implicit ec: ExecutionContext): Future[Seq[Document]] =
+   for {
+     indexes <- collection.listIndexes().toFuture()
+   } yield indexes.filter(i => i.contains("expireAfterSeconds"))
+
+  private[mongo] def checkKeyFieldDataForTTLs(
+                                               collection: MongoCollection[Document],
+                                               ttls: Seq[Document]
+                                             )(implicit ec: ExecutionContext): Future[List[TtlWarning]] = {
+    val warnings = ttls.map { (ttl: Document) =>
+      val keyField: String = ttl("key").asDocument.getFirstKey // ttl indices are single-field indices
+      val indexName: String = ttl.getString("name")
+      checkKeyFieldData(collection, keyField, indexName)
+    }
+    Future.sequence(warnings).map(_.flatten.toList)
+  }
+
+  private[mongo] def checkKeyFieldData(
+   collection: MongoCollection[Document],
+   keyField: String,
+   indexName: String
+  )(implicit ec: ExecutionContext): Future[List[TtlWarning]] = {
+
+    collection.find().comment(MongoComment.NoIndexRequired).limit(1).headOption().map(_.isDefined).flatMap{ hasData =>
+      if (hasData) {
+        val collectionName = collection.namespace.getCollectionName
+        val isANonDateType: List[BsonType] = BsonType.values.toList.filterNot(Set(BsonType.DATE_TIME, BsonType.END_OF_DOCUMENT, BsonType.MIN_KEY, BsonType.MAX_KEY, BsonType.ARRAY ))
+        val isANonDateTypeOrNull = Filters.or(
+          Filters.equal(keyField, null) +: isANonDateType.map(t => Filters.`type`(keyField, t)): _*
+        )
+
+        collection
+          .aggregate[BsonDocument](Seq(
+            Aggregates.`match`(isANonDateTypeOrNull),
+            Aggregates.group(BsonDocument("$type" -> s"$$$keyField"), Accumulators.sum("n", 1))
+          ))
+          .hintString(indexName)
+          .maxTime(Duration(10, TimeUnit.SECONDS))
+          .toFuture()
+          .map(_.map {
+            case d if d.getString("_id").getValue == "null" => TtlWarning.NullKeyField(collectionName, keyField, d.getInt32("n").getValue)
+            case d if d.getString("_id").getValue == "missing" => TtlWarning.MissingKeyField(collectionName, keyField, d.getInt32("n").getValue)
+            case d => TtlWarning.InvalidType(collectionName, keyField, d.getString("_id").getValue, d.getInt32("n").getValue)
+          }.toList)
+      } else Future.successful(List[TtlWarning]())
+    }
+  }
 
   def existsCollection[A](
       mongoComponent: MongoComponent,
@@ -223,12 +240,24 @@ trait MongoUtils {
   }
 }
 
-object MongoUtils extends MongoUtils
+object MongoUtils extends MongoUtils {
+  case class TTLDataCheckException(t: Throwable) extends Exception
+}
 
-protected[mongo] sealed trait TtlState
-object TtlState {
-  object TypeCheckSkipped                extends TtlState
-  object ValidType                       extends TtlState
-  object NoData                          extends TtlState
-  case class InvalidType(`type`: String) extends TtlState
+protected[mongo] sealed trait TtlWarning {
+  val message: String
+}
+object TtlWarning {
+  case class InvalidType(collectionName: String, keyField: String, dataType: String, count: Int) extends TtlWarning {
+    val message: String =
+      s"$count documents in collection $collectionName where TTL index key field $keyField contains nonDate data of type '$dataType'"
+  }
+  case class MissingKeyField(collectionName: String, keyField: String, count: Int) extends TtlWarning {
+    val message: String =
+      s"$count documents in collection $collectionName where TTL index key field $keyField is missing data"
+  }
+  case class NullKeyField(collectionName: String, keyField: String, count: Int) extends TtlWarning {
+    val message: String =
+      s"$count documents in collection $collectionName where TTL index key field $keyField is null"
+  }
 }

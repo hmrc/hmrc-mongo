@@ -198,7 +198,7 @@ class DefaultPlayMongoRepositorySupportWithInvalidTtlDataSpec
 
   override def withFixture(test: NoArgTest): Outcome =
     super.withFixture(test) match {
-      case Failed(m) if (m.getMessage == "Ttl index fields should have type 'date', but found 'created' with type 'string' for collection test-collection") => Succeeded
+      case Failed(m) if (m.getMessage == "Ttl index fields should have type 'date', but found 1 documents in collection test-collection where TTL index key field created contains nonDate data of type 'string'") => Succeeded
       case Succeeded => Failed("Expected test with invalid ttl data to fail")
       case outcome   => outcome
     }
