@@ -16,8 +16,9 @@
 
 package uk.gov.hmrc.mongo
 
-import com.mongodb.MongoCommandException
-import org.mongodb.scala.{Document, MongoCollection, ObservableFuture, SingleObservableFuture}
+import com.mongodb.{ConnectionString, MongoClientSettings, MongoCommandException}
+import com.mongodb.event.{CommandListener, CommandStartedEvent}
+import org.mongodb.scala.{Document, MongoClient, MongoCollection, ObservableFuture, SingleObservableFuture}
 import org.mongodb.scala.bson.{BsonArray, BsonDateTime, BsonDocument, BsonInt32, BsonNull, BsonString}
 import org.mongodb.scala.model.{IndexModel, IndexOptions, Indexes}
 import org.scalatest.BeforeAndAfterEach
@@ -26,8 +27,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success}
 import ExecutionContext.Implicits.global
 
 class MongoUtilsSpec
@@ -256,6 +258,70 @@ class MongoUtilsSpec
   }
 
   "MongoUtils.checkKeyFieldData" should {
+    "only fetch the invalid document when the other 1000 TTL values are dates" in {
+      val indexName = "ttlIndex"
+      val validDate = new BsonDateTime(System.currentTimeMillis())
+      val documents =
+        (1 to 1000).map(_ => Document("field2" -> validDate)) :+
+          Document("field2" -> BsonString("not a date"))
+
+      MongoUtils.ensureIndexes(
+        collection,
+        Seq(IndexModel(Indexes.ascending("field2"), IndexOptions().name(indexName).expireAfter(1, TimeUnit.HOURS))),
+        replaceIndexes = false
+      ).futureValue
+      collection.insertMany(documents).toFuture().futureValue
+
+      // Capture the real validation query so this test follows changes to its implementation.
+      val aggregateCommand = Promise[org.bson.BsonDocument]()
+      val listener = new CommandListener {
+        override def commandStarted(event: CommandStartedEvent): Unit =
+          if (event.getCommandName == "aggregate") {
+            aggregateCommand.trySuccess(event.getCommand.clone())
+            ()
+          }
+      }
+      val client = MongoClient(
+        MongoClientSettings.builder()
+          .applyConnectionString(new ConnectionString(s"mongodb://localhost:27017/${mongoComponent.database.name}"))
+          .codecRegistry(mongoComponent.database.codecRegistry)
+          .addCommandListener(listener)
+          .build()
+      )
+
+      try {
+        val observedCollection = client.getDatabase(mongoComponent.database.name).getCollection[Document](collectionName)
+        MongoUtils.checkKeyFieldData(observedCollection, "field2", indexName).futureValue shouldBe
+          List(TtlWarning.InvalidType(collectionName, "field2", "string", 1))
+
+        val command = aggregateCommand.future.futureValue
+        val aggregate = BsonDocument(
+          "aggregate" -> command.get("aggregate"),
+          "pipeline"  -> command.get("pipeline"),
+          "cursor"    -> command.get("cursor"),
+          "hint"      -> command.get("hint")
+        )
+        val explanation = mongoComponent.database
+          .runCommand(BsonDocument("explain" -> aggregate, "verbosity" -> "executionStats"))
+          .toFuture()
+          .futureValue
+          .toBsonDocument
+        val executionStats =
+          if (explanation.containsKey("executionStats")) explanation.getDocument("executionStats")
+          else explanation.getArray("stages").getValues.asScala
+            .map(_.asDocument())
+            .find(_.containsKey("$cursor"))
+            .getOrElse(fail("Explain did not include cursor execution statistics"))
+            .getDocument("$cursor")
+            .getDocument("executionStats")
+
+        // IXSCAN alone is insufficient: including $type: array makes it fetch all 1001 documents.
+        withClue(s"TTL validation examined ${executionStats.getNumber("totalKeysExamined").longValue()} index keys: ") {
+          executionStats.getNumber("totalDocsExamined").longValue() should be <= 1L
+        }
+      } finally client.close()
+    }
+
     s"return no warnings when ttl index but no data" in {
       val indexes1 =
         Seq(
@@ -478,6 +544,32 @@ class MongoUtilsSpec
          } yield res
         ).futureValue
       res shouldBe List()
+    }
+  }
+
+  "MongoUtils.checkTtlIndex" should {
+    "propagate a failed data check instead of reporting success" in {
+      MongoUtils.ensureIndexes(
+        collection,
+        Seq(IndexModel(Indexes.ascending("field2"), IndexOptions().name("ttlIndex").expireAfter(1, TimeUnit.HOURS))),
+        replaceIndexes = false
+      ).futureValue
+
+      val queryFailure = new RuntimeException("TTL data check failed")
+      val mongoUtils = new MongoUtils {
+        override private[mongo] def checkKeyFieldDataForTTLs(
+          collection: MongoCollection[Document],
+          ttls: Seq[Document]
+        )(implicit ec: ExecutionContext): Future[List[TtlWarning]] =
+          Future.failed(queryFailure)
+      }
+
+      // Inspect either outcome so the failure clearly shows Success(()) when the inner future is lost.
+      val outcome = mongoUtils.checkTtlIndex(mongoComponent, collectionName, checkType = true)
+        .transform(result => Success(result))
+        .futureValue
+
+      outcome shouldBe Failure(queryFailure)
     }
   }
 
